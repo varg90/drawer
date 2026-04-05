@@ -32,6 +32,16 @@ TIMER_MAX = 10800    # 3 hours
 SESSION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "session.json")
 
 
+def format_time(s):
+    """Format seconds into human-readable time string."""
+    if s >= 3600:
+        return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
+    elif s >= 60:
+        return f"{s // 60}:{s % 60:02d}"
+    else:
+        return f"0:{s:02d}"
+
+
 def validate_timer_seconds(seconds):
     """Clamp timer value to valid range."""
     return max(TIMER_MIN, min(TIMER_MAX, int(seconds)))
@@ -280,12 +290,7 @@ class ViewerWindow(ctk.CTkToplevel):
         self._countdown_timer_id = self.after(1000, self._start_countdown)
 
     def _format_time(self, s):
-        if s >= 3600:
-            return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
-        elif s >= 60:
-            return f"{s // 60}:{s % 60:02d}"
-        else:
-            return f"0:{s:02d}"
+        return format_time(s)
 
     def _update_timer_label(self):
         """Update the timer display in the nav bar and warning overlay."""
