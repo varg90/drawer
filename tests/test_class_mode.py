@@ -65,6 +65,13 @@ def test_auto_distribute_custom_single_tier():
     assert all(t == 300 for _, t in groups)
 
 
+def test_auto_distribute_uses_all_tiers():
+    tiers = [(60, "1 мин"), (300, "5 мин"), (600, "10 мин")]
+    groups = auto_distribute(10, 7200, custom_tiers=tiers)  # plenty of time
+    used_timers = set(t for _, t in groups)
+    assert used_timers == {60, 300, 600}
+
+
 def test_groups_to_timers():
     groups = [(3, 30), (2, 60)]
     assert groups_to_timers(groups) == [30, 30, 30, 60, 60]

@@ -26,40 +26,55 @@ def auto_distribute(num_images, total_seconds, custom_tiers=None):
     else:
         tiers = CLASS_MODE_TEMPLATES["long"]
 
-    # Distribute images across tiers with decreasing count
-    # More images for short poses, fewer for long
     num_tiers = len(tiers)
-    weights = list(range(num_tiers, 0, -1))  # e.g. [3, 2, 1] for 3 tiers
-    total_weight = sum(weights)
 
-    groups = []
-    remaining_images = num_images
-    remaining_time = total_seconds
+    # First pass: reserve 1 image per tier (if time allows)
+    # This ensures all checked tiers are used
+    min_time_needed = sum(t for t, _ in tiers)
+    usable_tiers = []
+    reserve_time = 0
+    for tier_time, label in tiers:
+        if reserve_time + tier_time <= total_seconds:
+            usable_tiers.append((tier_time, label))
+            reserve_time += tier_time
 
-    for i, (tier_time, _) in enumerate(tiers):
-        if remaining_images <= 0 or remaining_time <= 0:
-            break
+    if not usable_tiers:
+        usable_tiers = [tiers[0]]
 
-        if i == num_tiers - 1:
-            count = remaining_images
-        else:
-            count = max(1, round(num_images * weights[i] / total_weight))
-            count = min(count, remaining_images)
+    # Can't use more tiers than images
+    usable_tiers = usable_tiers[:num_images]
 
-        # Ensure group fits in remaining time
-        max_by_time = remaining_time // tier_time
-        if max_by_time <= 0:
-            break
-        count = min(count, max_by_time)
+    num_tiers = len(usable_tiers)
+    # Start with 1 image per tier
+    groups = [(1, t) for t, _ in usable_tiers]
+    used_images = num_tiers
+    used_time = sum(t for t, _ in usable_tiers)
 
-        groups.append((count, tier_time))
-        remaining_images -= count
-        remaining_time -= count * tier_time
+    # Second pass: distribute remaining images with weights (more short, fewer long)
+    remaining_images = num_images - used_images
+    remaining_time = total_seconds - used_time
 
-    # If images remain, add as many as time allows to the last tier
-    if remaining_images > 0 and groups:
+    if remaining_images > 0 and remaining_time > 0:
+        weights = list(range(num_tiers, 0, -1))
+        total_weight = sum(weights)
+
+        for i in range(num_tiers):
+            if remaining_images <= 0 or remaining_time <= 0:
+                break
+            tier_time = usable_tiers[i][0]
+            extra = round(remaining_images * weights[i] / total_weight)
+            max_by_time = remaining_time // tier_time
+            extra = min(extra, remaining_images, max_by_time)
+            if extra > 0:
+                old_count, t = groups[i]
+                groups[i] = (old_count + extra, t)
+                remaining_images -= extra
+                remaining_time -= extra * tier_time
+
+    # If images still remain, fill from last tier
+    if remaining_images > 0:
         last_count, last_time = groups[-1]
-        extra = min(remaining_images, remaining_time // last_time)
+        extra = min(remaining_images, remaining_time // last_time) if remaining_time > 0 else 0
         if extra > 0:
             groups[-1] = (last_count + extra, last_time)
 
