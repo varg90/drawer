@@ -149,7 +149,8 @@ class SettingsWindow(QMainWindow):
         self.class_widget.setVisible(False)
         layout.addWidget(self.class_widget)
 
-        self._class_groups = []  # list of (count, timer_seconds)
+        self._manual_groups = []  # user-defined groups (count, timer_seconds)
+        self._class_groups = []   # final groups = manual + auto-filled
 
         self.radio_preset.toggled.connect(self._on_timer_mode_changed)
         self.radio_class.toggled.connect(self._on_timer_mode_changed)
@@ -282,25 +283,36 @@ class SettingsWindow(QMainWindow):
             self._auto_distribute()
 
     def _auto_distribute(self):
-        """Auto-distribute images across timed groups."""
+        """Auto-distribute remaining images/time around manual groups."""
         if not self.images:
             return
         total_secs = self.session_combo.currentData()
-        self._class_groups = auto_distribute(len(self.images), total_secs)
+        manual_time = total_duration(self._manual_groups)
+        manual_images = sum(c for c, _ in self._manual_groups)
+        remaining_time = max(0, total_secs - manual_time)
+        remaining_images = max(0, len(self.images) - manual_images)
+
+        if remaining_images > 0 and remaining_time > 0:
+            auto_groups = auto_distribute(remaining_images, remaining_time)
+        else:
+            auto_groups = []
+
+        self._class_groups = self._manual_groups + auto_groups
         self._update_class_display()
 
     def _add_manual_group(self):
-        """Add a manual group to the class mode."""
+        """Add a manual group and re-run auto-distribute for the rest."""
         try:
             count = int(self.group_count.text() or 1)
         except ValueError:
             count = 1
         timer = self.group_timer_combo.currentData()
         if count > 0 and timer > 0:
-            self._class_groups.append((count, timer))
-            self._update_class_display()
+            self._manual_groups.append((count, timer))
+            self._auto_distribute()
 
     def _clear_groups(self):
+        self._manual_groups = []
         self._class_groups = []
         self._update_class_display()
 
@@ -310,13 +322,18 @@ class SettingsWindow(QMainWindow):
             self.groups_list.setText("Нет групп")
             self.class_info.setText("")
             return
-        lines = [format_group(c, t) for c, t in self._class_groups]
+        lines = []
+        manual_count = len(self._manual_groups)
+        for i, (c, t) in enumerate(self._class_groups):
+            prefix = "✋ " if i < manual_count else "🤖 "
+            lines.append(prefix + format_group(c, t))
         self.groups_list.setText("\n".join(lines))
         total = total_duration(self._class_groups)
         total_images = sum(c for c, _ in self._class_groups)
+        total_secs = self.session_combo.currentData()
         from core.timer_logic import format_time
         self.class_info.setText(
-            f"Всего: {total_images} картинок, {format_time(total)}")
+            f"Всего: {total_images} картинок, {format_time(total)} / {format_time(total_secs)}")
 
     def _on_preset_changed(self, index):
         pass  # Timer applied on start
