@@ -490,7 +490,8 @@ class SettingsWindow(ctk.CTk):
 
         for i, img_data in enumerate(self.images):
             path = img_data["path"]
-            row = ctk.CTkFrame(self.image_list_frame)
+            bg_color = "#3a3a6a" if i == self.selected_index else None  # None = default
+            row = ctk.CTkFrame(self.image_list_frame, fg_color=bg_color)
             row.pack(fill="x", pady=2, padx=2)
             row.img_index = i
 
@@ -508,6 +509,19 @@ class SettingsWindow(ctk.CTk):
             name_label = ctk.CTkLabel(row, text=filename, anchor="w")
             name_label.pack(side="left", fill="x", expand=True, padx=4)
             name_label.img_index = i
+
+            # Timer display
+            timer_secs = img_data["timer"]
+            if timer_secs >= 3600:
+                timer_text = f"{timer_secs // 3600}ч {(timer_secs % 3600) // 60}мин"
+            elif timer_secs >= 60:
+                timer_text = f"{timer_secs // 60} мин"
+            else:
+                timer_text = f"{timer_secs} сек"
+            ctk.CTkLabel(row, text=timer_text, text_color="gray", width=60).pack(side="left", padx=4)
+
+            # Right-click to select for individual timer mode
+            row.bind("<ButtonPress-3>", lambda e, idx=i: self._select_image(idx))
 
             # Control buttons
             btn_frame = ctk.CTkFrame(row, fg_color="transparent")
@@ -533,6 +547,10 @@ class SettingsWindow(ctk.CTk):
                 widget.bind("<ButtonPress-1>", lambda e, idx=i: self._drag_start(idx))
                 widget.bind("<B1-Motion>", self._drag_motion)
                 widget.bind("<ButtonRelease-1>", self._drag_end)
+
+    def _select_image(self, index):
+        self.selected_index = index
+        self._refresh_image_list()
 
     def _move_image(self, index, direction):
         """Swap image at index with the one in the given direction."""
