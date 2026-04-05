@@ -55,7 +55,7 @@ class ViewerWindow(ctk.CTkToplevel):
     def __init__(self, master, images, settings):
         super().__init__(master)
         self.title("Slideshow")
-        self.configure(fg_color="#1a1a2e")
+        self.configure(fg_color="#000000")
         self.geometry("800x600")
 
         self.master_app = master
@@ -64,7 +64,7 @@ class ViewerWindow(ctk.CTkToplevel):
         self.is_playing = True
         self.timer_id = None
         self.current_aspect = None
-        self._resizing = False
+        self._resize_timer = None
 
         # Always-on-top
         self.wm_attributes("-topmost", self.settings["topmost"])
@@ -76,7 +76,7 @@ class ViewerWindow(ctk.CTkToplevel):
         self.order_position = 0
 
         # Image label fills entire window
-        self.image_label = ctk.CTkLabel(self, text="", fg_color="#1a1a2e")
+        self.image_label = ctk.CTkLabel(self, text="", fg_color="#000000")
         self.image_label.pack(fill="both", expand=True)
 
         # Hover controls (hidden by default)
@@ -92,11 +92,14 @@ class ViewerWindow(ctk.CTkToplevel):
         self.play_btn.pack(side="left", padx=5)
         ctk.CTkButton(self.nav_bar, text="⏭", width=40, fg_color="transparent",
                       hover_color="#444", command=self._next).pack(side="left", padx=5)
+        ctk.CTkButton(self.nav_bar, text="⚙", width=40, fg_color="transparent",
+                      hover_color="#444", command=self._open_settings).pack(side="left", padx=5)
         self.nav_bar.pack(pady=10)
 
         # Counter label
         self.counter_label = ctk.CTkLabel(self, text="", font=("", 12), text_color="#aaaaaa")
         self.counter_visible = False
+
 
         # Hover bindings
         self.bind("<Enter>", self._show_controls)
@@ -138,28 +141,48 @@ class ViewerWindow(ctk.CTkToplevel):
         idx = self.play_order[self.order_position]
         path = self.all_images[idx]["path"]
         try:
-            pil_img = Image.open(path)
+            self._current_pil_img = Image.open(path)
         except Exception:
             self._next()
             return
 
-        self.current_aspect = pil_img.width / pil_img.height
+        img_w, img_h = self._current_pil_img.width, self._current_pil_img.height
+        self.current_aspect = img_w / img_h
 
+        # Lock aspect ratio via native window manager
+        if self.settings["lock_aspect"]:
+            self.wm_aspect(img_w, img_h, img_w, img_h)
+        else:
+            self.wm_aspect()  # Remove constraint
+
+        # Fit window to image on image change (not on manual resize)
         if self.settings["fit_window"]:
             win_h = self.winfo_height() or 600
             new_w = int(win_h * self.current_aspect)
             self.geometry(f"{new_w}x{win_h}")
 
-        win_w = self.winfo_width() or 800
-        win_h = self.winfo_height() or 600
-        pil_img.thumbnail((win_w, win_h), Image.LANCZOS)
-        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img,
-                                size=(pil_img.width, pil_img.height))
-        self.image_label.configure(image=ctk_img)
-        self.image_label._current_image = ctk_img
+        self._update_image_display()
 
         total = len(self.all_images)
         self.counter_label.configure(text=f"{self.order_position + 1} / {total}")
+
+    def _update_image_display(self):
+        """Rescale current image to fit the current window size."""
+        if not hasattr(self, "_current_pil_img") or self._current_pil_img is None:
+            return
+        img_w, img_h = self._current_pil_img.width, self._current_pil_img.height
+        win_w = self.winfo_width() or 800
+        win_h = self.winfo_height() or 600
+
+        scale = min(win_w / img_w, win_h / img_h)
+        display_w = max(1, int(img_w * scale))
+        display_h = max(1, int(img_h * scale))
+
+        ctk_img = ctk.CTkImage(light_image=self._current_pil_img,
+                                dark_image=self._current_pil_img,
+                                size=(display_w, display_h))
+        self.image_label.configure(image=ctk_img)
+        self.image_label._current_image = ctk_img
 
     def _schedule_next(self):
         if self.timer_id:
@@ -210,19 +233,22 @@ class ViewerWindow(ctk.CTkToplevel):
                 self.timer_id = None
 
     def _on_resize(self, event):
-        if self._resizing or not self.current_aspect:
+        if event.widget != self:
             return
-        if self.settings["lock_aspect"] and event.widget == self:
-            self._resizing = True
-            new_w = event.width
-            new_h = int(new_w / self.current_aspect)
-            self.geometry(f"{new_w}x{new_h}")
-            self._resizing = False
-            self._show_current_image()
+        # Debounce: update image after resize stops (150ms)
+        if self._resize_timer:
+            self.after_cancel(self._resize_timer)
+        self._resize_timer = self.after(150, self._update_image_display)
+
+    def _open_settings(self):
+        """Show the settings window."""
+        self.master_app.deiconify()
+        self.master_app.lift()
 
     def _on_close(self):
         if self.timer_id:
             self.after_cancel(self.timer_id)
+        self.master_app.deiconify()  # Show settings when viewer closes
         self.destroy()
 
 
@@ -237,10 +263,18 @@ class SettingsWindow(ctk.CTk):
         self.thumbnails = {}
         self.selected_index = None
         self.drag_start_index = None
+        self._drag_moved = False
+        self._drag_start_x = None
+        self._drag_start_y = None
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.withdraw()  # Hide window while building UI
         self._build_ui()
-        self.after(100, self._check_restore_session)
+        self.after(100, self._show_window)
+
+    def _show_window(self):
+        self.deiconify()  # Show window after layout is ready
+        self._check_restore_session()
 
     def _get_session_data(self):
         return {
@@ -252,6 +286,7 @@ class SettingsWindow(ctk.CTk):
             "loop": self.loop_var.get(),
             "fit_window": self.fit_window_var.get(),
             "lock_aspect": self.lock_aspect_var.get(),
+            "show_filename": self.show_filename_var.get(),
             "window_x": self.winfo_x(),
             "window_y": self.winfo_y(),
             "window_w": self.winfo_width(),
@@ -298,6 +333,7 @@ class SettingsWindow(ctk.CTk):
         self.loop_var.set(data.get("loop", True))
         self.fit_window_var.set(data.get("fit_window", True))
         self.lock_aspect_var.set(data.get("lock_aspect", False))
+        self.show_filename_var.set(data.get("show_filename", False))
         x = data.get("window_x", 100)
         y = data.get("window_y", 100)
         w = data.get("window_w", 500)
@@ -323,7 +359,14 @@ class SettingsWindow(ctk.CTk):
 
         # Scrollable image list frame
         self.image_list_frame = ctk.CTkScrollableFrame(self, height=200)
-        self.image_list_frame.pack(fill="both", expand=False, padx=10, pady=(0, 5))
+        self.image_list_frame.pack(fill="both", expand=True, padx=10, pady=(0, 5))
+
+        # Show filename checkbox
+        self.show_filename_var = BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            self, text="Отображать имя файла", variable=self.show_filename_var,
+            command=self._on_show_filename_changed
+        ).pack(anchor="w", padx=20, pady=(0, 5))
 
         # --- Timer Mode section ---
         timer_mode_frame = ctk.CTkFrame(self)
@@ -446,7 +489,8 @@ class SettingsWindow(ctk.CTk):
         try:
             img = Image.open(path)
             img.thumbnail((48, 48))
-            ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(48, 48))
+            # Keep original aspect ratio for thumbnail display
+            ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(img.width, img.height))
             self.thumbnails[path] = ctk_img
             return ctk_img
         except Exception:
@@ -495,7 +539,10 @@ class SettingsWindow(ctk.CTk):
             row.pack(fill="x", pady=2, padx=2)
             row.img_index = i
 
-            # Thumbnail
+            # Number
+            ctk.CTkLabel(row, text=f"{i + 1}.", width=25, text_color="gray").pack(side="left", padx=(4, 0))
+
+            # Thumbnail (preserves aspect ratio)
             thumb = self._make_thumbnail(path)
             if thumb is not None:
                 thumb_label = ctk.CTkLabel(row, image=thumb, text="")
@@ -504,26 +551,7 @@ class SettingsWindow(ctk.CTk):
             thumb_label.pack(side="left", padx=4, pady=2)
             thumb_label.img_index = i
 
-            # Filename label
-            filename = os.path.basename(path)
-            name_label = ctk.CTkLabel(row, text=filename, anchor="w")
-            name_label.pack(side="left", fill="x", expand=True, padx=4)
-            name_label.img_index = i
-
-            # Timer display
-            timer_secs = img_data["timer"]
-            if timer_secs >= 3600:
-                timer_text = f"{timer_secs // 3600}ч {(timer_secs % 3600) // 60}мин"
-            elif timer_secs >= 60:
-                timer_text = f"{timer_secs // 60} мин"
-            else:
-                timer_text = f"{timer_secs} сек"
-            ctk.CTkLabel(row, text=timer_text, text_color="gray", width=60).pack(side="left", padx=4)
-
-            # Right-click to select for individual timer mode
-            row.bind("<ButtonPress-3>", lambda e, idx=i: self._select_image(idx))
-
-            # Control buttons
+            # Control buttons (pack right side FIRST so they always show)
             btn_frame = ctk.CTkFrame(row, fg_color="transparent")
             btn_frame.pack(side="right", padx=4)
 
@@ -542,14 +570,38 @@ class SettingsWindow(ctk.CTk):
                 command=lambda idx=i: self._delete_image(idx)
             ).pack(side="left", padx=1)
 
-            # Drag-drop bindings
-            for widget in (row, thumb_label, name_label):
-                widget.bind("<ButtonPress-1>", lambda e, idx=i: self._drag_start(idx))
+            # Timer display (pack right side before filename)
+            timer_secs = img_data["timer"]
+            if timer_secs >= 3600:
+                timer_text = f"{timer_secs // 3600}ч {(timer_secs % 3600) // 60}мин"
+            elif timer_secs >= 60:
+                timer_text = f"{timer_secs // 60} мин"
+            else:
+                timer_text = f"{timer_secs} сек"
+            ctk.CTkLabel(row, text=timer_text, text_color="gray", width=60).pack(side="right", padx=4)
+
+            # Filename label (only if checkbox is on)
+            if self.show_filename_var.get():
+                filename = os.path.basename(path)
+                name_label = ctk.CTkLabel(row, text=filename, anchor="w")
+                name_label.pack(side="left", fill="x", expand=True, padx=4)
+                name_label.img_index = i
+                drag_widgets = (row, thumb_label, name_label)
+            else:
+                drag_widgets = (row, thumb_label)
+
+            # Click to select + drag-drop bindings
+            for widget in drag_widgets:
+                widget.bind("<ButtonPress-1>", lambda e, idx=i: self._drag_start(idx, e))
                 widget.bind("<B1-Motion>", self._drag_motion)
                 widget.bind("<ButtonRelease-1>", self._drag_end)
 
     def _select_image(self, index):
         self.selected_index = index
+        self._refresh_image_list()
+
+    def _on_show_filename_changed(self):
+        """Refresh image list to show/hide filenames."""
         self._refresh_image_list()
 
     def _move_image(self, index, direction):
@@ -571,12 +623,20 @@ class SettingsWindow(ctk.CTk):
             self.selected_index -= 1
         self._refresh_image_list()
 
-    def _drag_start(self, index):
-        """Record the starting index for a drag operation."""
+    def _drag_start(self, index, event=None):
+        """Record the starting index and position for a drag operation."""
         self.drag_start_index = index
+        self._drag_moved = False
+        if event:
+            self._drag_start_x = event.x_root
+            self._drag_start_y = event.y_root
 
     def _drag_motion(self, event):
-        pass
+        if self._drag_start_x is not None:
+            dx = abs(event.x_root - self._drag_start_x)
+            dy = abs(event.y_root - self._drag_start_y)
+            if dx > 5 or dy > 5:
+                self._drag_moved = True
 
     def _set_timer(self, seconds):
         """Set timer: all images in uniform mode, or selected image in individual mode."""
@@ -599,7 +659,8 @@ class SettingsWindow(ctk.CTk):
             "lock_aspect": self.lock_aspect_var.get(),
             "topmost": self.topmost_var.get(),
         }
-        ViewerWindow(self, self.images, settings)
+        self.viewer = ViewerWindow(self, self.images, settings)
+        self.withdraw()  # Hide settings window
 
     def _apply_custom_timer(self):
         """Parse h/m/s entry fields and apply the resulting timer value."""
@@ -613,8 +674,13 @@ class SettingsWindow(ctk.CTk):
             pass
 
     def _drag_end(self, event):
-        """Complete drag-drop by finding the target row under the cursor."""
+        """Complete drag-drop or select image on click."""
         if self.drag_start_index is None:
+            return
+        # If mouse didn't move much — treat as click (select)
+        if not self._drag_moved:
+            self._select_image(self.drag_start_index)
+            self.drag_start_index = None
             return
         widget_under = self.winfo_containing(event.x_root, event.y_root)
         target_index = None
