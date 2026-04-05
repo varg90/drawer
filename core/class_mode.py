@@ -50,33 +50,25 @@ def auto_distribute(num_images, total_seconds, custom_tiers=None):
     used_images = num_tiers
     used_time = sum(t for t, _ in usable_tiers)
 
-    # Second pass: distribute remaining images with weights (more short, fewer long)
+    # Second pass: distribute remaining images evenly across tiers
     remaining_images = num_images - used_images
     remaining_time = total_seconds - used_time
 
-    if remaining_images > 0 and remaining_time > 0:
-        weights = list(range(num_tiers, 0, -1))
-        total_weight = sum(weights)
-
+    # Round-robin: add 1 image at a time to cheapest tier that fits
+    while remaining_images > 0 and remaining_time > 0:
+        added = False
         for i in range(num_tiers):
             if remaining_images <= 0 or remaining_time <= 0:
                 break
             tier_time = usable_tiers[i][0]
-            extra = round(remaining_images * weights[i] / total_weight)
-            max_by_time = remaining_time // tier_time
-            extra = min(extra, remaining_images, max_by_time)
-            if extra > 0:
+            if tier_time <= remaining_time:
                 old_count, t = groups[i]
-                groups[i] = (old_count + extra, t)
-                remaining_images -= extra
-                remaining_time -= extra * tier_time
-
-    # If images still remain, fill from last tier
-    if remaining_images > 0:
-        last_count, last_time = groups[-1]
-        extra = min(remaining_images, remaining_time // last_time) if remaining_time > 0 else 0
-        if extra > 0:
-            groups[-1] = (last_count + extra, last_time)
+                groups[i] = (old_count + 1, t)
+                remaining_images -= 1
+                remaining_time -= tier_time
+                added = True
+        if not added:
+            break
 
     return groups
 
