@@ -92,7 +92,8 @@ class ViewerWindow(ctk.CTkToplevel):
     def __init__(self, master, images, settings):
         super().__init__(master)
         self.title("Slideshow")
-        self.configure(fg_color="#000000")
+        self.configure(fg_color="#000000", bg="#000000")
+        self.overrideredirect(True)  # Borderless window
         self.geometry("800x600")
 
         self.master_app = master
@@ -104,6 +105,8 @@ class ViewerWindow(ctk.CTkToplevel):
         self._resize_timer = None
         self._wndproc_ref = None  # prevent garbage collection of callback
         self._old_wndproc = None
+        self._countdown_remaining = 0
+        self._countdown_timer_id = None
 
         # Always-on-top
         self.wm_attributes("-topmost", self.settings["topmost"])
@@ -114,9 +117,11 @@ class ViewerWindow(ctk.CTkToplevel):
             random.shuffle(self.play_order)
         self.order_position = 0
 
-        # Image label fills entire window
-        self.image_label = ctk.CTkLabel(self, text="", fg_color="#000000")
-        self.image_label.pack(fill="both", expand=True)
+        # Image canvas fills entire window (pure black, no CTk color leaking)
+        import tkinter as tk
+        self.image_canvas = tk.Canvas(self, bg="#000000", highlightthickness=0)
+        self.image_canvas.pack(fill="both", expand=True)
+        self._canvas_image_id = None
 
         # Hover controls (hidden by default)
         self.controls_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -124,15 +129,7 @@ class ViewerWindow(ctk.CTkToplevel):
 
         # Navigation bar
         self.nav_bar = ctk.CTkFrame(self.controls_frame, fg_color="#000000", corner_radius=20)
-        ctk.CTkButton(self.nav_bar, text="⏮", width=40, fg_color="transparent",
-                      hover_color="#444", command=self._prev).pack(side="left", padx=5)
-        self.play_btn = ctk.CTkButton(self.nav_bar, text="⏸", width=40, fg_color="transparent",
-                                       hover_color="#444", command=self._toggle_pause)
-        self.play_btn.pack(side="left", padx=5)
-        ctk.CTkButton(self.nav_bar, text="⏭", width=40, fg_color="transparent",
-                      hover_color="#444", command=self._next).pack(side="left", padx=5)
-        ctk.CTkButton(self.nav_bar, text="⚙", width=40, fg_color="transparent",
-                      hover_color="#444", command=self._open_settings).pack(side="left", padx=5)
+        self._build_nav_buttons()
         self.nav_bar.pack(pady=10)
 
         # Counter label
@@ -143,8 +140,23 @@ class ViewerWindow(ctk.CTkToplevel):
         # Hover bindings
         self.bind("<Enter>", self._show_controls)
         self.bind("<Leave>", self._hide_controls)
-        self.image_label.bind("<Enter>", self._show_controls)
-        self.image_label.bind("<Leave>", self._hide_controls)
+        self.image_canvas.bind("<Enter>", self._show_controls)
+        self.image_canvas.bind("<Leave>", self._hide_controls)
+
+        # Right-click drag to move window
+        self._drag_x = 0
+        self._drag_y = 0
+        self.image_canvas.bind("<ButtonPress-3>", self._window_drag_start)
+        self.image_canvas.bind("<B3-Motion>", self._window_drag_move)
+
+        # Resize grip area (all corners)
+        self._resize_grip_size = 50
+        self._resizing_window = False
+        self._resize_corner = None  # "tl", "tr", "bl", "br"
+        self.image_canvas.bind("<Motion>", self._update_cursor)
+        self.image_canvas.bind("<ButtonPress-1>", self._resize_start)
+        self.image_canvas.bind("<B1-Motion>", self._resize_drag)
+        self.image_canvas.bind("<ButtonRelease-1>", self._resize_end)
 
         # Resize binding for aspect lock
         self.bind("<Configure>", self._on_resize)
@@ -155,6 +167,46 @@ class ViewerWindow(ctk.CTkToplevel):
         # Show first image and start
         self._show_current_image()
         self._schedule_next()
+
+    def _build_nav_buttons(self):
+        """Create nav buttons with current size."""
+        for w in self.nav_bar.winfo_children():
+            w.destroy()
+        btn_size, font_size, pad = self._calc_nav_size()
+        font = ("", font_size)
+        ctk.CTkButton(self.nav_bar, text="⏮", width=btn_size, height=btn_size,
+                      font=font, fg_color="transparent",
+                      hover_color="#444", command=self._prev).pack(side="left", padx=pad)
+        self.play_btn = ctk.CTkButton(self.nav_bar, text="⏸" if self.is_playing else "▶",
+                                       width=btn_size, height=btn_size,
+                                       font=font, fg_color="transparent",
+                                       hover_color="#444", command=self._toggle_pause)
+        self.play_btn.pack(side="left", padx=pad)
+        ctk.CTkButton(self.nav_bar, text="⏭", width=btn_size, height=btn_size,
+                      font=font, fg_color="transparent",
+                      hover_color="#444", command=self._next).pack(side="left", padx=pad)
+        # Timer countdown label
+        self.timer_label = ctk.CTkLabel(self.nav_bar, text="", font=font,
+                                         text_color="#aaaaaa", width=btn_size)
+        self.timer_label.pack(side="left", padx=pad)
+
+        ctk.CTkButton(self.nav_bar, text="⚙", width=btn_size, height=btn_size,
+                      font=font, fg_color="transparent",
+                      hover_color="#444", command=self._open_settings).pack(side="left", padx=pad)
+        ctk.CTkButton(self.nav_bar, text="✕", width=btn_size, height=btn_size,
+                      font=font, fg_color="transparent",
+                      hover_color="#662222", command=self._on_close).pack(side="left", padx=pad)
+
+    def _calc_nav_size(self):
+        """Calculate button size based on window size."""
+        win_w = self.winfo_width() or 800
+        win_h = self.winfo_height() or 600
+        smallest = min(win_w, win_h)
+        # Button size: 8% of smallest dimension, clamped 24-60px
+        btn_size = max(24, min(60, int(smallest * 0.08)))
+        font_size = max(10, min(24, int(btn_size * 0.5)))
+        pad = max(2, min(8, int(btn_size * 0.1)))
+        return btn_size, font_size, pad
 
     def _show_controls(self, event=None):
         if not self.controls_visible:
@@ -203,35 +255,71 @@ class ViewerWindow(ctk.CTkToplevel):
         self._update_image_display()
 
         total = len(self.all_images)
-        self.counter_label.configure(text=f"{self.order_position + 1} / {total}")
+        _, font_size, _ = self._calc_nav_size()
+        self.counter_label.configure(text=f"{self.order_position + 1} / {total}",
+                                      font=("", font_size))
 
     def _update_image_display(self):
         """Rescale current image to fit the current window size."""
         if not hasattr(self, "_current_pil_img") or self._current_pil_img is None:
             return
         img_w, img_h = self._current_pil_img.width, self._current_pil_img.height
-        win_w = self.winfo_width() or 800
-        win_h = self.winfo_height() or 600
+        canvas_w = self.image_canvas.winfo_width() or 800
+        canvas_h = self.image_canvas.winfo_height() or 600
 
-        scale = min(win_w / img_w, win_h / img_h)
+        scale = min(canvas_w / img_w, canvas_h / img_h)
         display_w = max(1, int(img_w * scale))
         display_h = max(1, int(img_h * scale))
 
-        ctk_img = ctk.CTkImage(light_image=self._current_pil_img,
-                                dark_image=self._current_pil_img,
-                                size=(display_w, display_h))
-        self.image_label.configure(image=ctk_img)
-        self.image_label._current_image = ctk_img
+        resized = self._current_pil_img.resize((display_w, display_h), Image.LANCZOS)
+        self._tk_photo = ImageTk.PhotoImage(resized)
+
+        # Center image on canvas
+        cx = canvas_w // 2
+        cy = canvas_h // 2
+        self.image_canvas.delete("all")
+        self._canvas_image_id = self.image_canvas.create_image(cx, cy, image=self._tk_photo)
+
+        # Update nav button sizes
+        self._build_nav_buttons()
 
     def _schedule_next(self):
         if self.timer_id:
             self.after_cancel(self.timer_id)
             self.timer_id = None
+        if self._countdown_timer_id:
+            self.after_cancel(self._countdown_timer_id)
+            self._countdown_timer_id = None
         if not self.is_playing:
+            self._update_timer_label()
             return
         idx = self.play_order[self.order_position]
-        delay_ms = self.all_images[idx]["timer"] * 1000
-        self.timer_id = self.after(delay_ms, self._advance)
+        self._countdown_remaining = self.all_images[idx]["timer"]
+        self._update_timer_label()
+        self._start_countdown()
+
+    def _start_countdown(self):
+        """Tick countdown every second and advance when done."""
+        if self._countdown_remaining <= 0:
+            self._advance()
+            return
+        self._countdown_remaining -= 1
+        self._update_timer_label()
+        self._countdown_timer_id = self.after(1000, self._start_countdown)
+
+    def _update_timer_label(self):
+        """Update the timer display in the nav bar."""
+        if not hasattr(self, "timer_label"):
+            return
+        s = self._countdown_remaining
+        if not self.is_playing:
+            self.timer_label.configure(text="⏸")
+        elif s >= 3600:
+            self.timer_label.configure(text=f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}")
+        elif s >= 60:
+            self.timer_label.configure(text=f"{s // 60}:{s % 60:02d}")
+        else:
+            self.timer_label.configure(text=f"0:{s:02d}")
 
     def _advance(self):
         self.order_position += 1
@@ -264,16 +352,19 @@ class ViewerWindow(ctk.CTkToplevel):
         self.is_playing = not self.is_playing
         if self.is_playing:
             self.play_btn.configure(text="⏸")
-            self._schedule_next()
+            self._start_countdown()  # Resume from remaining time
         else:
             self.play_btn.configure(text="▶")
-            if self.timer_id:
-                self.after_cancel(self.timer_id)
-                self.timer_id = None
+            if self._countdown_timer_id:
+                self.after_cancel(self._countdown_timer_id)
+                self._countdown_timer_id = None
+            self._update_timer_label()
 
     def _on_resize(self, event):
         if event.widget != self:
             return
+        if self._resizing_window:
+            return  # Handled by _resize_drag/_resize_end
         # Debounce: update image after resize stops (150ms)
         if self._resize_timer:
             self.after_cancel(self._resize_timer)
@@ -284,36 +375,46 @@ class ViewerWindow(ctk.CTkToplevel):
         hwnd = ctypes.c_void_p(self.winfo_id())
         viewer = self  # capture reference for closure
 
+        # Calculate frame size (difference between window size and client area)
+        win_rect = RECT()
+        client_rect = RECT()
+        _user32.GetWindowRect(hwnd, ctypes.byref(win_rect))
+        _user32.GetClientRect(hwnd, ctypes.byref(client_rect))
+        self._frame_w = (win_rect.right - win_rect.left) - (client_rect.right - client_rect.left)
+        self._frame_h = (win_rect.bottom - win_rect.top) - (client_rect.bottom - client_rect.top)
+
         def wndproc(hwnd_cb, msg, wparam, lparam):
             if msg == WM_SIZING and viewer.current_aspect:
                 rect = ctypes.cast(lparam, ctypes.POINTER(RECT)).contents
-                w = rect.right - rect.left
-                h = rect.bottom - rect.top
+                # Client area = window size minus frame
+                client_w = (rect.right - rect.left) - viewer._frame_w
+                client_h = (rect.bottom - rect.top) - viewer._frame_h
                 aspect = viewer.current_aspect
 
                 if wparam in (WMSZ_LEFT, WMSZ_RIGHT):
-                    # Dragging left or right edge — adjust height
-                    new_h = int(w / aspect)
+                    new_client_h = int(client_w / aspect)
+                    new_h = new_client_h + viewer._frame_h
                     rect.bottom = rect.top + new_h
                 elif wparam in (WMSZ_TOP, WMSZ_BOTTOM):
-                    # Dragging top or bottom edge — adjust width
-                    new_w = int(h * aspect)
+                    new_client_w = int(client_h * aspect)
+                    new_w = new_client_w + viewer._frame_w
                     rect.right = rect.left + new_w
-                elif wparam in (WMSZ_TOPLEFT, WMSZ_TOPRIGHT, WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT):
-                    # Dragging corner — use wider dimension
-                    target_h = int(w / aspect)
-                    if target_h >= h:
-                        rect.bottom = rect.top + target_h if wparam in (WMSZ_TOPLEFT, WMSZ_TOPRIGHT) and False else rect.bottom
+                else:
+                    # Corner drag — fit based on larger change
+                    target_client_h = int(client_w / aspect)
+                    if target_client_h >= client_h:
+                        new_h = target_client_h + viewer._frame_h
                         if wparam in (WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT):
-                            rect.bottom = rect.top + target_h
+                            rect.bottom = rect.top + new_h
                         else:
-                            rect.top = rect.bottom - target_h
+                            rect.top = rect.bottom - new_h
                     else:
-                        target_w = int(h * aspect)
+                        target_client_w = int(client_h * aspect)
+                        new_w = target_client_w + viewer._frame_w
                         if wparam in (WMSZ_TOPLEFT, WMSZ_BOTTOMLEFT):
-                            rect.left = rect.right - target_w
+                            rect.left = rect.right - new_w
                         else:
-                            rect.right = rect.left + target_w
+                            rect.right = rect.left + new_w
                 return 1
 
             return _CallWindowProcW(viewer._old_wndproc, hwnd_cb, msg, wparam, lparam)
@@ -330,6 +431,102 @@ class ViewerWindow(ctk.CTkToplevel):
             self._old_wndproc = None
             self._wndproc_ref = None
 
+    def _get_corner(self, event):
+        """Determine which corner the mouse is in, or None."""
+        cw = self.image_canvas.winfo_width()
+        ch = self.image_canvas.winfo_height()
+        g = self._resize_grip_size
+        left = event.x < g
+        right = event.x >= cw - g
+        top = event.y < g
+        bottom = event.y >= ch - g
+        if top and left:
+            return "tl"
+        if top and right:
+            return "tr"
+        if bottom and left:
+            return "bl"
+        if bottom and right:
+            return "br"
+        return None
+
+    def _update_cursor(self, event):
+        corner = self._get_corner(event)
+        if corner in ("tl", "br"):
+            self.image_canvas.configure(cursor="size_nw_se")
+        elif corner in ("tr", "bl"):
+            self.image_canvas.configure(cursor="size_ne_sw")
+        else:
+            self.image_canvas.configure(cursor="")
+
+    def _resize_start(self, event):
+        corner = self._get_corner(event)
+        if corner:
+            self._resizing_window = True
+            self._resize_corner = corner
+            self._resize_start_x = event.x_root
+            self._resize_start_y = event.y_root
+            self._resize_start_w = self.winfo_width()
+            self._resize_start_h = self.winfo_height()
+            self._resize_start_win_x = self.winfo_x()
+            self._resize_start_win_y = self.winfo_y()
+
+    def _resize_drag(self, event):
+        if not self._resizing_window:
+            return
+        dx = event.x_root - self._resize_start_x
+        dy = event.y_root - self._resize_start_y
+        c = self._resize_corner
+        x = self._resize_start_win_x
+        y = self._resize_start_win_y
+        w = self._resize_start_w
+        h = self._resize_start_h
+
+        if c == "br":
+            new_w = max(200, w + dx)
+            new_h = max(150, h + dy)
+        elif c == "bl":
+            new_w = max(200, w - dx)
+            new_h = max(150, h + dy)
+            x = x + w - new_w
+        elif c == "tr":
+            new_w = max(200, w + dx)
+            new_h = max(150, h - dy)
+            y = y + h - new_h
+        elif c == "tl":
+            new_w = max(200, w - dx)
+            new_h = max(150, h - dy)
+            x = x + w - new_w
+            y = y + h - new_h
+
+        if self.settings["lock_aspect"] and self.current_aspect:
+            target_h = int(new_w / self.current_aspect)
+            if target_h >= new_h:
+                if c in ("tl", "tr"):
+                    y = y - (target_h - new_h)
+                new_h = target_h
+            else:
+                target_w = int(new_h * self.current_aspect)
+                if c in ("tl", "bl"):
+                    x = x - (target_w - new_w)
+                new_w = target_w
+
+        self.geometry(f"{new_w}x{new_h}+{x}+{y}")
+
+    def _resize_end(self, event):
+        if self._resizing_window:
+            self._resizing_window = False
+            self._update_image_display()
+
+    def _window_drag_start(self, event):
+        self._drag_x = event.x_root - self.winfo_x()
+        self._drag_y = event.y_root - self.winfo_y()
+
+    def _window_drag_move(self, event):
+        x = event.x_root - self._drag_x
+        y = event.y_root - self._drag_y
+        self.geometry(f"+{x}+{y}")
+
     def _open_settings(self):
         """Show the settings window."""
         self.master_app.deiconify()
@@ -339,6 +536,8 @@ class ViewerWindow(ctk.CTkToplevel):
         self._remove_aspect_hook()
         if self.timer_id:
             self.after_cancel(self.timer_id)
+        if self._countdown_timer_id:
+            self.after_cancel(self._countdown_timer_id)
         self.master_app.deiconify()  # Show settings when viewer closes
         self.destroy()
 
@@ -386,7 +585,11 @@ class SettingsWindow(ctk.CTk):
 
     def _on_close(self):
         save_session(self._get_session_data())
-        self.destroy()
+        # If viewer is active, just hide settings instead of quitting
+        if hasattr(self, "viewer") and self.viewer and self.viewer.winfo_exists():
+            self.withdraw()
+        else:
+            self.destroy()
 
     def _check_restore_session(self):
         data = load_session()
@@ -422,8 +625,7 @@ class SettingsWindow(ctk.CTk):
         self.order_var.set(data.get("order", "sequential"))
         self.topmost_var.set(data.get("always_on_top", False))
         self.loop_var.set(data.get("loop", True))
-        self.fit_window_var.set(data.get("fit_window", True))
-        self.lock_aspect_var.set(data.get("lock_aspect", False))
+        # fit_window and lock_aspect are always True now
         self.show_filename_var.set(data.get("show_filename", False))
         x = data.get("window_x", 100)
         y = data.get("window_y", 100)
@@ -550,21 +752,15 @@ class SettingsWindow(ctk.CTk):
 
         self.topmost_var = BooleanVar(value=False)
         self.loop_var = BooleanVar(value=True)
-        self.fit_window_var = BooleanVar(value=True)
-        self.lock_aspect_var = BooleanVar(value=False)
+        self.fit_window_var = BooleanVar(value=True)  # Always on
+        self.lock_aspect_var = BooleanVar(value=True)  # Always on
 
         ctk.CTkCheckBox(options_frame, text="Поверх всех окон", variable=self.topmost_var).pack(
             anchor="w", padx=20, pady=(6, 2)
         )
         ctk.CTkCheckBox(options_frame, text="Зациклить показ", variable=self.loop_var).pack(
-            anchor="w", padx=20, pady=2
+            anchor="w", padx=20, pady=(2, 6)
         )
-        ctk.CTkCheckBox(
-            options_frame, text="Подстраивать окно под картинку", variable=self.fit_window_var
-        ).pack(anchor="w", padx=20, pady=2)
-        ctk.CTkCheckBox(
-            options_frame, text="Сохранять пропорции окна", variable=self.lock_aspect_var
-        ).pack(anchor="w", padx=20, pady=(2, 6))
 
         # --- Start button ---
         ctk.CTkButton(
