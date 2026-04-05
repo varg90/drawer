@@ -51,15 +51,6 @@ class ViewerWindow(QWidget):
         self._img_label.setGeometry(self.rect())
 
         # Controls overlay (top bar)
-        self._controls_bar = QWidget(self)
-        self._controls_bar.setStyleSheet(
-            "background-color: rgba(20, 20, 40, 200); border-radius: 0px;"
-        )
-        self._controls_bar.setFixedHeight(CONTROLS_HEIGHT)
-        ctrl_layout = QHBoxLayout(self._controls_bar)
-        ctrl_layout.setContentsMargins(8, 4, 8, 4)
-        ctrl_layout.setSpacing(6)
-
         btn_style = """
             QPushButton {
                 background: transparent;
@@ -70,6 +61,15 @@ class ViewerWindow(QWidget):
             }
             QPushButton:hover { color: #aaaaff; }
         """
+
+        # Bottom nav bar (⏮ ⏸ ⏭ timer) — centered at bottom
+        self._controls_bar = QWidget(self)
+        self._controls_bar.setStyleSheet(
+            "background-color: rgba(20, 20, 40, 200); border-radius: 15px;"
+        )
+        ctrl_layout = QHBoxLayout(self._controls_bar)
+        ctrl_layout.setContentsMargins(12, 4, 12, 4)
+        ctrl_layout.setSpacing(6)
 
         self._prev_btn = QPushButton("⏮")
         self._prev_btn.setStyleSheet(btn_style)
@@ -90,20 +90,31 @@ class ViewerWindow(QWidget):
         self._timer_label.setStyleSheet("color: white; font-size: 14px;")
         ctrl_layout.addWidget(self._timer_label)
 
-        ctrl_layout.addStretch()
+        self._controls_bar.adjustSize()
+        self._controls_bar.hide()
+
+        # Top-right buttons (⚙ ✕)
+        self._top_buttons = QWidget(self)
+        self._top_buttons.setStyleSheet(
+            "background-color: rgba(20, 20, 40, 200); border-radius: 10px;"
+        )
+        top_layout = QHBoxLayout(self._top_buttons)
+        top_layout.setContentsMargins(6, 2, 6, 2)
+        top_layout.setSpacing(2)
 
         self._settings_btn = QPushButton("⚙")
         self._settings_btn.setStyleSheet(btn_style)
         self._settings_btn.setToolTip("Вернуться к настройкам")
         self._settings_btn.clicked.connect(self._open_settings)
-        ctrl_layout.addWidget(self._settings_btn)
+        top_layout.addWidget(self._settings_btn)
 
         self._close_btn = QPushButton("✕")
         self._close_btn.setStyleSheet(btn_style)
         self._close_btn.clicked.connect(self.close)
-        ctrl_layout.addWidget(self._close_btn)
+        top_layout.addWidget(self._close_btn)
 
-        self._controls_bar.hide()
+        self._top_buttons.adjustSize()
+        self._top_buttons.hide()
 
         # Counter label (bottom)
         self._counter_label = QLabel("")
@@ -117,9 +128,9 @@ class ViewerWindow(QWidget):
 
         # Warn overlay label
         self._warn_label = QLabel("", self)
-        self._warn_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._warn_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._warn_label.setStyleSheet(
-            "color: rgba(255, 80, 80, 200); font-size: 48px; font-weight: bold; background: transparent;"
+            "color: rgba(255, 80, 80, 220); font-size: 16px; font-weight: bold; background: transparent;"
         )
         self._warn_label.hide()
 
@@ -266,9 +277,18 @@ class ViewerWindow(QWidget):
         super().resizeEvent(event)
         w, h = self.width(), self.height()
         self._img_label.setGeometry(0, 0, w, h)
-        self._controls_bar.setGeometry(0, 0, w, CONTROLS_HEIGHT)
-        self._counter_label.setGeometry(0, h - COUNTER_HEIGHT, w - 8, COUNTER_HEIGHT)
-        self._warn_label.setGeometry(0, h // 2 - 40, w, 80)
+        # Bottom nav bar — centered
+        bar_w = self._controls_bar.sizeHint().width()
+        bar_h = self._controls_bar.sizeHint().height()
+        self._controls_bar.setGeometry((w - bar_w) // 2, h - bar_h - 10, bar_w, bar_h)
+        # Top-right buttons
+        top_w = self._top_buttons.sizeHint().width()
+        top_h = self._top_buttons.sizeHint().height()
+        self._top_buttons.setGeometry(w - top_w - 8, 8, top_w, top_h)
+        # Counter top-left (offset if warning visible)
+        self._counter_label.setGeometry(8, 28, w - 8, COUNTER_HEIGHT)
+        # Warning above nav bar
+        self._warn_label.setGeometry(8, 4, 120, 30)
         self._update_display()
 
     def enterEvent(self, event):
@@ -283,9 +303,11 @@ class ViewerWindow(QWidget):
         self._controls_visible = visible
         if visible:
             self._controls_bar.show()
+            self._top_buttons.show()
             self._counter_label.show()
         else:
             self._controls_bar.hide()
+            self._top_buttons.hide()
             self._counter_label.hide()
 
     # ------------------------------------------------------------------ Mouse handling

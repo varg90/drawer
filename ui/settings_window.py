@@ -5,8 +5,9 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QGroupBox, QScrollArea, QButtonGroup)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS
+from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_PRESETS
 from core.timer_logic import validate_timer_seconds
+from core.class_mode import auto_distribute, groups_to_timers, total_duration, format_group
 from core.file_utils import filter_image_files, scan_folder
 from core.session import save_session, load_session
 from core.models import ImageItem
@@ -38,7 +39,7 @@ class SettingsWindow(QMainWindow):
         root.addWidget(self._build_images_group())
         root.addWidget(self._build_options_group())
 
-        self.start_btn = QPushButton("▶  Начать слайдшоу")
+        self.start_btn = QPushButton("▶  Старт")
         self.start_btn.setFixedHeight(44)
         self.start_btn.setStyleSheet("""
             QPushButton {
@@ -64,14 +65,22 @@ class SettingsWindow(QMainWindow):
         mode_row = QHBoxLayout()
         self.radio_preset = QRadioButton("Стандартный")
         self.radio_custom = QRadioButton("Настраиваемый")
+        self.radio_class = QRadioButton("Сеанс")
         self.radio_preset.setChecked(True)
         self._timer_mode_group = QButtonGroup()
         self._timer_mode_group.addButton(self.radio_preset)
         self._timer_mode_group.addButton(self.radio_custom)
+        self._timer_mode_group.addButton(self.radio_class)
         mode_row.addWidget(self.radio_preset)
         mode_row.addWidget(self.radio_custom)
+        mode_row.addWidget(self.radio_class)
         mode_row.addStretch()
         layout.addLayout(mode_row)
+
+        # --- Standard/Custom controls ---
+        self.standard_widget = QWidget()
+        std_layout = QVBoxLayout(self.standard_widget)
+        std_layout.setContentsMargins(0, 0, 0, 0)
 
         # Preset combo
         self.preset_combo = QComboBox()
@@ -79,7 +88,7 @@ class SettingsWindow(QMainWindow):
             self.preset_combo.addItem(label, secs)
         self.preset_combo.addItem("Своё время...", -1)
         self.preset_combo.currentIndexChanged.connect(self._on_preset_changed)
-        layout.addWidget(self.preset_combo)
+        std_layout.addWidget(self.preset_combo)
 
         # Custom time row (hidden by default)
         self.custom_widget = QWidget()
@@ -99,10 +108,75 @@ class SettingsWindow(QMainWindow):
         custom_row.addWidget(self.custom_s)
         custom_row.addStretch()
         self.custom_widget.setVisible(False)
-        layout.addWidget(self.custom_widget)
+        std_layout.addWidget(self.custom_widget)
+
+        layout.addWidget(self.standard_widget)
+
+        # --- Class mode controls ---
+        self.class_widget = QWidget()
+        class_layout = QVBoxLayout(self.class_widget)
+        class_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Session duration
+        dur_row = QHBoxLayout()
+        dur_row.addWidget(QLabel("Длительность сеанса:"))
+        self.session_combo = QComboBox()
+        for secs, label in SESSION_PRESETS:
+            self.session_combo.addItem(label, secs)
+        self.session_combo.currentIndexChanged.connect(self._on_class_mode_changed)
+        dur_row.addWidget(self.session_combo)
+        dur_row.addStretch()
+        class_layout.addLayout(dur_row)
+
+        # Auto distribute button
+        auto_row = QHBoxLayout()
+        auto_btn = QPushButton("Авто-распределение")
+        auto_btn.clicked.connect(self._auto_distribute)
+        auto_row.addWidget(auto_btn)
+        auto_row.addStretch()
+        class_layout.addLayout(auto_row)
+
+        # Manual group editor
+        self.groups_list = QLabel("")
+        self.groups_list.setStyleSheet("color: #aaa; padding: 4px;")
+        self.groups_list.setWordWrap(True)
+        class_layout.addWidget(self.groups_list)
+
+        # Manual add group
+        manual_row = QHBoxLayout()
+        manual_row.addWidget(QLabel("Добавить:"))
+        self.group_count = QLineEdit("5")
+        self.group_count.setFixedWidth(40)
+        manual_row.addWidget(self.group_count)
+        manual_row.addWidget(QLabel("×"))
+        self.group_timer_combo = QComboBox()
+        for secs, label in [(30, "30 сек"), (60, "1 мин"), (120, "2 мин"),
+                             (300, "5 мин"), (600, "10 мин"), (900, "15 мин")]:
+            self.group_timer_combo.addItem(label, secs)
+        manual_row.addWidget(self.group_timer_combo)
+        add_group_btn = QPushButton("+")
+        add_group_btn.setFixedWidth(30)
+        add_group_btn.clicked.connect(self._add_manual_group)
+        manual_row.addWidget(add_group_btn)
+        clear_groups_btn = QPushButton("Сброс")
+        clear_groups_btn.clicked.connect(self._clear_groups)
+        manual_row.addWidget(clear_groups_btn)
+        manual_row.addStretch()
+        class_layout.addLayout(manual_row)
+
+        # Total info
+        self.class_info = QLabel("")
+        self.class_info.setStyleSheet("color: #7a7aff;")
+        class_layout.addWidget(self.class_info)
+
+        self.class_widget.setVisible(False)
+        layout.addWidget(self.class_widget)
+
+        self._class_groups = []  # list of (count, timer_seconds)
 
         self.radio_preset.toggled.connect(self._on_timer_mode_changed)
         self.radio_custom.toggled.connect(self._on_timer_mode_changed)
+        self.radio_class.toggled.connect(self._on_timer_mode_changed)
 
         return group
 
@@ -222,9 +296,55 @@ class SettingsWindow(QMainWindow):
     # ------------------------------------------------------------------ Timer logic
 
     def _on_timer_mode_changed(self):
-        is_custom = self.radio_custom.isChecked()
-        self.preset_combo.setEnabled(not is_custom)
-        self.custom_widget.setVisible(is_custom)
+        is_class = self.radio_class.isChecked()
+        self.standard_widget.setVisible(not is_class)
+        self.class_widget.setVisible(is_class)
+        if not is_class:
+            is_custom = self.radio_custom.isChecked()
+            self.preset_combo.setEnabled(not is_custom)
+            self.custom_widget.setVisible(is_custom)
+
+    def _on_class_mode_changed(self):
+        """Auto-distribute when session duration changes."""
+        if self.radio_class.isChecked() and self.images:
+            self._auto_distribute()
+
+    def _auto_distribute(self):
+        """Auto-distribute images across timed groups."""
+        if not self.images:
+            return
+        total_secs = self.session_combo.currentData()
+        self._class_groups = auto_distribute(len(self.images), total_secs)
+        self._update_class_display()
+
+    def _add_manual_group(self):
+        """Add a manual group to the class mode."""
+        try:
+            count = int(self.group_count.text() or 1)
+        except ValueError:
+            count = 1
+        timer = self.group_timer_combo.currentData()
+        if count > 0 and timer > 0:
+            self._class_groups.append((count, timer))
+            self._update_class_display()
+
+    def _clear_groups(self):
+        self._class_groups = []
+        self._update_class_display()
+
+    def _update_class_display(self):
+        """Update the groups display and info."""
+        if not self._class_groups:
+            self.groups_list.setText("Нет групп")
+            self.class_info.setText("")
+            return
+        lines = [format_group(c, t) for c, t in self._class_groups]
+        self.groups_list.setText("\n".join(lines))
+        total = total_duration(self._class_groups)
+        total_images = sum(c for c, _ in self._class_groups)
+        from core.timer_logic import format_time
+        self.class_info.setText(
+            f"Всего: {total_images} картинок, {format_time(total)}")
 
     def _on_preset_changed(self, index):
         val = self.preset_combo.itemData(index)
@@ -286,7 +406,7 @@ class SettingsWindow(QMainWindow):
         self.images = self.image_list.get_ordered_images()
 
     def _delete_selected(self):
-        self.image_list.delete_current()
+        self.image_list.delete_selected()
         self.images = self.image_list.get_ordered_images()
 
     def _clear_images(self):
@@ -326,6 +446,16 @@ class SettingsWindow(QMainWindow):
     def _start_slideshow(self):
         if not self.images:
             return
+
+        # Apply class mode timers if active
+        if self.radio_class.isChecked() and self._class_groups:
+            timers = groups_to_timers(self._class_groups)
+            for i, img in enumerate(self.images):
+                if i < len(timers):
+                    img.timer = timers[i]
+                else:
+                    img.timer = timers[-1] if timers else 300
+
         settings = {
             "order": "random" if self.random_cb.isChecked() else "sequential",
             "topmost": self.topmost_cb.isChecked(),

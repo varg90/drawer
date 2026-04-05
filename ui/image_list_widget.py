@@ -12,7 +12,7 @@ class ImageListWidget(QListWidget):
         super().__init__(parent)
         self.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.setStyleSheet("""
             QListWidget { background-color: #2b2b3d; border: none; border-radius: 6px; }
             QListWidget::item { padding: 4px; }
@@ -77,10 +77,11 @@ class ImageListWidget(QListWidget):
             self._rebuild()
             self.setCurrentRow(row + 1)
 
-    def delete_current(self):
-        row = self.currentRow()
-        if 0 <= row < len(self._images):
-            self._images.pop(row)
-            self._rebuild()
-            if self._images:
-                self.setCurrentRow(min(row, len(self._images) - 1))
+    def delete_selected(self):
+        rows = sorted([idx.row() for idx in self.selectedIndexes()], reverse=True)
+        for row in rows:
+            if 0 <= row < len(self._images):
+                self._images.pop(row)
+        self._rebuild()
+        if self._images:
+            self.setCurrentRow(min(rows[-1] if rows else 0, len(self._images) - 1))

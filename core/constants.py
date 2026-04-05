@@ -11,3 +11,35 @@ TIMER_PRESETS = [
 
 TIMER_MIN = 1
 TIMER_MAX = 10800
+
+SESSION_PRESETS = [
+    (600, "10 мин"),
+    (1800, "30 мин"),
+    (3600, "1 час"),
+    (5400, "1.5 часа"),
+    (7200, "2 часа"),
+    (10800, "3 часа"),
+]
+
+# Auto class-mode distributions: list of (timer_seconds, label) groups
+# Pattern: warm-up short poses → medium → long
+CLASS_MODE_TEMPLATES = {
+    "short": [
+        (30, "30 сек"),
+        (60, "1 мин"),
+        (120, "2 мин"),
+    ],
+    "medium": [
+        (30, "30 сек"),
+        (60, "1 мин"),
+        (120, "2 мин"),
+        (300, "5 мин"),
+    ],
+    "long": [
+        (30, "30 сек"),
+        (60, "1 мин"),
+        (120, "2 мин"),
+        (300, "5 мин"),
+        (600, "10 мин"),
+    ],
+}
