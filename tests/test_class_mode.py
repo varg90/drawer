@@ -6,7 +6,8 @@ from core.class_mode import auto_distribute, groups_to_timers, total_duration, f
 def test_auto_distribute_basic():
     groups = auto_distribute(10, 600)  # 10 images, 10 min
     assert len(groups) > 0
-    assert sum(c for c, _ in groups) == 10  # all images used
+    assert sum(c for c, _ in groups) <= 10
+    assert sum(c for c, _ in groups) > 0
 
 
 def test_auto_distribute_fits_time():
@@ -16,13 +17,20 @@ def test_auto_distribute_fits_time():
 
 def test_auto_distribute_long_session():
     groups = auto_distribute(20, 3600)  # 20 images, 1 hour
-    assert sum(c for c, _ in groups) == 20
+    assert sum(c for c, _ in groups) <= 20
     assert total_duration(groups) <= 3600
 
 
 def test_auto_distribute_very_long():
     groups = auto_distribute(30, 10800)  # 30 images, 3 hours
-    assert sum(c for c, _ in groups) == 30
+    assert sum(c for c, _ in groups) <= 30
+    assert total_duration(groups) <= 10800
+
+
+def test_auto_distribute_plenty_of_time():
+    # With enough time, all images should be used
+    groups = auto_distribute(5, 3600)  # 5 images, 1 hour — plenty
+    assert sum(c for c, _ in groups) == 5
 
 
 def test_auto_distribute_single_image():

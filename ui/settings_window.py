@@ -126,8 +126,9 @@ class SettingsWindow(QMainWindow):
         manual_row.addWidget(self.group_count)
         manual_row.addWidget(QLabel("×"))
         self.group_timer_combo = QComboBox()
-        for secs, label in [(30, "30 сек"), (60, "1 мин"), (120, "2 мин"),
-                             (300, "5 мин"), (600, "10 мин"), (900, "15 мин")]:
+        for secs, label in [(30, "30 сек"), (60, "1 мин"), (180, "3 мин"),
+                             (300, "5 мин"), (600, "10 мин"), (900, "15 мин"),
+                             (1800, "30 мин"), (3600, "1 час")]:
             self.group_timer_combo.addItem(label, secs)
         manual_row.addWidget(self.group_timer_combo)
         add_group_btn = QPushButton("+")

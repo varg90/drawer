@@ -38,27 +38,27 @@ def auto_distribute(num_images, total_seconds):
             break
 
         if i == num_tiers - 1:
-            # Last tier gets all remaining images
             count = remaining_images
         else:
             count = max(1, round(num_images * weights[i] / total_weight))
             count = min(count, remaining_images)
 
-        # Check if this group fits in remaining time
-        group_time = count * tier_time
-        if group_time > remaining_time:
-            count = max(1, remaining_time // tier_time)
-            if count == 0:
-                break
+        # Ensure group fits in remaining time
+        max_by_time = remaining_time // tier_time
+        if max_by_time <= 0:
+            break
+        count = min(count, max_by_time)
 
         groups.append((count, tier_time))
         remaining_images -= count
         remaining_time -= count * tier_time
 
-    # If images remain, add them to the last tier
+    # If images remain, add as many as time allows to the last tier
     if remaining_images > 0 and groups:
         last_count, last_time = groups[-1]
-        groups[-1] = (last_count + remaining_images, last_time)
+        extra = min(remaining_images, remaining_time // last_time)
+        if extra > 0:
+            groups[-1] = (last_count + extra, last_time)
 
     return groups
 
