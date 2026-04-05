@@ -1,13 +1,20 @@
 import customtkinter as ctk
 import os
+import sys
 import json
 import random
 import logging
 from tkinter import filedialog, BooleanVar
 from PIL import Image, ImageTk
 
+# Resolve app directory (works both as .py and as .exe)
+if getattr(sys, "frozen", False):
+    APP_DIR = os.path.dirname(sys.executable)
+else:
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Logging setup
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.log")
+LOG_FILE = os.path.join(APP_DIR, "app.log")
 logging.basicConfig(
     filename=LOG_FILE, level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -29,7 +36,7 @@ TIMER_PRESETS = [
 TIMER_MIN = 1        # 1 second
 TIMER_MAX = 10800    # 3 hours
 
-SESSION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "session.json")
+SESSION_FILE = os.path.join(APP_DIR, "session.json")
 
 
 def format_time(s):
