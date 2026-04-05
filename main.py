@@ -39,6 +39,20 @@ TIMER_MAX = 10800    # 3 hours
 SESSION_FILE = os.path.join(APP_DIR, "session.json")
 
 
+def auto_warn_seconds(timer_seconds):
+    """Calculate warning time based on timer duration."""
+    if timer_seconds <= 120:       # up to 2 min
+        return 10
+    elif timer_seconds <= 300:     # 2:01 — 5 min
+        return 30
+    elif timer_seconds <= 900:     # 5:01 — 15 min
+        return 60
+    elif timer_seconds <= 3600:    # 15:01 — 1 hour
+        return 300
+    else:                          # 1:00:01 — 3 hours
+        return 600
+
+
 def format_time(s):
     """Format seconds into human-readable time string."""
     if s >= 3600:
@@ -304,9 +318,14 @@ class ViewerWindow(ctk.CTkToplevel):
         if not hasattr(self, "timer_label"):
             return
         s = self._countdown_remaining
-        warn_on = self.settings.get("warn_enabled", False)
-        warn_secs = self.settings.get("warn_seconds", 10)
-        is_warning = warn_on and self.is_playing and s <= warn_secs
+        # Auto warning based on timer duration, or custom override
+        idx = self.play_order[self.order_position]
+        total_timer = self.all_images[idx]["timer"]
+        if self.settings.get("warn_enabled", False):
+            warn_secs = self.settings.get("warn_seconds", 10)
+        else:
+            warn_secs = auto_warn_seconds(total_timer)
+        is_warning = self.is_playing and s <= warn_secs
 
         # Nav bar timer
         if not self.is_playing:
@@ -722,7 +741,7 @@ class SettingsWindow(ctk.CTk):
         warn_frame.pack(fill="x", padx=8, pady=(0, 6))
 
         self.warn_enabled_var = BooleanVar(value=False)
-        ctk.CTkCheckBox(warn_frame, text="Предупреждение за",
+        ctk.CTkCheckBox(warn_frame, text="Своё предупреждение за",
                         variable=self.warn_enabled_var).pack(side="left")
 
         self.warn_mins_var = ctk.StringVar(value="0")

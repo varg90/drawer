@@ -6,8 +6,8 @@ import json
 import tempfile
 from main import (
     validate_timer_seconds, filter_image_files, save_session, load_session,
-    format_time, SUPPORTED_FORMATS, TIMER_PRESETS, TIMER_MIN, TIMER_MAX,
-    SESSION_FILE,
+    format_time, auto_warn_seconds, SUPPORTED_FORMATS, TIMER_PRESETS,
+    TIMER_MIN, TIMER_MAX, SESSION_FILE,
 )
 
 
@@ -243,3 +243,48 @@ def test_save_session_large_image_list():
     loaded = load_session(path)
     assert len(loaded["images"]) == 1000
     os.unlink(path)
+
+
+# --- auto_warn_seconds ---
+
+def test_auto_warn_up_to_2min():
+    assert auto_warn_seconds(1) == 10
+    assert auto_warn_seconds(30) == 10
+    assert auto_warn_seconds(60) == 10
+    assert auto_warn_seconds(120) == 10
+
+
+def test_auto_warn_2min_to_5min():
+    assert auto_warn_seconds(121) == 30
+    assert auto_warn_seconds(180) == 30
+    assert auto_warn_seconds(300) == 30
+
+
+def test_auto_warn_5min_to_15min():
+    assert auto_warn_seconds(301) == 60
+    assert auto_warn_seconds(600) == 60
+    assert auto_warn_seconds(900) == 60
+
+
+def test_auto_warn_15min_to_1hour():
+    assert auto_warn_seconds(901) == 300
+    assert auto_warn_seconds(1800) == 300
+    assert auto_warn_seconds(3600) == 300
+
+
+def test_auto_warn_1hour_to_3hours():
+    assert auto_warn_seconds(3601) == 600
+    assert auto_warn_seconds(7200) == 600
+    assert auto_warn_seconds(10800) == 600
+
+
+def test_auto_warn_boundaries():
+    # Exact boundary values
+    assert auto_warn_seconds(120) == 10    # 2 min exactly -> up to 2 min
+    assert auto_warn_seconds(121) == 30    # 2:01 -> next tier
+    assert auto_warn_seconds(300) == 30    # 5 min exactly
+    assert auto_warn_seconds(301) == 60    # 5:01
+    assert auto_warn_seconds(900) == 60    # 15 min exactly
+    assert auto_warn_seconds(901) == 300   # 15:01
+    assert auto_warn_seconds(3600) == 300  # 1 hour exactly
+    assert auto_warn_seconds(3601) == 600  # 1:00:01
