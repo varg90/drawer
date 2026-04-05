@@ -13,7 +13,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%H:%M:%S", encoding="utf-8"
 )
-log = logging.getLogger("slideshow")
+log = logging.getLogger("refbot")
 
 SUPPORTED_FORMATS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
 
@@ -74,7 +74,7 @@ def load_session(path=None):
 class ViewerWindow(ctk.CTkToplevel):
     def __init__(self, master, images, settings):
         super().__init__(master)
-        self.title("Slideshow")
+        self.title("RefBot")
         self.configure(fg_color="#000000", bg="#000000")
         self.overrideredirect(True)  # Borderless window
         self.geometry("800x600")
@@ -478,7 +478,7 @@ class SettingsWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
         # Enable drag-and-drop
-        self.title("Slideshow — Настройки")
+        self.title("RefBot — Настройки")
         self.geometry("500x700")
         self.minsize(400, 500)
         ctk.set_appearance_mode("dark")
@@ -984,7 +984,7 @@ class SettingsWindow(ctk.CTk):
             "warn_enabled": self.warn_enabled_var.get(),
             "warn_seconds": max(1, warn_secs),
         }
-        log.info(f"Starting slideshow: {len(self.images)} images, settings={settings}")
+        log.info(f"Starting refbot: {len(self.images)} images, settings={settings}")
         self.viewer = ViewerWindow(self, self.images, settings)
         self.withdraw()  # Hide settings window
 
