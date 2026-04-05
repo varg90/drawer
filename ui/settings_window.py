@@ -368,11 +368,15 @@ class SettingsWindow(QMainWindow):
             lines.append(prefix + format_group(c, t))
         self.groups_list.setText("\n".join(lines))
         total = total_duration(self._class_groups)
-        total_images = sum(c for c, _ in self._class_groups)
+        used_images = sum(c for c, _ in self._class_groups)
+        all_images = len(self.images) if self.images else 0
         total_secs = self.session_combo.currentData()
         from core.timer_logic import format_time
-        self.class_info.setText(
-            f"Всего: {total_images} картинок, {format_time(total)} / {format_time(total_secs)}")
+        info = f"Картинок: {used_images}"
+        if all_images > used_images:
+            info += f" из {all_images}"
+        info += f" | Время: {format_time(total)} / {format_time(total_secs)}"
+        self.class_info.setText(info)
 
     def _on_preset_changed(self, index):
         pass  # Timer applied on start
@@ -462,21 +466,23 @@ class SettingsWindow(QMainWindow):
         if not self.images:
             return
 
-        # Apply class mode timers if active
+        # Apply class mode timers if active — only use images that fit
+        show_images = self.images
         if self.radio_class.isChecked() and self._class_groups:
             timers = groups_to_timers(self._class_groups)
+            show_images = []
             for i, img in enumerate(self.images):
                 if i < len(timers):
                     img.timer = timers[i]
-                else:
-                    img.timer = timers[-1] if timers else 300
+                    show_images.append(img)
+                # Images beyond the timer list are skipped
 
         settings = {
             "order": "random" if self.random_cb.isChecked() else "sequential",
             "topmost": self.topmost_cb.isChecked(),
         }
         from ui.viewer_window import ViewerWindow
-        self.viewer = ViewerWindow(self.images, settings, on_close=self._on_viewer_closed)
+        self.viewer = ViewerWindow(show_images, settings, on_close=self._on_viewer_closed)
         self.viewer.show()
         self.hide()
 
