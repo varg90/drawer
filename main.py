@@ -6,6 +6,7 @@ import ctypes
 import ctypes.wintypes
 from tkinter import filedialog, BooleanVar
 from PIL import Image, ImageTk
+import tkinterdnd2
 
 # Windows API constants for WM_SIZING
 WM_SIZING = 0x0214
@@ -98,7 +99,7 @@ class ViewerWindow(ctk.CTkToplevel):
 
         self.master_app = master
         self.all_images = images  # list of {"path": str, "timer": int}
-        self.settings = settings  # dict with order, loop, fit_window, lock_aspect, topmost
+        self.settings = settings  # dict with order, fit_window, lock_aspect, topmost
         self.is_playing = True
         self.timer_id = None
         self.current_aspect = None
@@ -307,32 +308,49 @@ class ViewerWindow(ctk.CTkToplevel):
         self._update_timer_label()
         self._countdown_timer_id = self.after(1000, self._start_countdown)
 
+    def _format_time(self, s):
+        if s >= 3600:
+            return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
+        elif s >= 60:
+            return f"{s // 60}:{s % 60:02d}"
+        else:
+            return f"0:{s:02d}"
+
     def _update_timer_label(self):
-        """Update the timer display in the nav bar."""
+        """Update the timer display in the nav bar and warning overlay."""
         if not hasattr(self, "timer_label"):
             return
         s = self._countdown_remaining
+        warn_on = self.settings.get("warn_enabled", False)
+        warn_secs = self.settings.get("warn_seconds", 10)
+        is_warning = warn_on and self.is_playing and s <= warn_secs
+
+        # Nav bar timer
         if not self.is_playing:
-            self.timer_label.configure(text="⏸")
-        elif s >= 3600:
-            self.timer_label.configure(text=f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}")
-        elif s >= 60:
-            self.timer_label.configure(text=f"{s // 60}:{s % 60:02d}")
+            self.timer_label.configure(text="⏸", text_color="#aaaaaa")
         else:
-            self.timer_label.configure(text=f"0:{s:02d}")
+            color = "#ff3333" if is_warning else "#aaaaaa"
+            self.timer_label.configure(text=self._format_time(s), text_color=color)
+
+        # Warning overlay on canvas
+        self.image_canvas.delete("warning_timer")
+        if is_warning and self.is_playing:
+            canvas_w = self.image_canvas.winfo_width()
+            canvas_h = self.image_canvas.winfo_height()
+            font_size = max(16, min(48, int(min(canvas_w, canvas_h) * 0.08)))
+            self.image_canvas.create_text(
+                canvas_w // 2, canvas_h - 30,
+                text=self._format_time(s),
+                fill="#ff3333", font=("", font_size, "bold"),
+                tags="warning_timer"
+            )
 
     def _advance(self):
         self.order_position += 1
         if self.order_position >= len(self.play_order):
-            if self.settings["loop"]:
-                self.order_position = 0
-                if self.settings["order"] == "random":
-                    random.shuffle(self.play_order)
-            else:
-                self.order_position = len(self.play_order) - 1
-                self.is_playing = False
-                self.play_btn.configure(text="▶")
-                return
+            # End of list — close viewer and open settings
+            self._on_close()
+            return
         self._show_current_image()
         self._schedule_next()
 
@@ -545,8 +563,11 @@ class ViewerWindow(ctk.CTkToplevel):
 class SettingsWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
+        # Enable drag-and-drop
+        self._init_dnd()
         self.title("Slideshow — Настройки")
         self.geometry("500x700")
+        self.minsize(400, 500)
         ctk.set_appearance_mode("dark")
 
         self.images = []
@@ -562,6 +583,60 @@ class SettingsWindow(ctk.CTk):
         self._build_ui()
         self.after(100, self._show_window)
 
+
+    def _init_dnd(self):
+        """Initialize drag-and-drop file support."""
+        try:
+            tkdnd_path = os.path.join(os.path.dirname(tkinterdnd2.__file__), "tkdnd", "win-x64")
+            self.tk.call("lappend", "auto_path", tkdnd_path)
+            self.tk.call("package", "require", "tkdnd")
+            self.tk.call("tkdnd::drop_target", "register", self._w, "DND_Files")
+            self.bind("<<Drop:DND_Files>>", self._on_drop)
+        except Exception:
+            pass  # DnD not available, buttons still work
+
+    def _on_drop(self, event):
+        """Handle files dropped onto the window."""
+        # Parse dropped file paths (may be space-separated, braces around paths with spaces)
+        raw = event.data
+        paths = []
+        i = 0
+        while i < len(raw):
+            if raw[i] == "{":
+                end = raw.index("}", i)
+                paths.append(raw[i + 1:end])
+                i = end + 2
+            elif raw[i] == " ":
+                i += 1
+            else:
+                end = raw.find(" ", i)
+                if end == -1:
+                    end = len(raw)
+                paths.append(raw[i:end])
+                i = end + 1
+
+        existing = {img["path"] for img in self.images}
+        added = False
+        for p in paths:
+            if os.path.isdir(p):
+                # Dropped a folder
+                all_files = [os.path.join(p, f) for f in os.listdir(p)]
+                for img_path in filter_image_files(all_files):
+                    if img_path not in existing:
+                        self.images.append({"path": img_path, "timer": 300})
+                        existing.add(img_path)
+                        added = True
+            elif os.path.isfile(p) and os.path.splitext(p)[1].lower() in SUPPORTED_FORMATS:
+                if p not in existing:
+                    self.images.append({"path": p, "timer": 300})
+                    existing.add(p)
+                    added = True
+        if added:
+            self._refresh_image_list()
+            # Auto-expand image list if collapsed
+            if self._images_collapsed:
+                self._toggle_image_list()
+
     def _show_window(self):
         self.deiconify()  # Show window after layout is ready
         self._check_restore_session()
@@ -573,10 +648,12 @@ class SettingsWindow(ctk.CTk):
             "uniform_timer": 300,
             "order": self.order_var.get(),
             "always_on_top": self.topmost_var.get(),
-            "loop": self.loop_var.get(),
             "fit_window": self.fit_window_var.get(),
             "lock_aspect": self.lock_aspect_var.get(),
             "show_filename": self.show_filename_var.get(),
+            "warn_enabled": self.warn_enabled_var.get(),
+            "warn_mins": self.warn_mins_var.get(),
+            "warn_secs": self.warn_secs_var.get(),
             "window_x": self.winfo_x(),
             "window_y": self.winfo_y(),
             "window_w": self.winfo_width(),
@@ -621,12 +698,18 @@ class SettingsWindow(ctk.CTk):
     def _apply_session(self, data):
         self.images = [img for img in data.get("images", []) if os.path.exists(img["path"])]
         self._refresh_image_list()
+        # Collapse image list on restore
+        if not self._images_collapsed:
+            self._toggle_image_list()
         self.timer_mode_var.set(data.get("timer_mode", "uniform"))
         self.order_var.set(data.get("order", "sequential"))
+        self.random_order_var.set(self.order_var.get() == "random")
         self.topmost_var.set(data.get("always_on_top", False))
-        self.loop_var.set(data.get("loop", True))
         # fit_window and lock_aspect are always True now
         self.show_filename_var.set(data.get("show_filename", False))
+        self.warn_enabled_var.set(data.get("warn_enabled", False))
+        self.warn_mins_var.set(data.get("warn_mins", "0"))
+        self.warn_secs_var.set(data.get("warn_secs", "10"))
         x = data.get("window_x", 100)
         y = data.get("window_y", 100)
         w = data.get("window_w", 500)
@@ -634,12 +717,30 @@ class SettingsWindow(ctk.CTk):
         self.geometry(f"{w}x{h}+{x}+{y}")
 
     def _build_ui(self):
-        # Header frame with label and add buttons
-        header_frame = ctk.CTkFrame(self)
+        # Start button fixed at bottom (pack first with side="bottom")
+        ctk.CTkButton(
+            self, text="▶  Старт", height=40,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            command=self._start_slideshow
+        ).pack(fill="x", padx=10, pady=(5, 10), side="bottom")
+
+        # Scrollable content area
+        self._content = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self._content.pack(fill="both", expand=True, padx=0, pady=0)
+
+        # Header frame with label, collapse toggle, and add buttons
+        header_frame = ctk.CTkFrame(self._content)
         header_frame.pack(fill="x", padx=10, pady=(10, 5))
 
+        self._images_collapsed = False
+        self._collapse_btn = ctk.CTkButton(
+            header_frame, text="▼", width=30, fg_color="transparent",
+            hover_color="#444", command=self._toggle_image_list
+        )
+        self._collapse_btn.pack(side="left", padx=(4, 0), pady=6)
+
         ctk.CTkLabel(header_frame, text="Картинки", font=ctk.CTkFont(size=14, weight="bold")).pack(
-            side="left", padx=8, pady=6
+            side="left", padx=4, pady=6
         )
 
         ctk.CTkButton(
@@ -650,124 +751,109 @@ class SettingsWindow(ctk.CTk):
             header_frame, text="+ Файлы", width=80, command=self._add_files
         ).pack(side="right", padx=4, pady=6)
 
-        # Scrollable image list frame
-        self.image_list_frame = ctk.CTkScrollableFrame(self, height=200)
-        self.image_list_frame.pack(fill="both", expand=True, padx=10, pady=(0, 5))
-
-        # Show filename checkbox
+        # Show filename checkbox (in header, smaller)
         self.show_filename_var = BooleanVar(value=False)
         ctk.CTkCheckBox(
-            self, text="Отображать имя файла", variable=self.show_filename_var,
-            command=self._on_show_filename_changed
-        ).pack(anchor="w", padx=20, pady=(0, 5))
+            header_frame, text="Имя файла", variable=self.show_filename_var,
+            command=self._on_show_filename_changed,
+            checkbox_width=16, checkbox_height=16, font=ctk.CTkFont(size=11)
+        ).pack(side="left", padx=8, pady=6)
 
-        # --- Timer Mode section ---
-        timer_mode_frame = ctk.CTkFrame(self)
-        timer_mode_frame.pack(fill="x", padx=10, pady=(5, 2))
-
-        ctk.CTkLabel(
-            timer_mode_frame, text="Режим таймера", font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(anchor="w", padx=8, pady=(6, 2))
-
-        self.timer_mode_var = ctk.StringVar(value="uniform")
-
-        ctk.CTkRadioButton(
-            timer_mode_frame, text="Одинаковый для всех",
-            variable=self.timer_mode_var, value="uniform"
-        ).pack(anchor="w", padx=20, pady=2)
-
-        ctk.CTkRadioButton(
-            timer_mode_frame, text="Индивидуальный",
-            variable=self.timer_mode_var, value="individual"
-        ).pack(anchor="w", padx=20, pady=(2, 6))
+        # Image list frame (collapsible)
+        self.image_list_frame = ctk.CTkFrame(self._content)
+        self.image_list_frame.pack(fill="x", padx=10, pady=(0, 5))
 
         # --- Timer Selection section ---
-        timer_sel_frame = ctk.CTkFrame(self)
+        timer_sel_frame = ctk.CTkFrame(self._content)
         timer_sel_frame.pack(fill="x", padx=10, pady=(2, 5))
 
         ctk.CTkLabel(
             timer_sel_frame, text="Таймер", font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(anchor="w", padx=8, pady=(6, 4))
+        ).pack(anchor="w", padx=8, pady=(6, 2))
 
-        # Preset buttons row
-        presets_row = ctk.CTkFrame(timer_sel_frame, fg_color="transparent")
-        presets_row.pack(fill="x", padx=8, pady=(0, 4))
+        # Timer mode
+        self.timer_mode_var = ctk.StringVar(value="uniform")
+        mode_row = ctk.CTkFrame(timer_sel_frame, fg_color="transparent")
+        mode_row.pack(fill="x", padx=8, pady=(0, 4))
+        ctk.CTkRadioButton(
+            mode_row, text="Стандартный",
+            variable=self.timer_mode_var, value="uniform"
+        ).pack(side="left", padx=(0, 10))
+        ctk.CTkRadioButton(
+            mode_row, text="Настраиваемый",
+            variable=self.timer_mode_var, value="individual"
+        ).pack(side="left")
 
-        for seconds, label in TIMER_PRESETS:
-            ctk.CTkButton(
-                presets_row, text=label, width=65,
-                command=lambda s=seconds: self._set_timer(s)
-            ).pack(side="left", padx=2)
+        # Preset dropdown
+        self._preset_row = ctk.CTkFrame(timer_sel_frame, fg_color="transparent")
+        self._preset_row.pack(fill="x", padx=8, pady=(0, 4))
 
-        # Custom time input row
-        custom_row = ctk.CTkFrame(timer_sel_frame, fg_color="transparent")
-        custom_row.pack(fill="x", padx=8, pady=(0, 4))
+        preset_labels = [label for _, label in TIMER_PRESETS] + ["Своё время..."]
+        self._preset_map = {label: seconds for seconds, label in TIMER_PRESETS}
+        self.preset_var = ctk.StringVar(value=preset_labels[1])  # default "5 мин"
+        ctk.CTkOptionMenu(
+            self._preset_row, variable=self.preset_var, values=preset_labels,
+            command=self._on_preset_selected, width=140
+        ).pack(side="left")
 
-        ctk.CTkLabel(custom_row, text="Своё время:").pack(side="left", padx=(0, 6))
+        # Custom time input row (hidden by default, shown when "Своё время..." selected)
+        self.custom_row = ctk.CTkFrame(timer_sel_frame, fg_color="transparent")
 
         self.hours_var = ctk.StringVar(value="0")
         self.mins_var = ctk.StringVar(value="5")
         self.secs_var = ctk.StringVar(value="0")
 
-        ctk.CTkEntry(custom_row, textvariable=self.hours_var, width=45, justify="center").pack(side="left")
-        ctk.CTkLabel(custom_row, text="ч").pack(side="left", padx=(2, 6))
+        ctk.CTkEntry(self.custom_row, textvariable=self.hours_var, width=45, justify="center").pack(side="left")
+        ctk.CTkLabel(self.custom_row, text="ч").pack(side="left", padx=(2, 6))
 
-        ctk.CTkEntry(custom_row, textvariable=self.mins_var, width=45, justify="center").pack(side="left")
-        ctk.CTkLabel(custom_row, text="мин").pack(side="left", padx=(2, 6))
+        ctk.CTkEntry(self.custom_row, textvariable=self.mins_var, width=45, justify="center").pack(side="left")
+        ctk.CTkLabel(self.custom_row, text="мин").pack(side="left", padx=(2, 6))
 
-        ctk.CTkEntry(custom_row, textvariable=self.secs_var, width=45, justify="center").pack(side="left")
-        ctk.CTkLabel(custom_row, text="сек").pack(side="left", padx=(2, 6))
+        ctk.CTkEntry(self.custom_row, textvariable=self.secs_var, width=45, justify="center").pack(side="left")
+        ctk.CTkLabel(self.custom_row, text="сек").pack(side="left", padx=(2, 6))
 
-        ctk.CTkButton(custom_row, text="OK", width=40, command=self._apply_custom_timer).pack(side="left", padx=4)
+        ctk.CTkButton(self.custom_row, text="OK", width=40, command=self._apply_custom_timer).pack(side="left", padx=4)
 
-        # Hint label
-        ctk.CTkLabel(
-            timer_sel_frame, text="от 1 секунды до 3 часов",
-            text_color="gray"
-        ).pack(anchor="w", padx=8, pady=(0, 6))
+        ctk.CTkLabel(self.custom_row, text="(1сек — 3ч)", text_color="gray",
+                     font=ctk.CTkFont(size=11)).pack(side="left", padx=4)
 
-        # --- Display Order section ---
-        order_frame = ctk.CTkFrame(self)
-        order_frame.pack(fill="x", padx=10, pady=(2, 5))
+        # --- Timer Warning section ---
+        warn_frame = ctk.CTkFrame(timer_sel_frame, fg_color="transparent")
+        warn_frame.pack(fill="x", padx=8, pady=(0, 6))
 
-        ctk.CTkLabel(
-            order_frame, text="Порядок показа", font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(anchor="w", padx=8, pady=(6, 2))
+        self.warn_enabled_var = BooleanVar(value=False)
+        ctk.CTkCheckBox(warn_frame, text="Предупреждение за",
+                        variable=self.warn_enabled_var).pack(side="left")
 
-        self.order_var = ctk.StringVar(value="sequential")
+        self.warn_mins_var = ctk.StringVar(value="0")
+        ctk.CTkEntry(warn_frame, textvariable=self.warn_mins_var,
+                     width=45, justify="center").pack(side="left", padx=4)
+        ctk.CTkLabel(warn_frame, text="мин").pack(side="left", padx=(0, 4))
 
-        ctk.CTkRadioButton(
-            order_frame, text="По списку",
-            variable=self.order_var, value="sequential"
-        ).pack(anchor="w", padx=20, pady=2)
-
-        ctk.CTkRadioButton(
-            order_frame, text="Случайный",
-            variable=self.order_var, value="random"
-        ).pack(anchor="w", padx=20, pady=(2, 6))
+        self.warn_secs_var = ctk.StringVar(value="10")
+        ctk.CTkEntry(warn_frame, textvariable=self.warn_secs_var,
+                     width=45, justify="center").pack(side="left", padx=4)
+        ctk.CTkLabel(warn_frame, text="сек до конца").pack(side="left")
 
         # --- Options section ---
-        options_frame = ctk.CTkFrame(self)
+        self.order_var = ctk.StringVar(value="sequential")
+        options_frame = ctk.CTkFrame(self._content)
         options_frame.pack(fill="x", padx=10, pady=(2, 5))
 
         self.topmost_var = BooleanVar(value=False)
-        self.loop_var = BooleanVar(value=True)
+        self.random_order_var = BooleanVar(value=False)
         self.fit_window_var = BooleanVar(value=True)  # Always on
         self.lock_aspect_var = BooleanVar(value=True)  # Always on
 
-        ctk.CTkCheckBox(options_frame, text="Поверх всех окон", variable=self.topmost_var).pack(
+        ctk.CTkCheckBox(options_frame, text="Случайный порядок", variable=self.random_order_var,
+                        command=self._on_random_order_changed).pack(
             anchor="w", padx=20, pady=(6, 2)
         )
-        ctk.CTkCheckBox(options_frame, text="Зациклить показ", variable=self.loop_var).pack(
+        ctk.CTkCheckBox(options_frame, text="Поверх всех окон", variable=self.topmost_var).pack(
             anchor="w", padx=20, pady=(2, 6)
         )
 
-        # --- Start button ---
-        ctk.CTkButton(
-            self, text="▶  Старт", height=40,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            command=self._start_slideshow
-        ).pack(fill="x", padx=10, pady=(5, 10))
+        # Start button is packed at the bottom in _build_ui (at the top of the method)
 
     def _make_thumbnail(self, path):
         """Generate 48x48 CTkImage thumbnail using Pillow, cache in self.thumbnails."""
@@ -887,6 +973,21 @@ class SettingsWindow(ctk.CTk):
         self.selected_index = index
         self._refresh_image_list()
 
+    def _toggle_image_list(self):
+        """Collapse or expand the image list."""
+        self._images_collapsed = not self._images_collapsed
+        if self._images_collapsed:
+            self.image_list_frame.pack_forget()
+            self._collapse_btn.configure(text="▶")
+        else:
+            # Re-pack after header (find header's pack position)
+            self.image_list_frame.pack(fill="x", padx=10, pady=(0, 5),
+                                        after=self._collapse_btn.master)
+            self._collapse_btn.configure(text="▼")
+
+    def _on_random_order_changed(self):
+        self.order_var.set("random" if self.random_order_var.get() else "sequential")
+
     def _on_show_filename_changed(self):
         """Refresh image list to show/hide filenames."""
         self._refresh_image_list()
@@ -925,6 +1026,16 @@ class SettingsWindow(ctk.CTk):
             if dx > 5 or dy > 5:
                 self._drag_moved = True
 
+    def _on_preset_selected(self, label):
+        """Handle preset dropdown selection."""
+        if label == "Своё время...":
+            self.custom_row.pack(fill="x", padx=8, pady=(0, 4), after=self._preset_row)
+        else:
+            self.custom_row.pack_forget()
+            seconds = self._preset_map.get(label)
+            if seconds is not None:
+                self._set_timer(seconds)
+
     def _set_timer(self, seconds):
         """Set timer: all images in uniform mode, or selected image in individual mode."""
         seconds = validate_timer_seconds(seconds)
@@ -939,12 +1050,19 @@ class SettingsWindow(ctk.CTk):
     def _start_slideshow(self):
         if not self.images:
             return
+        try:
+            warn_m = int(self.warn_mins_var.get() or 0)
+            warn_s = int(self.warn_secs_var.get() or 0)
+            warn_secs = warn_m * 60 + warn_s
+        except ValueError:
+            warn_secs = 10
         settings = {
             "order": self.order_var.get(),
-            "loop": self.loop_var.get(),
             "fit_window": self.fit_window_var.get(),
             "lock_aspect": self.lock_aspect_var.get(),
             "topmost": self.topmost_var.get(),
+            "warn_enabled": self.warn_enabled_var.get(),
+            "warn_seconds": max(1, warn_secs),
         }
         self.viewer = ViewerWindow(self, self.images, settings)
         self.withdraw()  # Hide settings window
