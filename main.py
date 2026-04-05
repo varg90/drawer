@@ -238,7 +238,71 @@ class SettingsWindow(ctk.CTk):
         self.selected_index = None
         self.drag_start_index = None
 
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._build_ui()
+        self.after(100, self._check_restore_session)
+
+    def _get_session_data(self):
+        return {
+            "images": self.images,
+            "timer_mode": self.timer_mode_var.get(),
+            "uniform_timer": 300,
+            "order": self.order_var.get(),
+            "always_on_top": self.topmost_var.get(),
+            "loop": self.loop_var.get(),
+            "fit_window": self.fit_window_var.get(),
+            "lock_aspect": self.lock_aspect_var.get(),
+            "window_x": self.winfo_x(),
+            "window_y": self.winfo_y(),
+            "window_w": self.winfo_width(),
+            "window_h": self.winfo_height(),
+        }
+
+    def _on_close(self):
+        save_session(self._get_session_data())
+        self.destroy()
+
+    def _check_restore_session(self):
+        data = load_session()
+        if data is None:
+            return
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Восстановить сессию?")
+        dialog.geometry("350x150")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        ctk.CTkLabel(dialog, text="Восстановить прошлую сессию?",
+                     font=("", 15, "bold")).pack(pady=(20, 10))
+
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(pady=10)
+
+        def restore():
+            self._apply_session(data)
+            dialog.destroy()
+
+        def skip():
+            dialog.destroy()
+
+        ctk.CTkButton(btn_frame, text="Да", width=100, command=restore).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text="Нет", width=100, fg_color="#555", command=skip).pack(side="left", padx=10)
+
+    def _apply_session(self, data):
+        self.images = [img for img in data.get("images", []) if os.path.exists(img["path"])]
+        self._refresh_image_list()
+        self.timer_mode_var.set(data.get("timer_mode", "uniform"))
+        self.order_var.set(data.get("order", "sequential"))
+        self.topmost_var.set(data.get("always_on_top", False))
+        self.loop_var.set(data.get("loop", True))
+        self.fit_window_var.set(data.get("fit_window", True))
+        self.lock_aspect_var.set(data.get("lock_aspect", False))
+        x = data.get("window_x", 100)
+        y = data.get("window_y", 100)
+        w = data.get("window_w", 500)
+        h = data.get("window_h", 700)
+        self.geometry(f"{w}x{h}+{x}+{y}")
 
     def _build_ui(self):
         # Header frame with label and add buttons
