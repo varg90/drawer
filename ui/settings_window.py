@@ -297,7 +297,10 @@ class SettingsWindow(QMainWindow):
         else:
             auto_groups = []
 
-        self._class_groups = self._manual_groups + auto_groups
+        combined = self._manual_groups + auto_groups
+        # Sort by timer ascending — session goes from short to long
+        combined.sort(key=lambda g: g[1])
+        self._class_groups = combined
         self._update_class_display()
 
     def _add_manual_group(self):
@@ -323,9 +326,14 @@ class SettingsWindow(QMainWindow):
             self.class_info.setText("")
             return
         lines = []
-        manual_count = len(self._manual_groups)
-        for i, (c, t) in enumerate(self._class_groups):
-            prefix = "✋ " if i < manual_count else "🤖 "
+        manual_set = set((c, t) for c, t in self._manual_groups)
+        manual_used = []
+        for c, t in self._class_groups:
+            if (c, t) in manual_set and (c, t) not in manual_used:
+                prefix = "✋ "
+                manual_used.append((c, t))
+            else:
+                prefix = "🤖 "
             lines.append(prefix + format_group(c, t))
         self.groups_list.setText("\n".join(lines))
         total = total_duration(self._class_groups)
