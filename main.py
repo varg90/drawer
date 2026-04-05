@@ -1,7 +1,7 @@
 import customtkinter as ctk
 import os
 import json
-from tkinter import filedialog
+from tkinter import filedialog, BooleanVar
 from PIL import Image, ImageTk
 
 SUPPORTED_FORMATS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
@@ -150,6 +150,55 @@ class SettingsWindow(ctk.CTk):
             text_color="gray"
         ).pack(anchor="w", padx=8, pady=(0, 6))
 
+        # --- Display Order section ---
+        order_frame = ctk.CTkFrame(self)
+        order_frame.pack(fill="x", padx=10, pady=(2, 5))
+
+        ctk.CTkLabel(
+            order_frame, text="Порядок показа", font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(anchor="w", padx=8, pady=(6, 2))
+
+        self.order_var = ctk.StringVar(value="sequential")
+
+        ctk.CTkRadioButton(
+            order_frame, text="По списку",
+            variable=self.order_var, value="sequential"
+        ).pack(anchor="w", padx=20, pady=2)
+
+        ctk.CTkRadioButton(
+            order_frame, text="Случайный",
+            variable=self.order_var, value="random"
+        ).pack(anchor="w", padx=20, pady=(2, 6))
+
+        # --- Options section ---
+        options_frame = ctk.CTkFrame(self)
+        options_frame.pack(fill="x", padx=10, pady=(2, 5))
+
+        self.topmost_var = BooleanVar(value=False)
+        self.loop_var = BooleanVar(value=True)
+        self.fit_window_var = BooleanVar(value=True)
+        self.lock_aspect_var = BooleanVar(value=False)
+
+        ctk.CTkCheckBox(options_frame, text="Поверх всех окон", variable=self.topmost_var).pack(
+            anchor="w", padx=20, pady=(6, 2)
+        )
+        ctk.CTkCheckBox(options_frame, text="Зациклить показ", variable=self.loop_var).pack(
+            anchor="w", padx=20, pady=2
+        )
+        ctk.CTkCheckBox(
+            options_frame, text="Подстраивать окно под картинку", variable=self.fit_window_var
+        ).pack(anchor="w", padx=20, pady=2)
+        ctk.CTkCheckBox(
+            options_frame, text="Сохранять пропорции окна", variable=self.lock_aspect_var
+        ).pack(anchor="w", padx=20, pady=(2, 6))
+
+        # --- Start button ---
+        ctk.CTkButton(
+            self, text="▶  Старт", height=40,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            command=self._start_slideshow
+        ).pack(fill="x", padx=10, pady=(5, 10))
+
     def _make_thumbnail(self, path):
         """Generate 48x48 CTkImage thumbnail using Pillow, cache in self.thumbnails."""
         if path in self.thumbnails:
@@ -281,6 +330,11 @@ class SettingsWindow(ctk.CTk):
             if self.selected_index is not None and 0 <= self.selected_index < len(self.images):
                 self.images[self.selected_index]["timer"] = seconds
         self._refresh_image_list()
+
+    def _start_slideshow(self):
+        if not self.images:
+            return
+        pass  # Will be implemented in Task 7
 
     def _apply_custom_timer(self):
         """Parse h/m/s entry fields and apply the resulting timer value."""
