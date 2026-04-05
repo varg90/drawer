@@ -509,6 +509,7 @@ class SettingsWindow(ctk.CTk):
         self.images = []
         self.thumbnails = {}
         self.selected_index = None
+        self._rows = []
         self.drag_start_index = None
         self._drag_moved = False
         self._drag_start_x = None
@@ -795,78 +796,13 @@ class SettingsWindow(ctk.CTk):
 
     def _refresh_image_list(self):
         """Destroy all children and rebuild image rows."""
-        # Freeze window updates during rebuild
-        try:
-            self.winfo_toplevel().tk.call("tk", "busy", "hold", self._w)
-        except Exception:
-            pass
         self.image_list_frame.pack_forget()
         for widget in self.image_list_frame.winfo_children():
             widget.destroy()
+        self._rows = []
 
         for i, img_data in enumerate(self.images):
-            path = img_data["path"]
-            bg_color = "#3a3a6a" if i == self.selected_index else None  # None = default
-            row = ctk.CTkFrame(self.image_list_frame, fg_color=bg_color)
-            row.pack(fill="x", pady=2, padx=2)
-            row.img_index = i
-
-            # Number
-            ctk.CTkLabel(row, text=f"{i + 1}.", width=25, text_color="gray").pack(side="left", padx=(4, 0))
-
-            # Thumbnail (preserves aspect ratio)
-            thumb = self._make_thumbnail(path)
-            if thumb is not None:
-                thumb_label = ctk.CTkLabel(row, image=thumb, text="")
-            else:
-                thumb_label = ctk.CTkLabel(row, text="?", width=48, height=48)
-            thumb_label.pack(side="left", padx=4, pady=2)
-            thumb_label.img_index = i
-
-            # Control buttons (pack right side FIRST so they always show)
-            btn_frame = ctk.CTkFrame(row, fg_color="transparent")
-            btn_frame.pack(side="right", padx=4)
-
-            ctk.CTkButton(
-                btn_frame, text="▲", width=28, height=28,
-                command=lambda idx=i: self._move_image(idx, -1)
-            ).pack(side="left", padx=1)
-
-            ctk.CTkButton(
-                btn_frame, text="▼", width=28, height=28,
-                command=lambda idx=i: self._move_image(idx, 1)
-            ).pack(side="left", padx=1)
-
-            ctk.CTkButton(
-                btn_frame, text="✕", width=28, height=28,
-                command=lambda idx=i: self._delete_image(idx)
-            ).pack(side="left", padx=1)
-
-            # Timer display (pack right side before filename)
-            timer_secs = img_data["timer"]
-            if timer_secs >= 3600:
-                timer_text = f"{timer_secs // 3600}ч {(timer_secs % 3600) // 60}мин"
-            elif timer_secs >= 60:
-                timer_text = f"{timer_secs // 60} мин"
-            else:
-                timer_text = f"{timer_secs} сек"
-            ctk.CTkLabel(row, text=timer_text, text_color="gray", width=60).pack(side="right", padx=4)
-
-            # Filename label (only if checkbox is on)
-            if self.show_filename_var.get():
-                filename = os.path.basename(path)
-                name_label = ctk.CTkLabel(row, text=filename, anchor="w")
-                name_label.pack(side="left", fill="x", expand=True, padx=4)
-                name_label.img_index = i
-                drag_widgets = (row, thumb_label, name_label)
-            else:
-                drag_widgets = (row, thumb_label)
-
-            # Click to select + drag-drop bindings
-            for widget in drag_widgets:
-                widget.bind("<ButtonPress-1>", lambda e, idx=i: self._drag_start(idx, e))
-                widget.bind("<B1-Motion>", self._drag_motion)
-                widget.bind("<ButtonRelease-1>", self._drag_end)
+            self._build_row(i, img_data)
 
         # Show filename toggle at bottom of list
         ctk.CTkCheckBox(
@@ -879,15 +815,81 @@ class SettingsWindow(ctk.CTk):
         if not self._images_collapsed:
             self.image_list_frame.pack(fill="x", padx=10, pady=(0, 5),
                                         after=self._collapse_btn.master)
-        # Unfreeze window updates
-        try:
-            self.winfo_toplevel().tk.call("tk", "busy", "forget", self._w)
-        except Exception:
-            pass
+
+    def _build_row(self, i, img_data):
+        """Build a single image row and store reference."""
+        path = img_data["path"]
+        bg_color = "#3a3a6a" if i == self.selected_index else None
+        row = ctk.CTkFrame(self.image_list_frame, fg_color=bg_color)
+        row.pack(fill="x", pady=2, padx=2)
+        row.img_index = i
+
+        # Number
+        num_label = ctk.CTkLabel(row, text=f"{i + 1}.", width=25, text_color="gray")
+        num_label.pack(side="left", padx=(4, 0))
+
+        # Thumbnail
+        thumb = self._make_thumbnail(path)
+        if thumb is not None:
+            thumb_label = ctk.CTkLabel(row, image=thumb, text="")
+        else:
+            thumb_label = ctk.CTkLabel(row, text="?", width=48, height=48)
+        thumb_label.pack(side="left", padx=4, pady=2)
+        thumb_label.img_index = i
+
+        # Control buttons (right side first)
+        btn_frame = ctk.CTkFrame(row, fg_color="transparent")
+        btn_frame.pack(side="right", padx=4)
+        ctk.CTkButton(btn_frame, text="▲", width=28, height=28,
+                      command=lambda idx=i: self._move_image(idx, -1)).pack(side="left", padx=1)
+        ctk.CTkButton(btn_frame, text="▼", width=28, height=28,
+                      command=lambda idx=i: self._move_image(idx, 1)).pack(side="left", padx=1)
+        ctk.CTkButton(btn_frame, text="✕", width=28, height=28,
+                      command=lambda idx=i: self._delete_image(idx)).pack(side="left", padx=1)
+
+        # Timer display
+        timer_secs = img_data["timer"]
+        if timer_secs >= 3600:
+            timer_text = f"{timer_secs // 3600}ч {(timer_secs % 3600) // 60}мин"
+        elif timer_secs >= 60:
+            timer_text = f"{timer_secs // 60} мин"
+        else:
+            timer_text = f"{timer_secs} сек"
+        timer_label = ctk.CTkLabel(row, text=timer_text, text_color="gray", width=60)
+        timer_label.pack(side="right", padx=4)
+
+        # Filename label
+        name_label = None
+        if self.show_filename_var.get():
+            filename = os.path.basename(path)
+            name_label = ctk.CTkLabel(row, text=filename, anchor="w")
+            name_label.pack(side="left", fill="x", expand=True, padx=4)
+            name_label.img_index = i
+            drag_widgets = (row, thumb_label, name_label)
+        else:
+            drag_widgets = (row, thumb_label)
+
+        # Click to select + drag-drop bindings
+        for widget in drag_widgets:
+            widget.bind("<ButtonPress-1>", lambda e, idx=i: self._drag_start(idx, e))
+            widget.bind("<B1-Motion>", self._drag_motion)
+            widget.bind("<ButtonRelease-1>", self._drag_end)
+
+        # Store reference for in-place updates
+        self._rows.append({
+            "frame": row, "num": num_label, "thumb": thumb_label,
+            "timer": timer_label, "name": name_label,
+        })
 
     def _select_image(self, index):
+        """Update selection highlight without rebuilding the list."""
+        old = self.selected_index
         self.selected_index = index
-        self._refresh_image_list()
+        if hasattr(self, "_rows") and self._rows:
+            if old is not None and 0 <= old < len(self._rows):
+                self._rows[old]["frame"].configure(fg_color="transparent")
+            if 0 <= index < len(self._rows):
+                self._rows[index]["frame"].configure(fg_color="#3a3a6a")
 
     def _on_add_selected(self, choice):
         if choice == "Файлы":
