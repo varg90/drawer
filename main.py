@@ -85,6 +85,71 @@ class SettingsWindow(ctk.CTk):
         self.image_list_frame = ctk.CTkScrollableFrame(self, height=200)
         self.image_list_frame.pack(fill="both", expand=False, padx=10, pady=(0, 5))
 
+        # --- Timer Mode section ---
+        timer_mode_frame = ctk.CTkFrame(self)
+        timer_mode_frame.pack(fill="x", padx=10, pady=(5, 2))
+
+        ctk.CTkLabel(
+            timer_mode_frame, text="Режим таймера", font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(anchor="w", padx=8, pady=(6, 2))
+
+        self.timer_mode_var = ctk.StringVar(value="uniform")
+
+        ctk.CTkRadioButton(
+            timer_mode_frame, text="Одинаковый для всех",
+            variable=self.timer_mode_var, value="uniform"
+        ).pack(anchor="w", padx=20, pady=2)
+
+        ctk.CTkRadioButton(
+            timer_mode_frame, text="Индивидуальный",
+            variable=self.timer_mode_var, value="individual"
+        ).pack(anchor="w", padx=20, pady=(2, 6))
+
+        # --- Timer Selection section ---
+        timer_sel_frame = ctk.CTkFrame(self)
+        timer_sel_frame.pack(fill="x", padx=10, pady=(2, 5))
+
+        ctk.CTkLabel(
+            timer_sel_frame, text="Таймер", font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(anchor="w", padx=8, pady=(6, 4))
+
+        # Preset buttons row
+        presets_row = ctk.CTkFrame(timer_sel_frame, fg_color="transparent")
+        presets_row.pack(fill="x", padx=8, pady=(0, 4))
+
+        for seconds, label in TIMER_PRESETS:
+            ctk.CTkButton(
+                presets_row, text=label, width=65,
+                command=lambda s=seconds: self._set_timer(s)
+            ).pack(side="left", padx=2)
+
+        # Custom time input row
+        custom_row = ctk.CTkFrame(timer_sel_frame, fg_color="transparent")
+        custom_row.pack(fill="x", padx=8, pady=(0, 4))
+
+        ctk.CTkLabel(custom_row, text="Своё время:").pack(side="left", padx=(0, 6))
+
+        self.hours_var = ctk.StringVar(value="0")
+        self.mins_var = ctk.StringVar(value="5")
+        self.secs_var = ctk.StringVar(value="0")
+
+        ctk.CTkEntry(custom_row, textvariable=self.hours_var, width=45, justify="center").pack(side="left")
+        ctk.CTkLabel(custom_row, text="ч").pack(side="left", padx=(2, 6))
+
+        ctk.CTkEntry(custom_row, textvariable=self.mins_var, width=45, justify="center").pack(side="left")
+        ctk.CTkLabel(custom_row, text="мин").pack(side="left", padx=(2, 6))
+
+        ctk.CTkEntry(custom_row, textvariable=self.secs_var, width=45, justify="center").pack(side="left")
+        ctk.CTkLabel(custom_row, text="сек").pack(side="left", padx=(2, 6))
+
+        ctk.CTkButton(custom_row, text="OK", width=40, command=self._apply_custom_timer).pack(side="left", padx=4)
+
+        # Hint label
+        ctk.CTkLabel(
+            timer_sel_frame, text="от 1 секунды до 3 часов",
+            text_color="gray"
+        ).pack(anchor="w", padx=8, pady=(0, 6))
+
     def _make_thumbnail(self, path):
         """Generate 48x48 CTkImage thumbnail using Pillow, cache in self.thumbnails."""
         if path in self.thumbnails:
@@ -205,6 +270,28 @@ class SettingsWindow(ctk.CTk):
 
     def _drag_motion(self, event):
         pass
+
+    def _set_timer(self, seconds):
+        """Set timer: all images in uniform mode, or selected image in individual mode."""
+        seconds = validate_timer_seconds(seconds)
+        if self.timer_mode_var.get() == "uniform":
+            for img in self.images:
+                img["timer"] = seconds
+        else:
+            if self.selected_index is not None and 0 <= self.selected_index < len(self.images):
+                self.images[self.selected_index]["timer"] = seconds
+        self._refresh_image_list()
+
+    def _apply_custom_timer(self):
+        """Parse h/m/s entry fields and apply the resulting timer value."""
+        try:
+            h = int(self.hours_var.get() or 0)
+            m = int(self.mins_var.get() or 0)
+            s = int(self.secs_var.get() or 0)
+            total = h * 3600 + m * 60 + s
+            self._set_timer(total)
+        except ValueError:
+            pass
 
     def _drag_end(self, event):
         """Complete drag-drop by finding the target row under the cursor."""
