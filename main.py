@@ -568,9 +568,19 @@ class SettingsWindow(ctk.CTk):
             return
         dialog = ctk.CTkToplevel(self)
         dialog.title("Восстановить сессию?")
-        dialog.geometry("350x150")
         dialog.resizable(False, False)
         dialog.transient(self)
+
+        # Center dialog on settings window
+        dw, dh = 350, 150
+        self.update_idletasks()
+        wx = self.winfo_x()
+        wy = self.winfo_y()
+        ww = self.winfo_width()
+        wh = self.winfo_height()
+        x = wx + (ww - dw) // 2
+        y = wy + (wh - dh) // 2
+        dialog.geometry(f"{dw}x{dh}+{x}+{y}")
         dialog.grab_set()
 
         ctk.CTkLabel(dialog, text="Восстановить прошлую сессию?",
