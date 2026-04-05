@@ -321,10 +321,7 @@ class ViewerWindow(ctk.CTkToplevel):
         # Auto warning based on timer duration, or custom override
         idx = self.play_order[self.order_position]
         total_timer = self.all_images[idx]["timer"]
-        if self.settings.get("warn_enabled", False):
-            warn_secs = self.settings.get("warn_seconds", 10)
-        else:
-            warn_secs = auto_warn_seconds(total_timer)
+        warn_secs = auto_warn_seconds(total_timer)
         is_warning = self.is_playing and s <= warn_secs
 
         # Nav bar timer
@@ -564,9 +561,6 @@ class SettingsWindow(ctk.CTk):
             "fit_window": self.fit_window_var.get(),
             "lock_aspect": self.lock_aspect_var.get(),
             "show_filename": self.show_filename_var.get(),
-            "warn_enabled": self.warn_enabled_var.get(),
-            "warn_mins": self.warn_mins_var.get(),
-            "warn_secs": self.warn_secs_var.get(),
             "window_x": self.winfo_x(),
             "window_y": self.winfo_y(),
             "window_w": self.winfo_width(),
@@ -630,9 +624,6 @@ class SettingsWindow(ctk.CTk):
         self.topmost_var.set(data.get("always_on_top", False))
         # fit_window and lock_aspect are always True now
         self.show_filename_var.set(data.get("show_filename", False))
-        self.warn_enabled_var.set(data.get("warn_enabled", False))
-        self.warn_mins_var.set(data.get("warn_mins", "0"))
-        self.warn_secs_var.set(data.get("warn_secs", "10"))
         x = data.get("window_x", 100)
         y = data.get("window_y", 100)
         w = data.get("window_w", 500)
@@ -735,24 +726,6 @@ class SettingsWindow(ctk.CTk):
 
         ctk.CTkLabel(self.custom_row, text="(1сек — 3ч)", text_color="gray",
                      font=ctk.CTkFont(size=11)).pack(side="left", padx=4)
-
-        # --- Timer Warning section ---
-        warn_frame = ctk.CTkFrame(timer_sel_frame, fg_color="transparent")
-        warn_frame.pack(fill="x", padx=8, pady=(0, 6))
-
-        self.warn_enabled_var = BooleanVar(value=False)
-        ctk.CTkCheckBox(warn_frame, text="Своё предупреждение за",
-                        variable=self.warn_enabled_var).pack(side="left")
-
-        self.warn_mins_var = ctk.StringVar(value="0")
-        ctk.CTkEntry(warn_frame, textvariable=self.warn_mins_var,
-                     width=45, justify="center").pack(side="left", padx=4)
-        ctk.CTkLabel(warn_frame, text="мин").pack(side="left", padx=(0, 4))
-
-        self.warn_secs_var = ctk.StringVar(value="10")
-        ctk.CTkEntry(warn_frame, textvariable=self.warn_secs_var,
-                     width=45, justify="center").pack(side="left", padx=4)
-        ctk.CTkLabel(warn_frame, text="сек до конца").pack(side="left")
 
         # --- Options section ---
         self.order_var = ctk.StringVar(value="sequential")
@@ -1006,19 +979,11 @@ class SettingsWindow(ctk.CTk):
     def _start_slideshow(self):
         if not self.images:
             return
-        try:
-            warn_m = int(self.warn_mins_var.get() or 0)
-            warn_s = int(self.warn_secs_var.get() or 0)
-            warn_secs = warn_m * 60 + warn_s
-        except ValueError:
-            warn_secs = 10
         settings = {
             "order": self.order_var.get(),
             "fit_window": self.fit_window_var.get(),
             "lock_aspect": self.lock_aspect_var.get(),
             "topmost": self.topmost_var.get(),
-            "warn_enabled": self.warn_enabled_var.get(),
-            "warn_seconds": max(1, warn_secs),
         }
         log.info(f"Starting refbot: {len(self.images)} images, settings={settings}")
         self.viewer = ViewerWindow(self, self.images, settings)
