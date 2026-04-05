@@ -36,6 +36,7 @@ Opens as a separate window. Contains all controls:
 - Scrollable list of loaded images
 - Each item shows: thumbnail (48x48), filename, timer value (in individual mode)
 - Controls per item: move up, move down, delete
+- Drag-and-drop reordering: hold and drag an item to change its position in the list
 - Buttons at top: "Add Files", "Add Folder"
 - Supported formats: JPG, JPEG, PNG, GIF, BMP, WEBP
 
@@ -67,6 +68,7 @@ Toggle between:
 - **Always on top** — viewer window stays above all other windows
 - **Loop** — restart from beginning after last image (when off, stop on last image)
 - **Fit window to image** — window resizes to match image proportions (when off, fixed window size with image scaled to fit)
+- **Lock aspect ratio** — preserve window proportions when resizing manually (scales both width and height together)
 
 ### Start Button
 
