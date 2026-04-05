@@ -64,20 +64,17 @@ class SettingsWindow(QMainWindow):
 
         mode_row = QHBoxLayout()
         self.radio_preset = QRadioButton("Стандартный")
-        self.radio_custom = QRadioButton("Настраиваемый")
         self.radio_class = QRadioButton("Сеанс")
         self.radio_preset.setChecked(True)
         self._timer_mode_group = QButtonGroup()
         self._timer_mode_group.addButton(self.radio_preset)
-        self._timer_mode_group.addButton(self.radio_custom)
         self._timer_mode_group.addButton(self.radio_class)
         mode_row.addWidget(self.radio_preset)
-        mode_row.addWidget(self.radio_custom)
         mode_row.addWidget(self.radio_class)
         mode_row.addStretch()
         layout.addLayout(mode_row)
 
-        # --- Standard/Custom controls ---
+        # --- Standard controls ---
         self.standard_widget = QWidget()
         std_layout = QVBoxLayout(self.standard_widget)
         std_layout.setContentsMargins(0, 0, 0, 0)
@@ -86,29 +83,8 @@ class SettingsWindow(QMainWindow):
         self.preset_combo = QComboBox()
         for secs, label in TIMER_PRESETS:
             self.preset_combo.addItem(label, secs)
-        self.preset_combo.addItem("Своё время...", -1)
         self.preset_combo.currentIndexChanged.connect(self._on_preset_changed)
         std_layout.addWidget(self.preset_combo)
-
-        # Custom time row (hidden by default)
-        self.custom_widget = QWidget()
-        custom_row = QHBoxLayout(self.custom_widget)
-        custom_row.setContentsMargins(0, 0, 0, 0)
-        custom_row.addWidget(QLabel("Часы:"))
-        self.custom_h = QLineEdit("0")
-        self.custom_h.setFixedWidth(50)
-        custom_row.addWidget(self.custom_h)
-        custom_row.addWidget(QLabel("Мин:"))
-        self.custom_m = QLineEdit("5")
-        self.custom_m.setFixedWidth(50)
-        custom_row.addWidget(self.custom_m)
-        custom_row.addWidget(QLabel("Сек:"))
-        self.custom_s = QLineEdit("0")
-        self.custom_s.setFixedWidth(50)
-        custom_row.addWidget(self.custom_s)
-        custom_row.addStretch()
-        self.custom_widget.setVisible(False)
-        std_layout.addWidget(self.custom_widget)
 
         layout.addWidget(self.standard_widget)
 
@@ -175,7 +151,6 @@ class SettingsWindow(QMainWindow):
         self._class_groups = []  # list of (count, timer_seconds)
 
         self.radio_preset.toggled.connect(self._on_timer_mode_changed)
-        self.radio_custom.toggled.connect(self._on_timer_mode_changed)
         self.radio_class.toggled.connect(self._on_timer_mode_changed)
 
         return group
@@ -299,10 +274,6 @@ class SettingsWindow(QMainWindow):
         is_class = self.radio_class.isChecked()
         self.standard_widget.setVisible(not is_class)
         self.class_widget.setVisible(is_class)
-        if not is_class:
-            is_custom = self.radio_custom.isChecked()
-            self.preset_combo.setEnabled(not is_custom)
-            self.custom_widget.setVisible(is_custom)
 
     def _on_class_mode_changed(self):
         """Auto-distribute when session duration changes."""
@@ -347,24 +318,11 @@ class SettingsWindow(QMainWindow):
             f"Всего: {total_images} картинок, {format_time(total)}")
 
     def _on_preset_changed(self, index):
-        val = self.preset_combo.itemData(index)
-        self.custom_widget.setVisible(val == -1)
+        pass  # Timer applied on start
 
     def get_timer_seconds(self):
-        if self.radio_custom.isChecked():
-            try:
-                h = int(self.custom_h.text() or 0)
-                m = int(self.custom_m.text() or 0)
-                s = int(self.custom_s.text() or 0)
-                return validate_timer_seconds(h * 3600 + m * 60 + s)
-            except ValueError:
-                return 300
-        else:
-            val = self.preset_combo.currentData()
-            if val and val > 0:
-                return val
-            # "Своё время..." selected but we're in preset mode — fallback
-            return 300
+        val = self.preset_combo.currentData()
+        return val if val and val > 0 else 300
 
     # ------------------------------------------------------------------ Image management
 
@@ -482,21 +440,13 @@ class SettingsWindow(QMainWindow):
         self.image_list.set_images(self.images)
 
         timer_secs = data.get("timer_seconds", 300)
-        # Try to match a preset
-        matched = False
         for i in range(self.preset_combo.count()):
             if self.preset_combo.itemData(i) == timer_secs:
                 self.preset_combo.setCurrentIndex(i)
-                matched = True
                 break
-        if not matched:
-            # Set custom
-            self.radio_custom.setChecked(True)
-            h, rem = divmod(timer_secs, 3600)
-            m, s = divmod(rem, 60)
-            self.custom_h.setText(str(h))
-            self.custom_m.setText(str(m))
-            self.custom_s.setText(str(s))
+
+        if data.get("timer_mode") == "class":
+            self.radio_class.setChecked(True)
 
         self.random_cb.setChecked(data.get("random_order", False))
         self.topmost_cb.setChecked(data.get("topmost", False))
@@ -507,6 +457,7 @@ class SettingsWindow(QMainWindow):
         data = {
             "images": [img.to_dict() for img in self.images],
             "timer_seconds": self.get_timer_seconds(),
+            "timer_mode": "class" if self.radio_class.isChecked() else "standard",
             "random_order": self.random_cb.isChecked(),
             "topmost": self.topmost_cb.isChecked(),
             "show_filenames": self.show_filenames_cb.isChecked(),
