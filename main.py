@@ -2,46 +2,18 @@ import customtkinter as ctk
 import os
 import json
 import random
-import ctypes
-import ctypes.wintypes
+import logging
 from tkinter import filedialog, BooleanVar
 from PIL import Image, ImageTk
-import tkinterdnd2
 
-# Windows API constants for WM_SIZING
-WM_SIZING = 0x0214
-WMSZ_LEFT = 1
-WMSZ_RIGHT = 2
-WMSZ_TOP = 3
-WMSZ_TOPLEFT = 4
-WMSZ_TOPRIGHT = 5
-WMSZ_BOTTOM = 6
-WMSZ_BOTTOMLEFT = 7
-WMSZ_BOTTOMRIGHT = 8
-GWL_WNDPROC = -4
-
-
-class RECT(ctypes.Structure):
-    _fields_ = [
-        ("left", ctypes.c_long),
-        ("top", ctypes.c_long),
-        ("right", ctypes.c_long),
-        ("bottom", ctypes.c_long),
-    ]
-
-
-# Use WNDPROC callback type
-WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.c_uint,
-                              ctypes.c_void_p, ctypes.c_void_p)
-
-_user32 = ctypes.windll.user32
-_SetWindowLongPtrW = _user32.SetWindowLongPtrW
-_SetWindowLongPtrW.restype = ctypes.c_void_p
-_SetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
-_CallWindowProcW = _user32.CallWindowProcW
-_CallWindowProcW.restype = ctypes.c_long
-_CallWindowProcW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint,
-                              ctypes.c_void_p, ctypes.c_void_p]
+# Logging setup
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.log")
+logging.basicConfig(
+    filename=LOG_FILE, level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S", encoding="utf-8"
+)
+log = logging.getLogger("slideshow")
 
 SUPPORTED_FORMATS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
 
@@ -104,8 +76,6 @@ class ViewerWindow(ctk.CTkToplevel):
         self.timer_id = None
         self.current_aspect = None
         self._resize_timer = None
-        self._wndproc_ref = None  # prevent garbage collection of callback
-        self._old_wndproc = None
         self._countdown_remaining = 0
         self._countdown_timer_id = None
 
@@ -234,18 +204,19 @@ class ViewerWindow(ctk.CTkToplevel):
         path = self.all_images[idx]["path"]
         try:
             self._current_pil_img = Image.open(path)
-        except Exception:
+        except Exception as e:
+            log.error(f"Failed to open image: {path} — {e}")
             self._next()
             return
 
         img_w, img_h = self._current_pil_img.width, self._current_pil_img.height
         self.current_aspect = img_w / img_h
 
-        # Install native WM_SIZING hook for aspect ratio lock
-        if self.settings["lock_aspect"] and self._old_wndproc is None:
-            self._install_aspect_hook()
-        elif not self.settings["lock_aspect"] and self._old_wndproc is not None:
-            self._remove_aspect_hook()
+        # Lock aspect ratio via window manager
+        if self.settings["lock_aspect"]:
+            self.wm_aspect(img_w, img_h, img_w, img_h)
+        else:
+            self.wm_aspect()
 
         # Fit window to image on image change (not on manual resize)
         if self.settings["fit_window"]:
@@ -388,67 +359,6 @@ class ViewerWindow(ctk.CTkToplevel):
             self.after_cancel(self._resize_timer)
         self._resize_timer = self.after(150, self._update_image_display)
 
-    def _install_aspect_hook(self):
-        """Install a native Windows WM_SIZING hook for smooth aspect ratio locking."""
-        hwnd = ctypes.c_void_p(self.winfo_id())
-        viewer = self  # capture reference for closure
-
-        # Calculate frame size (difference between window size and client area)
-        win_rect = RECT()
-        client_rect = RECT()
-        _user32.GetWindowRect(hwnd, ctypes.byref(win_rect))
-        _user32.GetClientRect(hwnd, ctypes.byref(client_rect))
-        self._frame_w = (win_rect.right - win_rect.left) - (client_rect.right - client_rect.left)
-        self._frame_h = (win_rect.bottom - win_rect.top) - (client_rect.bottom - client_rect.top)
-
-        def wndproc(hwnd_cb, msg, wparam, lparam):
-            if msg == WM_SIZING and viewer.current_aspect:
-                rect = ctypes.cast(lparam, ctypes.POINTER(RECT)).contents
-                # Client area = window size minus frame
-                client_w = (rect.right - rect.left) - viewer._frame_w
-                client_h = (rect.bottom - rect.top) - viewer._frame_h
-                aspect = viewer.current_aspect
-
-                if wparam in (WMSZ_LEFT, WMSZ_RIGHT):
-                    new_client_h = int(client_w / aspect)
-                    new_h = new_client_h + viewer._frame_h
-                    rect.bottom = rect.top + new_h
-                elif wparam in (WMSZ_TOP, WMSZ_BOTTOM):
-                    new_client_w = int(client_h * aspect)
-                    new_w = new_client_w + viewer._frame_w
-                    rect.right = rect.left + new_w
-                else:
-                    # Corner drag — fit based on larger change
-                    target_client_h = int(client_w / aspect)
-                    if target_client_h >= client_h:
-                        new_h = target_client_h + viewer._frame_h
-                        if wparam in (WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT):
-                            rect.bottom = rect.top + new_h
-                        else:
-                            rect.top = rect.bottom - new_h
-                    else:
-                        target_client_w = int(client_h * aspect)
-                        new_w = target_client_w + viewer._frame_w
-                        if wparam in (WMSZ_TOPLEFT, WMSZ_BOTTOMLEFT):
-                            rect.left = rect.right - new_w
-                        else:
-                            rect.right = rect.left + new_w
-                return 1
-
-            return _CallWindowProcW(viewer._old_wndproc, hwnd_cb, msg, wparam, lparam)
-
-        self._wndproc_ref = WNDPROC(wndproc)
-        self._old_wndproc = _SetWindowLongPtrW(hwnd, GWL_WNDPROC,
-                                                ctypes.cast(self._wndproc_ref, ctypes.c_void_p))
-
-    def _remove_aspect_hook(self):
-        """Remove the native WM_SIZING hook."""
-        if self._old_wndproc is not None:
-            hwnd = ctypes.c_void_p(self.winfo_id())
-            _SetWindowLongPtrW(hwnd, GWL_WNDPROC, self._old_wndproc)
-            self._old_wndproc = None
-            self._wndproc_ref = None
-
     def _get_corner(self, event):
         """Determine which corner the mouse is in, or None."""
         cw = self.image_canvas.winfo_width()
@@ -551,7 +461,6 @@ class ViewerWindow(ctk.CTkToplevel):
         self.master_app.lift()
 
     def _on_close(self):
-        self._remove_aspect_hook()
         if self.timer_id:
             self.after_cancel(self.timer_id)
         if self._countdown_timer_id:
@@ -564,7 +473,6 @@ class SettingsWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
         # Enable drag-and-drop
-        self._init_dnd()
         self.title("Slideshow — Настройки")
         self.geometry("500x700")
         self.minsize(400, 500)
@@ -585,41 +493,15 @@ class SettingsWindow(ctk.CTk):
 
 
     def _init_dnd(self):
-        """Initialize drag-and-drop file support."""
-        try:
-            tkdnd_path = os.path.join(os.path.dirname(tkinterdnd2.__file__), "tkdnd", "win-x64")
-            self.tk.call("lappend", "auto_path", tkdnd_path)
-            self.tk.call("package", "require", "tkdnd")
-            self.tk.call("tkdnd::drop_target", "register", self._w, "DND_Files")
-            self.bind("<<Drop:DND_Files>>", self._on_drop)
-        except Exception:
-            pass  # DnD not available, buttons still work
+        """Drag-and-drop not available on Python 3.14/Windows due to GIL restrictions."""
+        pass
 
-    def _on_drop(self, event):
+    def _on_drop(self, file_list):
         """Handle files dropped onto the window."""
-        # Parse dropped file paths (may be space-separated, braces around paths with spaces)
-        raw = event.data
-        paths = []
-        i = 0
-        while i < len(raw):
-            if raw[i] == "{":
-                end = raw.index("}", i)
-                paths.append(raw[i + 1:end])
-                i = end + 2
-            elif raw[i] == " ":
-                i += 1
-            else:
-                end = raw.find(" ", i)
-                if end == -1:
-                    end = len(raw)
-                paths.append(raw[i:end])
-                i = end + 1
-
         existing = {img["path"] for img in self.images}
         added = False
-        for p in paths:
+        for p in file_list:
             if os.path.isdir(p):
-                # Dropped a folder
                 all_files = [os.path.join(p, f) for f in os.listdir(p)]
                 for img_path in filter_image_files(all_files):
                     if img_path not in existing:
@@ -633,12 +515,12 @@ class SettingsWindow(ctk.CTk):
                     added = True
         if added:
             self._refresh_image_list()
-            # Auto-expand image list if collapsed
             if self._images_collapsed:
                 self._toggle_image_list()
 
     def _show_window(self):
         self.deiconify()  # Show window after layout is ready
+        self._init_dnd()
         self._check_restore_session()
 
     def _get_session_data(self):
@@ -744,20 +626,16 @@ class SettingsWindow(ctk.CTk):
         )
 
         ctk.CTkButton(
-            header_frame, text="+ Папка", width=80, command=self._add_folder
+            header_frame, text="Очистить", width=70, fg_color="#555",
+            hover_color="#773333", command=self._clear_images
         ).pack(side="right", padx=4, pady=6)
 
-        ctk.CTkButton(
-            header_frame, text="+ Файлы", width=80, command=self._add_files
+        ctk.CTkOptionMenu(
+            header_frame, values=["Файлы", "Папка"],
+            command=self._on_add_selected, width=80
         ).pack(side="right", padx=4, pady=6)
 
-        # Show filename checkbox (in header, smaller)
         self.show_filename_var = BooleanVar(value=False)
-        ctk.CTkCheckBox(
-            header_frame, text="Имя файла", variable=self.show_filename_var,
-            command=self._on_show_filename_changed,
-            checkbox_width=16, checkbox_height=16, font=ctk.CTkFont(size=11)
-        ).pack(side="left", padx=8, pady=6)
 
         # Image list frame (collapsible)
         self.image_list_frame = ctk.CTkFrame(self._content)
@@ -866,7 +744,8 @@ class SettingsWindow(ctk.CTk):
             ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(img.width, img.height))
             self.thumbnails[path] = ctk_img
             return ctk_img
-        except Exception:
+        except Exception as e:
+            log.error(f"Failed to create thumbnail: {path} — {e}")
             self.thumbnails[path] = None
             return None
 
@@ -902,6 +781,12 @@ class SettingsWindow(ctk.CTk):
 
     def _refresh_image_list(self):
         """Destroy all children and rebuild image rows."""
+        # Freeze window updates during rebuild
+        try:
+            self.winfo_toplevel().tk.call("tk", "busy", "hold", self._w)
+        except Exception:
+            pass
+        self.image_list_frame.pack_forget()
         for widget in self.image_list_frame.winfo_children():
             widget.destroy()
 
@@ -969,8 +854,38 @@ class SettingsWindow(ctk.CTk):
                 widget.bind("<B1-Motion>", self._drag_motion)
                 widget.bind("<ButtonRelease-1>", self._drag_end)
 
+        # Show filename toggle at bottom of list
+        ctk.CTkCheckBox(
+            self.image_list_frame, text="Имя файла", variable=self.show_filename_var,
+            command=self._on_show_filename_changed,
+            checkbox_width=16, checkbox_height=16, font=ctk.CTkFont(size=11)
+        ).pack(anchor="w", padx=8, pady=(4, 4))
+
+        # Show frame after rebuild is complete
+        if not self._images_collapsed:
+            self.image_list_frame.pack(fill="x", padx=10, pady=(0, 5),
+                                        after=self._collapse_btn.master)
+        # Unfreeze window updates
+        try:
+            self.winfo_toplevel().tk.call("tk", "busy", "forget", self._w)
+        except Exception:
+            pass
+
     def _select_image(self, index):
         self.selected_index = index
+        self._refresh_image_list()
+
+    def _on_add_selected(self, choice):
+        if choice == "Файлы":
+            self._add_files()
+        elif choice == "Папка":
+            self._add_folder()
+
+    def _clear_images(self):
+        """Remove all images from the list."""
+        self.images.clear()
+        self.thumbnails.clear()
+        self.selected_index = None
         self._refresh_image_list()
 
     def _toggle_image_list(self):
@@ -1064,6 +979,7 @@ class SettingsWindow(ctk.CTk):
             "warn_enabled": self.warn_enabled_var.get(),
             "warn_seconds": max(1, warn_secs),
         }
+        log.info(f"Starting slideshow: {len(self.images)} images, settings={settings}")
         self.viewer = ViewerWindow(self, self.images, settings)
         self.withdraw()  # Hide settings window
 
@@ -1104,5 +1020,6 @@ class SettingsWindow(ctk.CTk):
 
 
 if __name__ == "__main__":
+    log.info("App started")
     app = SettingsWindow()
     app.mainloop()
