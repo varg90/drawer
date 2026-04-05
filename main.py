@@ -2,8 +2,45 @@ import customtkinter as ctk
 import os
 import json
 import random
+import ctypes
+import ctypes.wintypes
 from tkinter import filedialog, BooleanVar
 from PIL import Image, ImageTk
+
+# Windows API constants for WM_SIZING
+WM_SIZING = 0x0214
+WMSZ_LEFT = 1
+WMSZ_RIGHT = 2
+WMSZ_TOP = 3
+WMSZ_TOPLEFT = 4
+WMSZ_TOPRIGHT = 5
+WMSZ_BOTTOM = 6
+WMSZ_BOTTOMLEFT = 7
+WMSZ_BOTTOMRIGHT = 8
+GWL_WNDPROC = -4
+
+
+class RECT(ctypes.Structure):
+    _fields_ = [
+        ("left", ctypes.c_long),
+        ("top", ctypes.c_long),
+        ("right", ctypes.c_long),
+        ("bottom", ctypes.c_long),
+    ]
+
+
+# Use WNDPROC callback type
+WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.c_uint,
+                              ctypes.c_void_p, ctypes.c_void_p)
+
+_user32 = ctypes.windll.user32
+_SetWindowLongPtrW = _user32.SetWindowLongPtrW
+_SetWindowLongPtrW.restype = ctypes.c_void_p
+_SetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
+_CallWindowProcW = _user32.CallWindowProcW
+_CallWindowProcW.restype = ctypes.c_long
+_CallWindowProcW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint,
+                              ctypes.c_void_p, ctypes.c_void_p]
 
 SUPPORTED_FORMATS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
 
@@ -65,6 +102,8 @@ class ViewerWindow(ctk.CTkToplevel):
         self.timer_id = None
         self.current_aspect = None
         self._resize_timer = None
+        self._wndproc_ref = None  # prevent garbage collection of callback
+        self._old_wndproc = None
 
         # Always-on-top
         self.wm_attributes("-topmost", self.settings["topmost"])
@@ -149,11 +188,11 @@ class ViewerWindow(ctk.CTkToplevel):
         img_w, img_h = self._current_pil_img.width, self._current_pil_img.height
         self.current_aspect = img_w / img_h
 
-        # Lock aspect ratio via native window manager
-        if self.settings["lock_aspect"]:
-            self.wm_aspect(img_w, img_h, img_w, img_h)
-        else:
-            self.wm_aspect()  # Remove constraint
+        # Install native WM_SIZING hook for aspect ratio lock
+        if self.settings["lock_aspect"] and self._old_wndproc is None:
+            self._install_aspect_hook()
+        elif not self.settings["lock_aspect"] and self._old_wndproc is not None:
+            self._remove_aspect_hook()
 
         # Fit window to image on image change (not on manual resize)
         if self.settings["fit_window"]:
@@ -240,12 +279,64 @@ class ViewerWindow(ctk.CTkToplevel):
             self.after_cancel(self._resize_timer)
         self._resize_timer = self.after(150, self._update_image_display)
 
+    def _install_aspect_hook(self):
+        """Install a native Windows WM_SIZING hook for smooth aspect ratio locking."""
+        hwnd = ctypes.c_void_p(self.winfo_id())
+        viewer = self  # capture reference for closure
+
+        def wndproc(hwnd_cb, msg, wparam, lparam):
+            if msg == WM_SIZING and viewer.current_aspect:
+                rect = ctypes.cast(lparam, ctypes.POINTER(RECT)).contents
+                w = rect.right - rect.left
+                h = rect.bottom - rect.top
+                aspect = viewer.current_aspect
+
+                if wparam in (WMSZ_LEFT, WMSZ_RIGHT):
+                    # Dragging left or right edge — adjust height
+                    new_h = int(w / aspect)
+                    rect.bottom = rect.top + new_h
+                elif wparam in (WMSZ_TOP, WMSZ_BOTTOM):
+                    # Dragging top or bottom edge — adjust width
+                    new_w = int(h * aspect)
+                    rect.right = rect.left + new_w
+                elif wparam in (WMSZ_TOPLEFT, WMSZ_TOPRIGHT, WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT):
+                    # Dragging corner — use wider dimension
+                    target_h = int(w / aspect)
+                    if target_h >= h:
+                        rect.bottom = rect.top + target_h if wparam in (WMSZ_TOPLEFT, WMSZ_TOPRIGHT) and False else rect.bottom
+                        if wparam in (WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT):
+                            rect.bottom = rect.top + target_h
+                        else:
+                            rect.top = rect.bottom - target_h
+                    else:
+                        target_w = int(h * aspect)
+                        if wparam in (WMSZ_TOPLEFT, WMSZ_BOTTOMLEFT):
+                            rect.left = rect.right - target_w
+                        else:
+                            rect.right = rect.left + target_w
+                return 1
+
+            return _CallWindowProcW(viewer._old_wndproc, hwnd_cb, msg, wparam, lparam)
+
+        self._wndproc_ref = WNDPROC(wndproc)
+        self._old_wndproc = _SetWindowLongPtrW(hwnd, GWL_WNDPROC,
+                                                ctypes.cast(self._wndproc_ref, ctypes.c_void_p))
+
+    def _remove_aspect_hook(self):
+        """Remove the native WM_SIZING hook."""
+        if self._old_wndproc is not None:
+            hwnd = ctypes.c_void_p(self.winfo_id())
+            _SetWindowLongPtrW(hwnd, GWL_WNDPROC, self._old_wndproc)
+            self._old_wndproc = None
+            self._wndproc_ref = None
+
     def _open_settings(self):
         """Show the settings window."""
         self.master_app.deiconify()
         self.master_app.lift()
 
     def _on_close(self):
+        self._remove_aspect_hook()
         if self.timer_id:
             self.after_cancel(self.timer_id)
         self.master_app.deiconify()  # Show settings when viewer closes
