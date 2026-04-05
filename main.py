@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import os
 import json
+import random
 from tkinter import filedialog, BooleanVar
 from PIL import Image, ImageTk
 
@@ -48,6 +49,181 @@ def load_session(path=None):
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return None
+
+
+class ViewerWindow(ctk.CTkToplevel):
+    def __init__(self, master, images, settings):
+        super().__init__(master)
+        self.title("Slideshow")
+        self.configure(fg_color="#1a1a2e")
+        self.geometry("800x600")
+
+        self.master_app = master
+        self.all_images = images  # list of {"path": str, "timer": int}
+        self.settings = settings  # dict with order, loop, fit_window, lock_aspect, topmost
+        self.is_playing = True
+        self.timer_id = None
+        self.current_aspect = None
+        self._resizing = False
+
+        # Always-on-top
+        self.wm_attributes("-topmost", self.settings["topmost"])
+
+        # Build play order
+        self.play_order = list(range(len(self.all_images)))
+        if self.settings["order"] == "random":
+            random.shuffle(self.play_order)
+        self.order_position = 0
+
+        # Image label fills entire window
+        self.image_label = ctk.CTkLabel(self, text="", fg_color="#1a1a2e")
+        self.image_label.pack(fill="both", expand=True)
+
+        # Hover controls (hidden by default)
+        self.controls_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.controls_visible = False
+
+        # Navigation bar
+        self.nav_bar = ctk.CTkFrame(self.controls_frame, fg_color="#000000", corner_radius=20)
+        ctk.CTkButton(self.nav_bar, text="⏮", width=40, fg_color="transparent",
+                      hover_color="#444", command=self._prev).pack(side="left", padx=5)
+        self.play_btn = ctk.CTkButton(self.nav_bar, text="⏸", width=40, fg_color="transparent",
+                                       hover_color="#444", command=self._toggle_pause)
+        self.play_btn.pack(side="left", padx=5)
+        ctk.CTkButton(self.nav_bar, text="⏭", width=40, fg_color="transparent",
+                      hover_color="#444", command=self._next).pack(side="left", padx=5)
+        self.nav_bar.pack(pady=10)
+
+        # Counter label
+        self.counter_label = ctk.CTkLabel(self, text="", font=("", 12), text_color="#aaaaaa")
+        self.counter_visible = False
+
+        # Hover bindings
+        self.bind("<Enter>", self._show_controls)
+        self.bind("<Leave>", self._hide_controls)
+        self.image_label.bind("<Enter>", self._show_controls)
+        self.image_label.bind("<Leave>", self._hide_controls)
+
+        # Resize binding for aspect lock
+        self.bind("<Configure>", self._on_resize)
+
+        # Close handler
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Show first image and start
+        self._show_current_image()
+        self._schedule_next()
+
+    def _show_controls(self, event=None):
+        if not self.controls_visible:
+            self.controls_frame.place(relx=0.5, rely=1.0, anchor="s", y=-10)
+            self.controls_visible = True
+        if not self.counter_visible:
+            self.counter_label.place(relx=1.0, rely=0.0, anchor="ne", x=-10, y=10)
+            self.counter_visible = True
+
+    def _hide_controls(self, event=None):
+        x, y = self.winfo_pointerxy()
+        wx, wy = self.winfo_rootx(), self.winfo_rooty()
+        ww, wh = self.winfo_width(), self.winfo_height()
+        if not (wx <= x <= wx + ww and wy <= y <= wy + wh):
+            self.controls_frame.place_forget()
+            self.controls_visible = False
+            self.counter_label.place_forget()
+            self.counter_visible = False
+
+    def _show_current_image(self):
+        if not self.all_images:
+            return
+        idx = self.play_order[self.order_position]
+        path = self.all_images[idx]["path"]
+        try:
+            pil_img = Image.open(path)
+        except Exception:
+            self._next()
+            return
+
+        self.current_aspect = pil_img.width / pil_img.height
+
+        if self.settings["fit_window"]:
+            win_h = self.winfo_height() or 600
+            new_w = int(win_h * self.current_aspect)
+            self.geometry(f"{new_w}x{win_h}")
+
+        win_w = self.winfo_width() or 800
+        win_h = self.winfo_height() or 600
+        pil_img.thumbnail((win_w, win_h), Image.LANCZOS)
+        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img,
+                                size=(pil_img.width, pil_img.height))
+        self.image_label.configure(image=ctk_img)
+        self.image_label._current_image = ctk_img
+
+        total = len(self.all_images)
+        self.counter_label.configure(text=f"{self.order_position + 1} / {total}")
+
+    def _schedule_next(self):
+        if self.timer_id:
+            self.after_cancel(self.timer_id)
+            self.timer_id = None
+        if not self.is_playing:
+            return
+        idx = self.play_order[self.order_position]
+        delay_ms = self.all_images[idx]["timer"] * 1000
+        self.timer_id = self.after(delay_ms, self._advance)
+
+    def _advance(self):
+        self.order_position += 1
+        if self.order_position >= len(self.play_order):
+            if self.settings["loop"]:
+                self.order_position = 0
+                if self.settings["order"] == "random":
+                    random.shuffle(self.play_order)
+            else:
+                self.order_position = len(self.play_order) - 1
+                self.is_playing = False
+                self.play_btn.configure(text="▶")
+                return
+        self._show_current_image()
+        self._schedule_next()
+
+    def _next(self):
+        self.order_position = (self.order_position + 1) % len(self.play_order)
+        self._show_current_image()
+        if self.is_playing:
+            self._schedule_next()
+
+    def _prev(self):
+        self.order_position = (self.order_position - 1) % len(self.play_order)
+        self._show_current_image()
+        if self.is_playing:
+            self._schedule_next()
+
+    def _toggle_pause(self):
+        self.is_playing = not self.is_playing
+        if self.is_playing:
+            self.play_btn.configure(text="⏸")
+            self._schedule_next()
+        else:
+            self.play_btn.configure(text="▶")
+            if self.timer_id:
+                self.after_cancel(self.timer_id)
+                self.timer_id = None
+
+    def _on_resize(self, event):
+        if self._resizing or not self.current_aspect:
+            return
+        if self.settings["lock_aspect"] and event.widget == self:
+            self._resizing = True
+            new_w = event.width
+            new_h = int(new_w / self.current_aspect)
+            self.geometry(f"{new_w}x{new_h}")
+            self._resizing = False
+            self._show_current_image()
+
+    def _on_close(self):
+        if self.timer_id:
+            self.after_cancel(self.timer_id)
+        self.destroy()
 
 
 class SettingsWindow(ctk.CTk):
@@ -334,7 +510,14 @@ class SettingsWindow(ctk.CTk):
     def _start_slideshow(self):
         if not self.images:
             return
-        pass  # Will be implemented in Task 7
+        settings = {
+            "order": self.order_var.get(),
+            "loop": self.loop_var.get(),
+            "fit_window": self.fit_window_var.get(),
+            "lock_aspect": self.lock_aspect_var.get(),
+            "topmost": self.topmost_var.get(),
+        }
+        ViewerWindow(self, self.images, settings)
 
     def _apply_custom_timer(self):
         """Parse h/m/s entry fields and apply the resulting timer value."""
