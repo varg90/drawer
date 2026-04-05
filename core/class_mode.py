@@ -4,10 +4,12 @@
 from core.constants import CLASS_MODE_TEMPLATES
 
 
-def auto_distribute(num_images, total_seconds):
+def auto_distribute(num_images, total_seconds, custom_tiers=None):
     """
     Distribute images into groups with increasing timer durations,
     fitting within total_seconds.
+
+    custom_tiers: optional list of (seconds, label) to use instead of templates.
 
     Returns list of (count, timer_seconds) tuples.
     Example: [(5, 30), (4, 60), (3, 120), (2, 300)]
@@ -15,12 +17,13 @@ def auto_distribute(num_images, total_seconds):
     if num_images <= 0 or total_seconds <= 0:
         return []
 
-    # Pick template based on session length
-    if total_seconds <= 900:       # up to 15 min
+    if custom_tiers and len(custom_tiers) > 0:
+        tiers = sorted(custom_tiers, key=lambda t: t[0])
+    elif total_seconds <= 900:
         tiers = CLASS_MODE_TEMPLATES["short"]
-    elif total_seconds <= 3600:    # up to 1 hour
+    elif total_seconds <= 3600:
         tiers = CLASS_MODE_TEMPLATES["medium"]
-    else:                          # over 1 hour
+    else:
         tiers = CLASS_MODE_TEMPLATES["long"]
 
     # Distribute images across tiers with decreasing count

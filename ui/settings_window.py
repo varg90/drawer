@@ -104,6 +104,28 @@ class SettingsWindow(QMainWindow):
         dur_row.addStretch()
         class_layout.addLayout(dur_row)
 
+        # Tier checkboxes — which durations to use in auto-distribute
+        class_layout.addWidget(QLabel("Использовать в авто-распределении:"))
+        self._tier_checks = []
+        ALL_TIERS = [(30, "30 сек"), (60, "1 мин"), (180, "3 мин"),
+                     (300, "5 мин"), (600, "10 мин"), (900, "15 мин"),
+                     (1800, "30 мин"), (3600, "1 час")]
+        tier_row1 = QHBoxLayout()
+        tier_row2 = QHBoxLayout()
+        for i, (secs, label) in enumerate(ALL_TIERS):
+            cb = QCheckBox(label)
+            cb.setChecked(True)
+            cb.tier_secs = secs
+            self._tier_checks.append(cb)
+            if i < 4:
+                tier_row1.addWidget(cb)
+            else:
+                tier_row2.addWidget(cb)
+        tier_row1.addStretch()
+        tier_row2.addStretch()
+        class_layout.addLayout(tier_row1)
+        class_layout.addLayout(tier_row2)
+
         # Auto distribute button
         auto_row = QHBoxLayout()
         auto_btn = QPushButton("Авто-распределение")
@@ -282,6 +304,14 @@ class SettingsWindow(QMainWindow):
         if self.radio_class.isChecked() and self.images:
             self._auto_distribute()
 
+    def _get_selected_tiers(self):
+        """Return checked tiers as list of (seconds, label)."""
+        tiers = []
+        for cb in self._tier_checks:
+            if cb.isChecked():
+                tiers.append((cb.tier_secs, cb.text()))
+        return tiers if tiers else None
+
     def _auto_distribute(self):
         """Auto-distribute remaining images/time around manual groups."""
         if not self.images:
@@ -293,7 +323,8 @@ class SettingsWindow(QMainWindow):
         remaining_images = max(0, len(self.images) - manual_images)
 
         if remaining_images > 0 and remaining_time > 0:
-            auto_groups = auto_distribute(remaining_images, remaining_time)
+            auto_groups = auto_distribute(remaining_images, remaining_time,
+                                           custom_tiers=self._get_selected_tiers())
         else:
             auto_groups = []
 

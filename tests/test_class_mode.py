@@ -50,6 +50,21 @@ def test_auto_distribute_increasing_timers():
     assert timers == sorted(timers)
 
 
+def test_auto_distribute_custom_tiers():
+    tiers = [(60, "1 мин"), (300, "5 мин")]
+    groups = auto_distribute(10, 1800, custom_tiers=tiers)
+    assert total_duration(groups) <= 1800
+    # Only uses 60 and 300
+    for _, t in groups:
+        assert t in (60, 300)
+
+
+def test_auto_distribute_custom_single_tier():
+    tiers = [(300, "5 мин")]
+    groups = auto_distribute(5, 1800, custom_tiers=tiers)
+    assert all(t == 300 for _, t in groups)
+
+
 def test_groups_to_timers():
     groups = [(3, 30), (2, 60)]
     assert groups_to_timers(groups) == [30, 30, 30, 60, 60]
