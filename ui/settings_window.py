@@ -241,6 +241,9 @@ class SettingsWindow(QMainWindow):
         self._auto_btn = QPushButton("Авто-распределение")
         self._auto_btn.clicked.connect(self._auto_distribute)
         auto_row.addWidget(self._auto_btn)
+        self._reset_btn = QPushButton("Сброс")
+        self._reset_btn.clicked.connect(self._reset_groups)
+        auto_row.addWidget(self._reset_btn)
         auto_row.addStretch()
         ses_layout.addLayout(auto_row)
 
@@ -266,7 +269,7 @@ class SettingsWindow(QMainWindow):
         self._summary.setContentsMargins(0, 0, 0, 0)
         root.addWidget(self._summary)
 
-        root.addStretch()
+        root.addSpacing(12)
 
         # 8. Always-on-top checkbox
         self._topmost_cb = QCheckBox("Поверх всех окон")
@@ -330,6 +333,7 @@ class SettingsWindow(QMainWindow):
                   f"border: 1px solid {t.border}; font-size: 11px; font-weight: 500; "
                   f"padding: 5px 14px;")
         self._auto_btn.setStyleSheet(auto_s)
+        self._reset_btn.setStyleSheet(auto_s)
 
         self._groups_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: 11px; font-weight: 500;")
@@ -445,6 +449,12 @@ class SettingsWindow(QMainWindow):
                     f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
 
     # ------------------------------------------------------------------ Auto-distribute
+
+    def _reset_groups(self):
+        self._manual_groups = []
+        self._class_groups = []
+        self._update_groups_display()
+        self._update_summary()
 
     def _auto_distribute(self):
         if not self.images:
