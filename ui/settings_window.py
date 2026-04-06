@@ -176,7 +176,6 @@ class SettingsWindow(QMainWindow):
         self._preset_buttons = []
         for secs, label in TIMER_PRESETS:
             btn = PresetButton(label.replace(" ", ""))
-            btn.setFixedHeight(22)
             btn.setCheckable(True)
             btn._secs = secs
             btn.clicked.connect(lambda checked, s=secs: self._select_preset_by_secs(s))
@@ -222,7 +221,6 @@ class SettingsWindow(QMainWindow):
         self._tier_toggles = []
         for secs, label in ALL_TIERS:
             btn = TierToggle(label, secs)
-            btn.setFixedHeight(22)
             btn.clicked.connect(self._update_tier_styles)
             self._tier_toggles.append(btn)
             tier_row.addWidget(btn)
