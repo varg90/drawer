@@ -95,9 +95,13 @@ class SettingsWindow(QMainWindow):
         self._restore_session()
         self.setAcceptDrops(True)
 
-        # Fix window height to session mode size (the larger layout)
+        # Fix both mode widgets to the same height (session is taller)
         self._standard_widget.hide()
         self._session_widget.show()
+        self._session_widget.adjustSize()
+        mode_height = self._session_widget.sizeHint().height()
+        self._standard_widget.setFixedHeight(mode_height)
+        self._session_widget.setFixedHeight(mode_height)
         self.adjustSize()
         self.setFixedSize(self.size())
         # Restore correct visibility
