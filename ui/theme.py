@@ -20,21 +20,21 @@ _DARK = {
 }
 
 _LIGHT = {
-    "bg": "#f0f0f0",
-    "bg_secondary": "#fff",
-    "bg_row_even": "#fafafa",
-    "bg_row_odd": "#f5f5f5",
-    "bg_button": "#e8e8e8",
-    "bg_active": "#ddd",
-    "border": "#ccc",
-    "border_active": "#ccc",
-    "text_primary": "#222",
-    "text_secondary": "#888",
-    "text_hint": "#aaa",
-    "text_header": "#666",
-    "text_button": "#666",
-    "start_bg": "#888",
-    "start_text": "#fff",
+    "bg": "#d0d0d0",
+    "bg_secondary": "#ddd",
+    "bg_row_even": "#d8d8d8",
+    "bg_row_odd": "#d2d2d2",
+    "bg_button": "#c4c4c4",
+    "bg_active": "#bbb",
+    "border": "#aaa",
+    "border_active": "#999",
+    "text_primary": "#2a2a2a",
+    "text_secondary": "#666",
+    "text_hint": "#888",
+    "text_header": "#555",
+    "text_button": "#555",
+    "start_bg": "#777",
+    "start_text": "#eee",
 }
 
 _THEMES = {"dark": _DARK, "light": _LIGHT}

@@ -12,9 +12,9 @@ def test_dark_theme_has_required_keys():
 
 def test_light_theme_has_required_keys():
     t = Theme("light")
-    assert t.bg == "#f0f0f0"
-    assert t.text_primary == "#222"
-    assert t.text_secondary == "#888"
+    assert t.bg == "#d0d0d0"
+    assert t.text_primary == "#2a2a2a"
+    assert t.text_secondary == "#666"
 
 
 def test_default_is_dark():
@@ -25,7 +25,7 @@ def test_default_is_dark():
 def test_toggle():
     t = Theme("dark")
     t.toggle()
-    assert t.bg == "#f0f0f0"
+    assert t.bg == "#d0d0d0"
     t.toggle()
     assert t.bg == "#1c1c1c"
 
