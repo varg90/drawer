@@ -232,6 +232,7 @@ class SettingsWindow(QMainWindow):
         for secs, label in ALL_TIERS:
             btn = TierToggle(label, secs)
             btn.setFixedHeight(22)
+            btn.clicked.connect(self._update_tier_styles)
             self._tier_toggles.append(btn)
             tier_row.addWidget(btn)
         tier_row.addStretch()
