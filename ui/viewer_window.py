@@ -55,7 +55,8 @@ class ViewerWindow(QWidget):
             QPushButton {
                 background: transparent;
                 color: #ccc;
-                font-size: 14px;
+                font-size: 16px;
+                font-weight: bold;
                 border: none;
                 padding: 2px 8px;
             }
@@ -102,7 +103,7 @@ class ViewerWindow(QWidget):
         top_layout.setContentsMargins(6, 2, 6, 2)
         top_layout.setSpacing(2)
 
-        self._settings_btn = QPushButton("SET")
+        self._settings_btn = QPushButton("⚙")
         self._settings_btn.setStyleSheet(btn_style)
         self._settings_btn.setToolTip("Вернуться к настройкам")
         self._settings_btn.clicked.connect(self._open_settings)
