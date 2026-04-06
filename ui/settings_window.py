@@ -95,6 +95,14 @@ class SettingsWindow(QMainWindow):
         self._restore_session()
         self.setAcceptDrops(True)
 
+        # Fix window height to session mode size (the larger layout)
+        self._session_widget.show()
+        self._standard_widget.show()
+        self.adjustSize()
+        self.setFixedSize(self.size())
+        # Restore correct visibility
+        self._set_timer_mode(self._timer_mode)
+
     # ------------------------------------------------------------------ UI
 
     def _build_ui(self):
