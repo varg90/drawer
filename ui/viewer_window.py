@@ -54,34 +54,34 @@ class ViewerWindow(QWidget):
         btn_style = """
             QPushButton {
                 background: transparent;
-                color: white;
-                font-size: 18px;
+                color: #ccc;
+                font-size: 14px;
                 border: none;
-                padding: 2px 6px;
+                padding: 2px 8px;
             }
-            QPushButton:hover { color: #aaaaff; }
+            QPushButton:hover { color: #fff; }
         """
 
-        # Bottom nav bar (⏮ ⏸ ⏭ timer) — centered at bottom
+        # Bottom nav bar — centered at bottom
         self._controls_bar = QWidget(self)
         self._controls_bar.setStyleSheet(
-            "background-color: rgba(20, 20, 40, 200); border-radius: 15px;"
+            "background-color: rgba(20, 20, 20, 200);"
         )
         ctrl_layout = QHBoxLayout(self._controls_bar)
         ctrl_layout.setContentsMargins(12, 4, 12, 4)
         ctrl_layout.setSpacing(6)
 
-        self._prev_btn = QPushButton("⏮")
+        self._prev_btn = QPushButton("<<")
         self._prev_btn.setStyleSheet(btn_style)
         self._prev_btn.clicked.connect(self._prev)
         ctrl_layout.addWidget(self._prev_btn)
 
-        self._pause_btn = QPushButton("⏸")
+        self._pause_btn = QPushButton("||")
         self._pause_btn.setStyleSheet(btn_style)
         self._pause_btn.clicked.connect(self._toggle_pause)
         ctrl_layout.addWidget(self._pause_btn)
 
-        self._next_btn = QPushButton("⏭")
+        self._next_btn = QPushButton(">>")
         self._next_btn.setStyleSheet(btn_style)
         self._next_btn.clicked.connect(self._next)
         ctrl_layout.addWidget(self._next_btn)
@@ -93,22 +93,22 @@ class ViewerWindow(QWidget):
         self._controls_bar.adjustSize()
         self._controls_bar.hide()
 
-        # Top-right buttons (⚙ ✕)
+        # Top-right buttons
         self._top_buttons = QWidget(self)
         self._top_buttons.setStyleSheet(
-            "background-color: rgba(20, 20, 40, 200); border-radius: 10px;"
+            "background-color: rgba(20, 20, 20, 200);"
         )
         top_layout = QHBoxLayout(self._top_buttons)
         top_layout.setContentsMargins(6, 2, 6, 2)
         top_layout.setSpacing(2)
 
-        self._settings_btn = QPushButton("⚙")
+        self._settings_btn = QPushButton("SET")
         self._settings_btn.setStyleSheet(btn_style)
         self._settings_btn.setToolTip("Вернуться к настройкам")
         self._settings_btn.clicked.connect(self._open_settings)
         top_layout.addWidget(self._settings_btn)
 
-        self._close_btn = QPushButton("✕")
+        self._close_btn = QPushButton("x")
         self._close_btn.setStyleSheet(btn_style)
         self._close_btn.clicked.connect(self.close)
         top_layout.addWidget(self._close_btn)
@@ -239,9 +239,9 @@ class ViewerWindow(QWidget):
         self._paused = not self._paused
         if self._paused:
             self._qtimer.stop()
-            self._pause_btn.setText("▶")
+            self._pause_btn.setText(">")
         else:
-            self._pause_btn.setText("⏸")
+            self._pause_btn.setText("||")
             self._qtimer.start()
 
     def _open_settings(self):
