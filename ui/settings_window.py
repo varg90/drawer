@@ -269,7 +269,7 @@ class SettingsWindow(QMainWindow):
         self._summary.setContentsMargins(0, 0, 0, 0)
         root.addWidget(self._summary)
 
-        root.addSpacing(12)
+        root.addStretch()
 
         # 8. Always-on-top checkbox
         self._topmost_cb = QCheckBox("Поверх всех окон")
