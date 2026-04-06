@@ -167,7 +167,7 @@ class SettingsWindow(QMainWindow):
         self._standard_widget = QWidget()
         std_layout = QVBoxLayout(self._standard_widget)
         std_layout.setContentsMargins(0, 4, 0, 0)
-        std_layout.setSpacing(3)
+        std_layout.setSpacing(2)
 
         preset_row1 = QHBoxLayout()
         preset_row1.addStretch()
@@ -397,11 +397,11 @@ class SettingsWindow(QMainWindow):
             if is_active:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 11px; font-weight: 500; padding: 5px 10px;")
+                    f"border: 1px solid {t.border_active}; font-size: 12px; font-weight: 500; padding: 7px 14px;")
             else:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; font-size: 11px; font-weight: 500; padding: 5px 10px;")
+                    f"border: 1px solid {t.border}; font-size: 12px; font-weight: 500; padding: 7px 14px;")
 
     def get_timer_seconds(self):
         return TIMER_PRESETS[self._preset_index][0]
