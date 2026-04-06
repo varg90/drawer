@@ -169,7 +169,7 @@ class SettingsWindow(QMainWindow):
         self._standard_widget = QWidget()
         std_layout = QVBoxLayout(self._standard_widget)
         std_layout.setContentsMargins(0, 4, 0, 0)
-        std_layout.setSpacing(8)
+        std_layout.setSpacing(3)
 
         preset_row1 = QHBoxLayout()
         preset_row1.addStretch()
@@ -235,6 +235,7 @@ class SettingsWindow(QMainWindow):
         tier_row.addStretch()
         ses_layout.addLayout(tier_row)
 
+        ses_layout.addSpacing(6)
         auto_row = QHBoxLayout()
         auto_row.addStretch()
         self._auto_btn = QPushButton("Авто-распределение")
@@ -251,6 +252,7 @@ class SettingsWindow(QMainWindow):
         root.addWidget(self._session_widget)
 
         # 6. Random order checkbox
+        root.addSpacing(2)
         random_row = QHBoxLayout()
         random_row.addStretch()
         self._random_cb = QCheckBox("Случайный порядок")
@@ -261,7 +263,10 @@ class SettingsWindow(QMainWindow):
         # 7. Summary line
         self._summary = QLabel("")
         self._summary.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._summary.setContentsMargins(0, 0, 0, 0)
         root.addWidget(self._summary)
+
+        root.addStretch()
 
         # 8. Always-on-top checkbox
         self._topmost_cb = QCheckBox("Поверх всех окон")
@@ -386,11 +391,11 @@ class SettingsWindow(QMainWindow):
             if is_active:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
+                    f"border: 1px solid {t.border_active}; font-size: 11px; font-weight: 500; padding: 5px 10px;")
             else:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
+                    f"border: 1px solid {t.border}; font-size: 11px; font-weight: 500; padding: 5px 10px;")
 
     def get_timer_seconds(self):
         return TIMER_PRESETS[self._preset_index][0]
@@ -433,11 +438,11 @@ class SettingsWindow(QMainWindow):
             if btn.isChecked():
                 btn.setStyleSheet(
                     f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
+                    f"border: 1px solid {t.border_active}; font-size: 11px; font-weight: 500; padding: 5px 10px;")
             else:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
+                    f"border: 1px solid {t.border}; font-size: 11px; font-weight: 500; padding: 5px 10px;")
 
     # ------------------------------------------------------------------ Auto-distribute
 
