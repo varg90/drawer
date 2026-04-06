@@ -171,18 +171,26 @@ class SettingsWindow(QMainWindow):
         std_layout.setContentsMargins(0, 4, 0, 0)
         std_layout.setSpacing(8)
 
-        preset_row = QHBoxLayout()
-        preset_row.addStretch()
+        preset_row1 = QHBoxLayout()
+        preset_row1.addStretch()
+        preset_row2 = QHBoxLayout()
+        preset_row2.addStretch()
         self._preset_buttons = []
+        row1_secs = {30, 60, 300, 600}  # 30с, 1м, 5м, 10м
         for secs, label in TIMER_PRESETS:
             btn = PresetButton(label.replace(" ", ""))
             btn.setCheckable(True)
             btn._secs = secs
             btn.clicked.connect(lambda checked, s=secs: self._select_preset_by_secs(s))
             self._preset_buttons.append(btn)
-            preset_row.addWidget(btn)
-        preset_row.addStretch()
-        std_layout.addLayout(preset_row)
+            if secs in row1_secs:
+                preset_row1.addWidget(btn)
+            else:
+                preset_row2.addWidget(btn)
+        preset_row1.addStretch()
+        preset_row2.addStretch()
+        std_layout.addLayout(preset_row1)
+        std_layout.addLayout(preset_row2)
 
         root.addWidget(self._standard_widget)
 
