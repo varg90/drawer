@@ -269,9 +269,8 @@ class SettingsWindow(QMainWindow):
         self._summary.setContentsMargins(0, 0, 0, 0)
         root.addWidget(self._summary)
 
-        root.addStretch()
-
         # 8. Always-on-top checkbox
+        root.addSpacing(8)
         self._topmost_cb = QCheckBox("Поверх всех окон")
         root.addWidget(self._topmost_cb)
 
@@ -281,6 +280,8 @@ class SettingsWindow(QMainWindow):
         self._start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._start_btn.clicked.connect(self._start_slideshow)
         root.addWidget(self._start_btn)
+
+        root.addStretch()
 
         self._update_preset_styles()
         self._update_session_display()
