@@ -86,7 +86,7 @@ class SettingsWindow(QMainWindow):
 
         self._timer_mode = "standard"
         self._preset_index = 2  # default 5min
-        self._session_index = 2  # default 1h
+        self._session_index = 5  # default 1h
         self._manual_groups = []
         self._class_groups = []
 
@@ -106,13 +106,11 @@ class SettingsWindow(QMainWindow):
 
         # 1. Header row: REFBOT + theme toggle
         header_row = QHBoxLayout()
-        header_row.addStretch()
         self._title = QLabel("REFBOT")
         self._title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        header_row.addWidget(self._title)
+        header_row.addWidget(self._title, 1)
         self._theme_btn = ThemeToggleButton(self.theme)
         self._theme_btn.clicked.connect(self._toggle_theme)
-        header_row.addStretch()
         header_row.addWidget(self._theme_btn)
         root.addLayout(header_row)
 
