@@ -281,8 +281,6 @@ class SettingsWindow(QMainWindow):
         self._start_btn.clicked.connect(self._start_slideshow)
         root.addWidget(self._start_btn)
 
-        root.addStretch()
-
         self._update_preset_styles()
         self._update_session_display()
         self._update_mode_buttons()
