@@ -155,7 +155,7 @@ class SettingsWindow(QMainWindow):
         # 4. Timer mode switch
         mode_row = QHBoxLayout()
         mode_row.setSpacing(0)
-        self._standard_btn = SegmentButton("Стандартный")
+        self._standard_btn = SegmentButton("Быстрый")
         self._session_btn = SegmentButton("Сеанс")
         self._standard_btn.clicked.connect(lambda: self._set_timer_mode("standard"))
         self._session_btn.clicked.connect(lambda: self._set_timer_mode("session"))
