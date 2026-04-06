@@ -85,10 +85,10 @@ class ImageEditorWindow(QWidget):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
 
-        self._count_label.setStyleSheet(f"color: {t.text_secondary}; font-size: 11px;")
+        self._count_label.setStyleSheet(f"color: {t.text_secondary}; font-size: 12px; font-weight: 500;")
 
         btn_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
-                 f"border: 1px solid {t.border}; font-size: 9px; padding: 3px 8px;")
+                 f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 8px;")
         for btn in [self._add_files_btn, self._add_folder_btn, self._clear_btn,
                     self._del_btn, self._up_btn, self._down_btn]:
             btn.setStyleSheet(btn_s)

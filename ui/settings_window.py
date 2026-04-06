@@ -272,33 +272,35 @@ class SettingsWindow(QMainWindow):
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
 
         self._title.setStyleSheet(
-            f"color: {t.text_header}; font-size: 11px; font-weight: normal; "
+            f"color: {t.text_header}; font-size: 12px; font-weight: 500; "
             f"letter-spacing: 3px;")
 
         self._drop_zone.setStyleSheet(
             f"background-color: {t.bg_secondary}; border: 1px dashed {t.border_active}; "
-            f"color: {t.text_secondary}; font-size: 12px;")
+            f"color: {t.text_secondary}; font-size: 12px; font-weight: 500;")
 
         for lbl in self._thumb_labels:
             lbl.setStyleSheet(f"background-color: {t.bg_row_even};")
         self._overflow_label.setStyleSheet(
-            f"background-color: {t.bg_row_even}; color: {t.text_secondary}; font-size: 10px;")
+            f"background-color: {t.bg_row_even}; color: {t.text_secondary}; "
+            f"font-size: 11px; font-weight: 500;")
 
         edit_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
-                  f"border: 1px solid {t.border}; font-size: 9px; padding: 3px 6px;")
+                  f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
+                  f"padding: 3px 6px;")
         self._edit_btn.setStyleSheet(edit_s)
 
         self._update_mode_buttons()
 
         arrow_s = (f"background-color: transparent; color: {t.text_secondary}; "
-                   f"border: none; font-size: 14px;")
+                   f"border: none; font-size: 16px; font-weight: bold;")
         self._ses_left.setStyleSheet(arrow_s)
         self._ses_right.setStyleSheet(arrow_s)
 
         self._ses_display.setStyleSheet(
-            f"color: {t.text_primary}; font-size: 30px; font-weight: 300;")
+            f"color: {t.text_primary}; font-size: 30px; font-weight: 400;")
 
-        label_s = (f"color: {t.text_secondary}; font-size: 9px; "
+        label_s = (f"color: {t.text_secondary}; font-size: 10px; font-weight: 500; "
                    f"letter-spacing: 2px;")
         self._session_dur_label.setStyleSheet(label_s)
         self._use_label.setStyleSheet(label_s)
@@ -307,22 +309,23 @@ class SettingsWindow(QMainWindow):
         self._update_tier_styles()
 
         auto_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
-                  f"border: 1px solid {t.border}; font-size: 10px; padding: 5px 14px;")
+                  f"border: 1px solid {t.border}; font-size: 11px; font-weight: 500; "
+                  f"padding: 5px 14px;")
         self._auto_btn.setStyleSheet(auto_s)
 
         self._groups_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 10px;")
+            f"color: {t.text_secondary}; font-size: 11px; font-weight: 500;")
 
-        cb_s = f"color: {t.text_secondary}; font-size: 9px;"
+        cb_s = f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;"
         self._random_cb.setStyleSheet(cb_s)
         self._topmost_cb.setStyleSheet(cb_s)
 
         self._summary.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 11px;")
+            f"color: {t.text_secondary}; font-size: 12px; font-weight: 500;")
 
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; color: {t.start_text}; "
-            f"font-size: 13px; font-weight: 500; letter-spacing: 1px; border: none;")
+            f"font-size: 14px; font-weight: 600; letter-spacing: 1px; border: none;")
 
     def _toggle_theme(self):
         self.theme.toggle()
@@ -341,9 +344,9 @@ class SettingsWindow(QMainWindow):
     def _update_mode_buttons(self):
         t = self.theme
         active_s = (f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border}; font-size: 11px; padding: 6px;")
+                    f"border: 1px solid {t.border}; font-size: 12px; font-weight: 500; padding: 6px;")
         inactive_s = (f"background-color: {t.bg}; color: {t.text_secondary}; "
-                      f"border: 1px solid {t.border}; font-size: 11px; padding: 6px;")
+                      f"border: 1px solid {t.border}; font-size: 12px; font-weight: 500; padding: 6px;")
         if self._timer_mode == "standard":
             self._standard_btn.setStyleSheet(active_s)
             self._session_btn.setStyleSheet(inactive_s)
@@ -368,11 +371,11 @@ class SettingsWindow(QMainWindow):
             if btn._secs == current_secs:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 9px; padding: 3px 8px;")
+                    f"border: 1px solid {t.border_active}; font-size: 10px; font-weight: 500; padding: 3px 8px;")
             else:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; font-size: 9px; padding: 3px 8px;")
+                    f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 8px;")
 
     def get_timer_seconds(self):
         return TIMER_PRESETS[self._preset_index][0]
@@ -415,11 +418,11 @@ class SettingsWindow(QMainWindow):
             if btn.isChecked():
                 btn.setStyleSheet(
                     f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 9px; padding: 3px 7px;")
+                    f"border: 1px solid {t.border_active}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
             else:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; font-size: 9px; padding: 3px 7px;")
+                    f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
 
     # ------------------------------------------------------------------ Auto-distribute
 
