@@ -1,6 +1,7 @@
 SUPPORTED_FORMATS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
 
 TIMER_PRESETS = [
+    (30, "30 сек"),
     (60, "1 мин"),
     (300, "5 мин"),
     (600, "10 мин"),

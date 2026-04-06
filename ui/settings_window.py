@@ -85,7 +85,7 @@ class SettingsWindow(QMainWindow):
         self.theme = Theme("dark")
 
         self._timer_mode = "standard"
-        self._preset_index = 1  # default 5min
+        self._preset_index = 2  # default 5min
         self._session_index = 2  # default 1h
         self._manual_groups = []
         self._class_groups = []
@@ -159,27 +159,11 @@ class SettingsWindow(QMainWindow):
         mode_row.addWidget(self._session_btn)
         root.addLayout(mode_row)
 
-        # 5a. Standard mode content
+        # 5a. Standard mode content — preset buttons only
         self._standard_widget = QWidget()
         std_layout = QVBoxLayout(self._standard_widget)
         std_layout.setContentsMargins(0, 4, 0, 0)
         std_layout.setSpacing(8)
-
-        timer_row = QHBoxLayout()
-        timer_row.addStretch()
-        self._timer_left = QPushButton("<")
-        self._timer_left.setFixedSize(28, 28)
-        self._timer_left.clicked.connect(self._prev_preset)
-        timer_row.addWidget(self._timer_left)
-        self._timer_display = QLabel("5:00")
-        self._timer_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        timer_row.addWidget(self._timer_display)
-        self._timer_right = QPushButton(">")
-        self._timer_right.setFixedSize(28, 28)
-        self._timer_right.clicked.connect(self._next_preset)
-        timer_row.addWidget(self._timer_right)
-        timer_row.addStretch()
-        std_layout.addLayout(timer_row)
 
         preset_row = QHBoxLayout()
         preset_row.addStretch()
@@ -279,7 +263,7 @@ class SettingsWindow(QMainWindow):
         self._start_btn.clicked.connect(self._start_slideshow)
         root.addWidget(self._start_btn)
 
-        self._update_timer_display()
+        self._update_preset_styles()
         self._update_session_display()
         self._update_mode_buttons()
 
@@ -310,13 +294,9 @@ class SettingsWindow(QMainWindow):
 
         arrow_s = (f"background-color: transparent; color: {t.text_secondary}; "
                    f"border: none; font-size: 14px;")
-        self._timer_left.setStyleSheet(arrow_s)
-        self._timer_right.setStyleSheet(arrow_s)
         self._ses_left.setStyleSheet(arrow_s)
         self._ses_right.setStyleSheet(arrow_s)
 
-        self._timer_display.setStyleSheet(
-            f"color: {t.text_primary}; font-size: 30px; font-weight: 300;")
         self._ses_display.setStyleSheet(
             f"color: {t.text_primary}; font-size: 30px; font-weight: 300;")
 
@@ -375,30 +355,13 @@ class SettingsWindow(QMainWindow):
 
     # ------------------------------------------------------------------ Standard timer
 
-    def _prev_preset(self):
-        if self._preset_index > 0:
-            self._preset_index -= 1
-            self._update_timer_display()
-            self._update_summary()
-
-    def _next_preset(self):
-        if self._preset_index < len(TIMER_PRESETS) - 1:
-            self._preset_index += 1
-            self._update_timer_display()
-            self._update_summary()
-
     def _select_preset_by_secs(self, secs):
         for i, (s, _) in enumerate(TIMER_PRESETS):
             if s == secs:
                 self._preset_index = i
-                self._update_timer_display()
+                self._update_preset_styles()
                 self._update_summary()
                 return
-
-    def _update_timer_display(self):
-        secs, _ = TIMER_PRESETS[self._preset_index]
-        self._timer_display.setText(format_time(secs))
-        self._update_preset_styles()
 
     def _update_preset_styles(self):
         t = self.theme
@@ -674,7 +637,7 @@ class SettingsWindow(QMainWindow):
             self.theme.toggle()
             self._apply_theme()
 
-        self._update_timer_display()
+        self._update_preset_styles()
         self._update_session_display()
         self._set_timer_mode(self._timer_mode)
         self._update_thumbnails()

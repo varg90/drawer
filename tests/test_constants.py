@@ -7,8 +7,8 @@ def test_supported_formats():
     assert ".txt" not in SUPPORTED_FORMATS
 
 def test_timer_presets():
-    assert len(TIMER_PRESETS) == 6
-    assert [s for s, _ in TIMER_PRESETS] == [60, 300, 600, 900, 1800, 3600]
+    assert len(TIMER_PRESETS) == 7
+    assert [s for s, _ in TIMER_PRESETS] == [30, 60, 300, 600, 900, 1800, 3600]
 
 def test_timer_range():
     assert TIMER_MIN == 1
