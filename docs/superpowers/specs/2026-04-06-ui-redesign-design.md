@@ -6,13 +6,28 @@ Redesign the settings window and image editor for a minimal, distraction-free lo
 
 ## Visual Style
 
-- Background: dark grey (#1c1c1c)
-- Text: light grey (#ccc) for primary, (#555) for secondary, (#444) for hints
+Two themes: dark (default) and light. Toggled by a half-circle icon (split dark/light) in the top-right corner of the header.
+
+### Dark Theme (default)
+- Background: #1c1c1c
+- Secondary background: #1a1a1a (drop zone, panels), #222/#282828 (list rows), #252525 (buttons)
+- Active elements: #333 background, #444 border
+- Text: #ccc primary, #555 secondary, #444 hints, #777 header
 - Borders: 1px solid #333 or #444
+
+### Light Theme
+- Background: #f0f0f0
+- Secondary background: #fff (drop zone, panels), #fafafa/#f5f5f5 (list rows), #e8e8e8 (buttons)
+- Active elements: #ddd background, #ccc border
+- Text: #222 primary, #888 secondary, #aaa hints, #666 header
+- Borders: 1px solid #ccc or #ddd
+
+### Common
 - No border-radius anywhere (sharp corners throughout)
 - Font: system default (Segoe UI on Windows)
-- Labels: uppercase, letter-spacing 2-3px, 9px, #555
+- Labels: uppercase, letter-spacing 2-3px, 9px
 - No emojis — text only, symbols like `<` `>` `x` `^` `v` for controls
+- Theme preference saved in session.json and restored on startup
 
 ## Settings Window (Main)
 
@@ -20,6 +35,7 @@ Single compact vertical card layout. No scroll needed. Top to bottom:
 
 ### 1. Header
 - "REFBOT" centered, uppercase, letter-spacing 3px, #777, 11px
+- Theme toggle icon in top-right corner: small circle (12-14px) split vertically — left half dark, right half light. Clicking switches between dark and light themes. No text label.
 
 ### 2. Drop Zone
 - Full-width rectangle, 1px dashed border #444, background #1a1a1a
