@@ -237,7 +237,7 @@ class SettingsWindow(QMainWindow):
         self._auto_btn = QPushButton("Авто-распределение")
         self._auto_btn.clicked.connect(self._auto_distribute)
         auto_row.addWidget(self._auto_btn)
-        self._reset_btn = QPushButton("Сброс")
+        self._reset_btn = QPushButton("x")
         self._reset_btn.clicked.connect(self._reset_groups)
         auto_row.addWidget(self._reset_btn)
         auto_row.addStretch()
