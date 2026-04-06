@@ -1,7 +1,7 @@
 import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QPushButton, QLabel, QCheckBox, QFileDialog,
-                              QSizePolicy, QApplication)
+                              QSizePolicy, QApplication, QStackedWidget)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPainter, QColor, QPen
 from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_PRESETS
@@ -95,16 +95,10 @@ class SettingsWindow(QMainWindow):
         self._restore_session()
         self.setAcceptDrops(True)
 
-        # Fix both mode widgets to the same height (session is taller)
-        self._standard_widget.hide()
-        self._session_widget.show()
-        self._session_widget.adjustSize()
-        mode_height = self._session_widget.sizeHint().height()
-        self._standard_widget.setFixedHeight(mode_height)
-        self._session_widget.setFixedHeight(mode_height)
+        # Fix window size — QStackedWidget uses largest child height
+        self._mode_stack.setCurrentWidget(self._session_widget)
         self.adjustSize()
         self.setFixedSize(self.size())
-        # Restore correct visibility
         self._set_timer_mode(self._timer_mode)
 
     # ------------------------------------------------------------------ UI
@@ -196,8 +190,6 @@ class SettingsWindow(QMainWindow):
         std_layout.addLayout(preset_row1)
         std_layout.addLayout(preset_row2)
 
-        root.addWidget(self._standard_widget)
-
         # 5b. Session mode content
         self._session_widget = QWidget()
         ses_layout = QVBoxLayout(self._session_widget)
@@ -255,8 +247,11 @@ class SettingsWindow(QMainWindow):
         self._groups_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ses_layout.addWidget(self._groups_label)
 
-        self._session_widget.hide()
-        root.addWidget(self._session_widget)
+        self._mode_stack = QStackedWidget()
+        self._mode_stack.addWidget(self._standard_widget)
+        self._mode_stack.addWidget(self._session_widget)
+        self._mode_stack.setCurrentWidget(self._standard_widget)
+        root.addWidget(self._mode_stack)
 
         # 6. Random order checkbox
         root.addSpacing(2)
@@ -363,8 +358,10 @@ class SettingsWindow(QMainWindow):
 
     def _set_timer_mode(self, mode):
         self._timer_mode = mode
-        self._standard_widget.setVisible(mode == "standard")
-        self._session_widget.setVisible(mode == "session")
+        if mode == "standard":
+            self._mode_stack.setCurrentWidget(self._standard_widget)
+        else:
+            self._mode_stack.setCurrentWidget(self._session_widget)
         self._update_mode_buttons()
         self._update_summary()
 
