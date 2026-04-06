@@ -177,6 +177,7 @@ class SettingsWindow(QMainWindow):
         for secs, label in TIMER_PRESETS:
             btn = PresetButton(label.replace(" ", ""))
             btn.setFixedHeight(22)
+            btn.setCheckable(True)
             btn._secs = secs
             btn.clicked.connect(lambda checked, s=secs: self._select_preset_by_secs(s))
             self._preset_buttons.append(btn)
@@ -250,8 +251,6 @@ class SettingsWindow(QMainWindow):
         random_row.addWidget(self._random_cb)
         random_row.addStretch()
         root.addLayout(random_row)
-
-        root.addStretch()
 
         # 7. Summary line
         self._summary = QLabel("")
@@ -376,14 +375,16 @@ class SettingsWindow(QMainWindow):
         t = self.theme
         current_secs = TIMER_PRESETS[self._preset_index][0]
         for btn in self._preset_buttons:
-            if btn._secs == current_secs:
+            is_active = btn._secs == current_secs
+            btn.setChecked(is_active)
+            if is_active:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 10px; font-weight: 500; padding: 3px 8px;")
+                    f"border: 1px solid {t.border_active}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
             else:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 8px;")
+                    f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
 
     def get_timer_seconds(self):
         return TIMER_PRESETS[self._preset_index][0]
