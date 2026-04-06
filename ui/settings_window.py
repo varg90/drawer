@@ -438,11 +438,11 @@ class SettingsWindow(QMainWindow):
             if btn.isChecked():
                 btn.setStyleSheet(
                     f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 11px; font-weight: 500; padding: 5px 10px;")
+                    f"border: 1px solid {t.border_active}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
             else:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; font-size: 11px; font-weight: 500; padding: 5px 10px;")
+                    f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
 
     # ------------------------------------------------------------------ Auto-distribute
 
