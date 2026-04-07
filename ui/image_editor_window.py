@@ -3,8 +3,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                               QLabel, QListWidget, QListWidgetItem, QFileDialog,
                               QSlider, QStackedWidget, QScrollArea)
 from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRect
-from PyQt6.QtWidgets import QLayout
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
 from core.models import ImageItem
@@ -16,65 +15,17 @@ GRID_MAX = 256
 GRID_DEFAULT = 80
 
 
-class FlowLayout(QLayout):
-    """Layout that arranges widgets in a horizontal flow, wrapping to next row."""
-
-    def __init__(self, parent=None, spacing=1):
-        super().__init__(parent)
-        self._items = []
-        self._spacing = spacing
-
-    def addItem(self, item):
-        self._items.append(item)
-
-    def count(self):
-        return len(self._items)
-
-    def itemAt(self, index):
-        if 0 <= index < len(self._items):
-            return self._items[index]
-        return None
-
-    def takeAt(self, index):
-        if 0 <= index < len(self._items):
-            return self._items.pop(index)
-        return None
-
-    def hasHeightForWidth(self):
-        return True
-
-    def heightForWidth(self, width):
-        return self._do_layout(QRect(0, 0, width, 0), apply=False)
-
-    def setGeometry(self, rect):
-        super().setGeometry(rect)
-        self._do_layout(rect, apply=True)
-
-    def sizeHint(self):
-        return self.minimumSize()
-
-    def minimumSize(self):
-        s = QSize(0, 0)
-        for item in self._items:
-            s = s.expandedTo(item.minimumSize())
-        return s
-
-    def _do_layout(self, rect, apply):
-        x = rect.x()
-        y = rect.y()
-        row_h = 0
-        sp = self._spacing
-        for item in self._items:
-            sz = item.sizeHint()
-            if x + sz.width() > rect.right() + 1 and row_h > 0:
-                x = rect.x()
-                y += row_h + sp
-                row_h = 0
-            if apply:
-                item.setGeometry(QRect(x, y, sz.width(), sz.height()))
-            x += sz.width() + sp
-            row_h = max(row_h, sz.height())
-        return y + row_h - rect.y()
+def _flow_position(labels, container_width, sz, gap=1):
+    """Position labels in a flow layout manually. Returns total height."""
+    x, y = 0, 0
+    for lbl in labels:
+        if x + sz > container_width and x > 0:
+            x = 0
+            y += sz + gap
+        lbl.move(x, y)
+        lbl.setFixedSize(sz, sz)
+        x += sz + gap
+    return y + sz if labels else 0
 
 
 class ImageEditorWindow(QWidget):
@@ -302,15 +253,10 @@ class ImageEditorWindow(QWidget):
     def _on_zoom(self, value):
         if not self._grid_groups:
             return
+        w = max(self._grid_scroll.viewport().width(), 200)
         for header, grid in self._grid_groups:
-            layout = grid.layout()
-            if not layout:
-                continue
-            for j in range(layout.count()):
-                lbl = layout.itemAt(j).widget()
-                if lbl is None:
-                    continue
-                lbl.setFixedSize(value, value)
+            labels = getattr(grid, "_labels", [])
+            for lbl in labels:
                 idx = lbl.property("img_idx")
                 if idx is not None and idx < len(self.images):
                     pix = self._get_pixmap(self.images[idx].path)
@@ -319,8 +265,8 @@ class ImageEditorWindow(QWidget):
                                             Qt.AspectRatioMode.KeepAspectRatio,
                                             Qt.TransformationMode.SmoothTransformation)
                         lbl.setPixmap(scaled)
-            grid.updateGeometry()
-            grid.adjustSize()
+            h = _flow_position(labels, w, value)
+            grid.setFixedHeight(h)
 
     # ------------------------------------------------------------------ Rebuild
 
@@ -431,10 +377,9 @@ class ImageEditorWindow(QWidget):
 
             # Flow container for this group
             grid = QWidget()
-            flow = FlowLayout(grid, spacing=1)
+            labels = []
             for idx, img in items:
-                lbl = QLabel()
-                lbl.setFixedSize(sz, sz)
+                lbl = QLabel(grid)
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 pix = self._get_pixmap(img.path)
                 if not pix.isNull():
@@ -443,7 +388,12 @@ class ImageEditorWindow(QWidget):
                                         Qt.TransformationMode.SmoothTransformation)
                     lbl.setPixmap(scaled)
                 lbl.setProperty("img_idx", idx)
-                flow.addWidget(lbl)
+                labels.append(lbl)
+
+            w = max(self._grid_scroll.viewport().width(), 200)
+            h = _flow_position(labels, w, sz)
+            grid.setFixedHeight(h)
+            grid._labels = labels
 
             if timer_val == 0:
                 grid.setVisible(False)
