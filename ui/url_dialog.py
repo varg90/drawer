@@ -56,31 +56,44 @@ class DownloadWorker(QThread):
     finished = pyqtSignal()
     error = pyqtSignal(str)
 
+    PARALLEL = 4
+
     def __init__(self, provider, files, cache):
         super().__init__()
         self._provider = provider
         self._files = files
         self._cache = cache
 
+    def _download_one(self, cf):
+        cached = self._cache.get(cf)
+        if cached:
+            return cf, cached
+        resp = requests.get(cf.download_url, headers=self._headers(cf))
+        resp.raise_for_status()
+        path = self._cache.put(cf, resp.content)
+        return cf, path
+
+    def _headers(self, cf):
+        rk = getattr(cf, "resource_key", "")
+        fid = getattr(cf, "file_id", "")
+        if rk and fid:
+            return {"X-Goog-Drive-Resource-Keys": f"{fid}/{rk}"}
+        return {}
+
     def run(self):
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         total = len(self._files)
-        for i, cf in enumerate(self._files):
-            try:
-                cached = self._cache.get(cf)
-                if cached:
-                    self.file_done.emit(cf, cached)
-                else:
-                    import tempfile, os
-                    tmp = os.path.join(tempfile.gettempdir(), f"refbot_dl_{i}")
-                    self._provider.download(cf, tmp)
-                    with open(tmp, "rb") as f:
-                        data = f.read()
-                    os.unlink(tmp)
-                    path = self._cache.put(cf, data)
+        done = 0
+        with ThreadPoolExecutor(max_workers=self.PARALLEL) as pool:
+            futures = {pool.submit(self._download_one, cf): cf for cf in self._files}
+            for future in as_completed(futures):
+                done += 1
+                try:
+                    cf, path = future.result()
                     self.file_done.emit(cf, path)
-            except Exception:
-                pass  # skip failed files
-            self.progress.emit(i + 1, total)
+                except Exception:
+                    pass
+                self.progress.emit(done, total)
         self.finished.emit()
 
 
