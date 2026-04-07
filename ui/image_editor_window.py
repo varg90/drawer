@@ -2,8 +2,8 @@ import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                               QLabel, QListWidget, QListWidgetItem, QFileDialog,
                               QSlider, QStackedWidget, QScrollArea, QStyle)
-from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer, QThread
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
 from core.models import ImageItem
@@ -13,6 +13,31 @@ from core.cloud.cache import CacheManager
 GRID_MIN = 48
 GRID_MAX = 256
 GRID_DEFAULT = 80
+
+
+class PixmapLoader(QThread):
+    """Load images from disk in background thread."""
+    loaded = pyqtSignal(str, QImage)  # path, image
+
+    def __init__(self, paths, max_size=GRID_MAX):
+        super().__init__()
+        self._paths = paths
+        self._max = max_size
+        self._cancel = False
+
+    def cancel(self):
+        self._cancel = True
+
+    def run(self):
+        for path in self._paths:
+            if self._cancel:
+                return
+            img = QImage(path)
+            if not img.isNull():
+                img = img.scaled(self._max, self._max,
+                                 Qt.AspectRatioMode.KeepAspectRatio,
+                                 Qt.TransformationMode.SmoothTransformation)
+                self.loaded.emit(path, img)
 
 
 class ClickableLabel(QLabel):
@@ -60,6 +85,7 @@ class ImageEditorWindow(QWidget):
         self._parent = parent
         self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
         self._pix_cache = {}  # path -> QPixmap (original size, max ~GRID_MAX)
+        self._loader = None  # PixmapLoader thread
         self._selected_tiles = set()  # set of ClickableLabel
         self._list_groups = []  # list of (header_btn, list_widget)
         self.setWindowTitle("Изображения")
@@ -310,11 +336,46 @@ class ImageEditorWindow(QWidget):
     # ------------------------------------------------------------------ Rebuild
 
     def _rebuild(self):
+        # Cancel any running loader
+        if self._loader and self._loader.isRunning():
+            self._loader.cancel()
+            self._loader.wait()
+
         if self._view_mode == "list":
             self._rebuild_list()
         else:
             self._rebuild_grid()
         self._count_label.setText(f"Изображения — {len(self.images)}")
+
+        # Start background loading for uncached images
+        uncached = [img.path for img in self.images if img.path not in self._pix_cache]
+        if uncached:
+            self._loader = PixmapLoader(uncached)
+            self._loader.loaded.connect(self._on_pixmap_loaded)
+            self._loader.start()
+
+    def _on_pixmap_loaded(self, path, image):
+        pix = QPixmap.fromImage(image)
+        self._pix_cache[path] = pix
+        # Update visible widgets that use this path
+        if self._view_mode == "list":
+            for _, lw in self._list_groups:
+                for j in range(lw.count()):
+                    item = lw.item(j)
+                    idx = item.data(Qt.ItemDataRole.UserRole)
+                    if idx is not None and idx < len(self.images) and self.images[idx].path == path:
+                        item.setIcon(QIcon(pix))
+        else:
+            sz = self._zoom_slider.value()
+            for _, grid in self._grid_groups:
+                for lbl in getattr(grid, "_labels", []):
+                    idx = lbl.property("img_idx")
+                    if idx is not None and idx < len(self.images) and self.images[idx].path == path:
+                        scaled = pix.scaled(sz, sz,
+                                            Qt.AspectRatioMode.KeepAspectRatio,
+                                            Qt.TransformationMode.SmoothTransformation)
+                        lbl.setPixmap(scaled)
+            self._reflow_grid()
 
     @staticmethod
     def _short_name(path, max_len=20):
