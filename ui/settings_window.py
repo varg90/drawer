@@ -659,14 +659,14 @@ class SettingsWindow(QMainWindow):
         self.viewer.show()
         self.hide()
 
-    def _on_viewer_closed(self):
-        if self.viewer:
-            if self.viewer.isFullScreen():
-                pass  # don't save fullscreen size
-            else:
-                self._last_viewer_size = [self.viewer.width(), self.viewer.height()]
-        self.viewer = None
-        self.show()
+    def _on_viewer_closed(self, return_only=False):
+        if self.viewer and not self.viewer.isFullScreen():
+            self._last_viewer_size = [self.viewer.width(), self.viewer.height()]
+        if return_only:
+            self.show()
+        else:
+            self.viewer = None
+            self.show()
 
     # ------------------------------------------------------------------ Session save/restore
 
@@ -737,9 +737,10 @@ class SettingsWindow(QMainWindow):
     # ------------------------------------------------------------------ Close
 
     def closeEvent(self, event):
-        if self.viewer is not None and self.viewer.isVisible():
+        if self.viewer is not None:
             event.ignore()
             self.hide()
+            self.viewer.show()
         else:
             self._save_session()
             event.accept()
