@@ -17,74 +17,57 @@ GRID_DEFAULT = 80
 class ImageEditorWindow(QWidget):
     images_updated = pyqtSignal(list)
 
-    def __init__(self, images, theme, parent=None):
+    def __init__(self, images, theme, parent=None, view_mode="list"):
         super().__init__()
         self.images = list(images)
         self.theme = theme
         self._parent = parent
-        self._view_mode = "list"  # "list" or "grid"
+        self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
+        self._pix_cache = {}  # path -> QPixmap (original size, max ~GRID_MAX)
         self.setWindowTitle("Изображения")
-        self.setMinimumSize(400, 450)
-
         self._build_ui()
+        self._set_view_mode(self._view_mode)
         self._apply_theme()
         self._rebuild()
 
-        # Center over parent
+        # Open at minimum size, centered over parent
+        self.adjustSize()
         if parent is not None:
             pg = parent.geometry()
-            self.resize(420, 500)
             x = pg.x() + (pg.width() - self.width()) // 2
             y = pg.y() + (pg.height() - self.height()) // 2
             self.move(x, y)
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 8, 12, 8)
+        root.setContentsMargins(16, 12, 16, 12)
         root.setSpacing(8)
-
-        # Header
-        header = QHBoxLayout()
-        self._count_label = QLabel("")
-        header.addWidget(self._count_label)
-        header.addStretch()
-
-        # View mode toggle
-        self._list_btn = QPushButton("=")
-        self._list_btn.setFixedSize(24, 24)
-        self._list_btn.setToolTip("Список")
-        self._list_btn.clicked.connect(lambda: self._set_view_mode("list"))
-        header.addWidget(self._list_btn)
-
-        self._grid_btn = QPushButton("#")
-        self._grid_btn.setFixedSize(24, 24)
-        self._grid_btn.setToolTip("Плитка")
-        self._grid_btn.clicked.connect(lambda: self._set_view_mode("grid"))
-        header.addWidget(self._grid_btn)
-
-        close_btn = QPushButton("x")
-        close_btn.setFixedSize(24, 24)
-        close_btn.clicked.connect(self.close)
-        self._close_btn = close_btn
-        header.addWidget(close_btn)
-        root.addLayout(header)
 
         # Toolbar
         toolbar = QHBoxLayout()
+        toolbar.setSpacing(6)
         self._add_files_btn = QPushButton("+ Файлы")
         self._add_files_btn.clicked.connect(self._add_files)
         toolbar.addWidget(self._add_files_btn)
         self._add_folder_btn = QPushButton("+ Папка")
         self._add_folder_btn.clicked.connect(self._add_folder)
         toolbar.addWidget(self._add_folder_btn)
+        self._url_btn = QPushButton("URL")
+        self._url_btn.clicked.connect(self._add_from_url)
+        toolbar.addWidget(self._url_btn)
         toolbar.addStretch()
         self._del_btn = QPushButton("x")
+        self._del_btn.setFixedSize(22, 22)
         self._del_btn.clicked.connect(self._delete_selected)
         toolbar.addWidget(self._del_btn)
         self._clear_btn = QPushButton("Очистить")
         self._clear_btn.clicked.connect(self._clear)
         toolbar.addWidget(self._clear_btn)
         root.addLayout(toolbar)
+
+        # Count label — separate row
+        self._count_label = QLabel("")
+        root.addWidget(self._count_label)
 
         # Stacked widget: list view and grid view
         self._stack = QStackedWidget()
@@ -94,7 +77,7 @@ class ImageEditorWindow(QWidget):
         self._list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self._list.setDefaultDropAction(Qt.DropAction.MoveAction)
         self._list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self._list.setIconSize(QSize(28, 28))
+        self._list.setIconSize(QSize(24, 24))
         self._list.model().rowsMoved.connect(self._on_reorder)
         self._stack.addWidget(self._list)
 
@@ -108,7 +91,7 @@ class ImageEditorWindow(QWidget):
         self._grid.setMovement(QListWidget.Movement.Snap)
         self._grid.setSpacing(4)
         self._grid.setIconSize(QSize(GRID_DEFAULT, GRID_DEFAULT))
-        self._grid.setGridSize(QSize(GRID_DEFAULT + 8, GRID_DEFAULT + 8))
+        self._grid.setGridSize(QSize(GRID_DEFAULT + 8, GRID_DEFAULT + 28))
         self._grid.model().rowsMoved.connect(self._on_grid_reorder)
         self._stack.addWidget(self._grid)
 
@@ -116,18 +99,17 @@ class ImageEditorWindow(QWidget):
 
         # Bottom controls
         bottom = QHBoxLayout()
+        bottom.setSpacing(6)
 
         # Up/down (list mode)
         self._up_btn = QPushButton("^")
-        self._up_btn.setFixedSize(30, 24)
+        self._up_btn.setFixedSize(26, 22)
         self._up_btn.clicked.connect(self._move_up)
         bottom.addWidget(self._up_btn)
         self._down_btn = QPushButton("v")
-        self._down_btn.setFixedSize(30, 24)
+        self._down_btn.setFixedSize(26, 22)
         self._down_btn.clicked.connect(self._move_down)
         bottom.addWidget(self._down_btn)
-
-        bottom.addStretch()
 
         # Zoom slider (grid mode)
         self._zoom_label = QLabel("Размер:")
@@ -139,6 +121,20 @@ class ImageEditorWindow(QWidget):
         self._zoom_slider.valueChanged.connect(self._on_zoom)
         bottom.addWidget(self._zoom_slider)
 
+        bottom.addStretch()
+
+        # View mode toggle (always visible)
+        self._list_btn = QPushButton("=")
+        self._list_btn.setFixedSize(22, 22)
+        self._list_btn.setToolTip("Список")
+        self._list_btn.clicked.connect(lambda: self._set_view_mode("list"))
+        bottom.addWidget(self._list_btn)
+        self._grid_btn = QPushButton("#")
+        self._grid_btn.setFixedSize(22, 22)
+        self._grid_btn.setToolTip("Плитка")
+        self._grid_btn.clicked.connect(lambda: self._set_view_mode("grid"))
+        bottom.addWidget(self._grid_btn)
+
         root.addLayout(bottom)
         self._update_bottom_controls()
 
@@ -147,17 +143,18 @@ class ImageEditorWindow(QWidget):
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
 
         self._count_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 12px; font-weight: 500;")
+            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500; "
+            f"letter-spacing: 2px;")
 
         btn_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
                  f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
-                 f"padding: 3px 8px;")
-        for btn in [self._add_files_btn, self._add_folder_btn, self._clear_btn,
-                    self._del_btn, self._up_btn, self._down_btn, self._close_btn,
-                    self._list_btn, self._grid_btn]:
+                 f"padding: 3px 6px;")
+        for btn in [self._add_files_btn, self._add_folder_btn, self._url_btn,
+                    self._clear_btn, self._del_btn, self._up_btn, self._down_btn]:
             btn.setStyleSheet(btn_s)
 
-        list_s = (f"QListWidget {{ background-color: {t.bg_secondary}; border: none; }}"
+        list_s = (f"QListWidget {{ background-color: {t.bg_secondary}; border: none; "
+                  f"font-size: 11px; color: {t.text_primary}; }}"
                   f"QListWidget::item {{ padding: 3px; }}"
                   f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}")
         self._list.setStyleSheet(list_s)
@@ -176,10 +173,10 @@ class ImageEditorWindow(QWidget):
         t = self.theme
         active_s = (f"background-color: {t.bg_active}; color: {t.text_primary}; "
                     f"border: 1px solid {t.border_active}; font-size: 10px; "
-                    f"font-weight: bold; padding: 3px 8px;")
+                    f"font-weight: bold; padding: 3px 6px;")
         inactive_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
                       f"border: 1px solid {t.border}; font-size: 10px; "
-                      f"font-weight: 500; padding: 3px 8px;")
+                      f"font-weight: 500; padding: 3px 6px;")
         self._list_btn.setStyleSheet(active_s if self._view_mode == "list" else inactive_s)
         self._grid_btn.setStyleSheet(active_s if self._view_mode == "grid" else inactive_s)
 
@@ -201,10 +198,12 @@ class ImageEditorWindow(QWidget):
         self._down_btn.setVisible(is_list)
         self._zoom_label.setVisible(not is_list)
         self._zoom_slider.setVisible(not is_list)
+        self._list_btn.setVisible(True)
+        self._grid_btn.setVisible(True)
 
     def _on_zoom(self, value):
         self._grid.setIconSize(QSize(value, value))
-        self._grid.setGridSize(QSize(value + 8, value + 8))
+        self._rebuild_grid()
 
     # ------------------------------------------------------------------ Rebuild
 
@@ -215,18 +214,39 @@ class ImageEditorWindow(QWidget):
             self._rebuild_grid()
         self._count_label.setText(f"Изображения — {len(self.images)}")
 
+    @staticmethod
+    def _short_name(path, max_len=20):
+        name = os.path.basename(path)
+        if len(name) <= max_len:
+            return name
+        stem, ext = os.path.splitext(name)
+        keep = max_len - len(ext) - 1  # 1 for ellipsis char
+        if keep < 2:
+            return name[:max_len]
+        left = (keep + 1) // 2
+        right = keep - left
+        return stem[:left] + "\u2026" + stem[-right:] + ext
+
+    def _get_pixmap(self, path):
+        pix = self._pix_cache.get(path)
+        if pix is None:
+            pix = QPixmap(path)
+            if not pix.isNull():
+                pix = pix.scaled(GRID_MAX, GRID_MAX,
+                                 Qt.AspectRatioMode.KeepAspectRatio,
+                                 Qt.TransformationMode.SmoothTransformation)
+            self._pix_cache[path] = pix
+        return pix
+
     def _rebuild_list(self):
         self._list.clear()
         for i, img in enumerate(self.images):
-            name = os.path.basename(img.path)
+            name = self._short_name(img.path)
             timer_str = format_time(img.timer)
             text = f"{i + 1}.  {name}    {timer_str}"
             item = QListWidgetItem(text)
-            pix = QPixmap(img.path)
+            pix = self._get_pixmap(img.path)
             if not pix.isNull():
-                pix = pix.scaled(28, 28,
-                                 Qt.AspectRatioMode.KeepAspectRatio,
-                                 Qt.TransformationMode.SmoothTransformation)
                 item.setIcon(QIcon(pix))
             item.setData(Qt.ItemDataRole.UserRole, i)
             self._list.addItem(item)
@@ -235,18 +255,21 @@ class ImageEditorWindow(QWidget):
         self._grid.clear()
         sz = self._zoom_slider.value()
         for i, img in enumerate(self.images):
-            item = QListWidgetItem()
-            pix = QPixmap(img.path)
+            timer_str = format_time(img.timer)
+            item = QListWidgetItem(timer_str)
+            pix = self._get_pixmap(img.path)
             if not pix.isNull():
-                pix = pix.scaled(sz, sz,
-                                 Qt.AspectRatioMode.KeepAspectRatio,
-                                 Qt.TransformationMode.SmoothTransformation)
-                item.setIcon(QIcon(pix))
+                scaled = pix.scaled(sz, sz,
+                                    Qt.AspectRatioMode.KeepAspectRatio,
+                                    Qt.TransformationMode.SmoothTransformation)
+                item.setIcon(QIcon(scaled))
             item.setData(Qt.ItemDataRole.UserRole, i)
             self._grid.addItem(item)
+        self._grid.setGridSize(QSize(sz + 8, sz + 28))
 
     def refresh(self, images):
         self.images = list(images)
+        self._pix_cache.clear()
         self._rebuild()
 
     def _emit(self):
@@ -272,6 +295,22 @@ class ImageEditorWindow(QWidget):
                 self.images.append(ImageItem(path=p, timer=300))
             self._rebuild()
             self._emit()
+
+    def _add_from_url(self):
+        from ui.url_dialog import UrlDialog
+        timer = 300
+        if self._parent and hasattr(self._parent, "get_timer_seconds"):
+            timer = self._parent.get_timer_seconds()
+        dlg = UrlDialog(self.theme, timer=timer, parent=self)
+        dlg.images_loaded.connect(self._on_url_images)
+        dlg.exec()
+
+    def _on_url_images(self, images):
+        for img in images:
+            self.images.append(img)
+        self._pix_cache.clear()
+        self._rebuild()
+        self._emit()
 
     def _clear(self):
         self.images = []
@@ -329,6 +368,11 @@ class ImageEditorWindow(QWidget):
                 self.images.pop(row)
         self._rebuild()
         self._emit()
+
+    def closeEvent(self, event):
+        if self._parent and hasattr(self._parent, "_on_editor_close"):
+            self._parent._on_editor_close()
+        super().closeEvent(event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Delete:
