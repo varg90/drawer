@@ -48,16 +48,22 @@ class IconButton(QPushButton):
         s = min(w, h) * 0.32  # scale
 
         if self._icon_type == "prev":
-            # |◁  — bar + triangle
-            p.drawLine(QPointF(cx - s, cy - s), QPointF(cx - s, cy + s))
-            tri = QPolygonF([QPointF(cx + s, cy - s), QPointF(cx - s * 0.3, cy), QPointF(cx + s, cy + s)])
-            p.drawPolygon(tri)
+            # <<  — two chevrons pointing left
+            p.setPen(QPen(color, 2))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawLine(QPointF(cx, cy - s), QPointF(cx - s, cy))
+            p.drawLine(QPointF(cx - s, cy), QPointF(cx, cy + s))
+            p.drawLine(QPointF(cx + s, cy - s), QPointF(cx, cy))
+            p.drawLine(QPointF(cx, cy), QPointF(cx + s, cy + s))
 
         elif self._icon_type == "next":
-            # ▷|  — triangle + bar
-            p.drawLine(QPointF(cx + s, cy - s), QPointF(cx + s, cy + s))
-            tri = QPolygonF([QPointF(cx - s, cy - s), QPointF(cx + s * 0.3, cy), QPointF(cx - s, cy + s)])
-            p.drawPolygon(tri)
+            # >>  — two chevrons pointing right
+            p.setPen(QPen(color, 2))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawLine(QPointF(cx - s, cy - s), QPointF(cx, cy))
+            p.drawLine(QPointF(cx, cy), QPointF(cx - s, cy + s))
+            p.drawLine(QPointF(cx, cy - s), QPointF(cx + s, cy))
+            p.drawLine(QPointF(cx + s, cy), QPointF(cx, cy + s))
 
         elif self._icon_type == "pause":
             # ||  — two bars
