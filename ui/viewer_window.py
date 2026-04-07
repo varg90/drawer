@@ -132,22 +132,18 @@ class ViewerWindow(QWidget):
         self._center_btn.clicked.connect(self._toggle_pause)
         self._update_center_icon()
 
-        # Side navigation
-        self._left_nav = QPushButton(self)
-        self._left_nav.setStyleSheet("background: transparent; border: none;")
-        self._left_nav.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._left_nav.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._left_nav.setIcon(_icon("ph.caret-left-light", CLR_DIM))
-        self._left_nav.setIconSize(QSize(22, 22))
-        self._left_nav.clicked.connect(self._prev)
+        # Side navigation (visual only — clicks handled in mousePressEvent)
+        self._left_nav = QLabel(self)
+        self._left_nav.setPixmap(_icon("ph.caret-left-light", CLR_DIM).pixmap(QSize(22, 22)))
+        self._left_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._left_nav.setStyleSheet("background: transparent;")
+        self._left_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        self._right_nav = QPushButton(self)
-        self._right_nav.setStyleSheet("background: transparent; border: none;")
-        self._right_nav.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._right_nav.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._right_nav.setIcon(_icon("ph.caret-right-light", CLR_DIM))
-        self._right_nav.setIconSize(QSize(22, 22))
-        self._right_nav.clicked.connect(self._next)
+        self._right_nav = QLabel(self)
+        self._right_nav.setPixmap(_icon("ph.caret-right-light", CLR_DIM).pixmap(QSize(22, 22)))
+        self._right_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._right_nav.setStyleSheet("background: transparent;")
+        self._right_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         # Bottom: timer + counter (labels)
         self._timer_label = QLabel(self)
@@ -453,9 +449,11 @@ class ViewerWindow(QWidget):
         # Center
         self._center_btn.move((w - 60) // 2, (h - 60) // 2)
 
-        # Side nav
-        self._left_nav.setGeometry(0, 0, NAV_ZONE, h)
-        self._right_nav.setGeometry(w - NAV_ZONE, 0, NAV_ZONE, h)
+        # Side nav (centered vertically, compact)
+        nav_h = 40
+        nav_y = (h - nav_h) // 2
+        self._left_nav.setGeometry(6, nav_y, 22, nav_h)
+        self._right_nav.setGeometry(w - 28, nav_y, 22, nav_h)
 
         # Bottom: coffee + timer left, counter right
         bottom_y = h - 24
@@ -505,6 +503,12 @@ class ViewerWindow(QWidget):
                 self._resize_corner = corner
                 self._resize_start_pos = event.globalPosition().toPoint()
                 self._resize_start_geom = self.geometry()
+                event.accept()
+            elif pos.x() < NAV_ZONE and self._controls_visible:
+                self._prev()
+                event.accept()
+            elif pos.x() > self.width() - NAV_ZONE and self._controls_visible:
+                self._next()
                 event.accept()
             else:
                 event.ignore()
