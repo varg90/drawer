@@ -61,8 +61,10 @@ class IconButton(QPushButton):
             p.drawLine(QPointF(cx + s * 0.5, cy - s), QPointF(cx + s * 0.5, cy + s))
 
         elif self._icon_type == "play":
+            p.setBrush(color)
             tri = QPolygonF([QPointF(cx - s * 0.5, cy - s), QPointF(cx + s, cy), QPointF(cx - s * 0.5, cy + s)])
             p.drawPolygon(tri)
+            p.setBrush(Qt.BrushStyle.NoBrush)
 
         elif self._icon_type == "settings":
             for dy in [-s * 0.7, 0, s * 0.7]:
