@@ -163,7 +163,7 @@ class ViewerWindow(QWidget):
 
         self._timer_label = QLabel("")
         self._timer_label.setStyleSheet(
-            "color: rgba(255,255,255,160); font-size: 13px; background: transparent;")
+            "color: rgba(255,255,255,160); font-size: 14px; background: transparent;")
         ctrl_layout.addWidget(self._timer_label)
 
         self._controls_bar.adjustSize()
@@ -309,7 +309,7 @@ class ViewerWindow(QWidget):
             warn_secs = auto_warn_seconds(img.timer)
         is_warning = self._countdown <= warn_secs
         color = "#ff5555" if is_warning else "white"
-        self._timer_label.setStyleSheet(f"color: {color}; font-size: 14px;")
+        self._timer_label.setStyleSheet(f"color: {color}; font-size: 14px; background: transparent;")
         self._timer_label.setText(t)
         if is_warning and self._countdown > 0:
             self._warn_label.setText(t)
