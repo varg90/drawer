@@ -2,7 +2,7 @@ import os
 import requests
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLineEdit,
                               QPushButton, QLabel, QListWidget, QListWidgetItem,
-                              QProgressBar)
+                              QProgressBar, QCheckBox)
 from PyQt6.QtGui import QPixmap, QIcon, QImage
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal
 from core.cloud import detect_provider
@@ -136,6 +136,10 @@ class UrlDialog(QDialog):
         self._sel_none_btn = QPushButton("Снять все")
         self._sel_none_btn.clicked.connect(self._select_none)
         sel_row.addWidget(self._sel_none_btn)
+        self._preview_cb = QCheckBox("Превью")
+        self._preview_cb.setChecked(True)
+        self._preview_cb.toggled.connect(self._toggle_previews)
+        sel_row.addWidget(self._preview_cb)
         sel_row.addStretch()
         self._count_label = QLabel("")
         sel_row.addWidget(self._count_label)
@@ -156,6 +160,7 @@ class UrlDialog(QDialog):
         self._file_list.setVisible(False)
         self._sel_all_btn.setVisible(False)
         self._sel_none_btn.setVisible(False)
+        self._preview_cb.setVisible(False)
         self._count_label.setVisible(False)
         self._add_btn.setVisible(False)
 
@@ -172,6 +177,9 @@ class UrlDialog(QDialog):
                  f"padding: 3px 6px;")
         for btn in [self._fetch_btn, self._sel_all_btn, self._sel_none_btn, self._add_btn]:
             btn.setStyleSheet(btn_s)
+
+        self._preview_cb.setStyleSheet(
+            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
 
         self._status.setStyleSheet(
             f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
@@ -228,6 +236,7 @@ class UrlDialog(QDialog):
         self._file_list.setVisible(True)
         self._sel_all_btn.setVisible(True)
         self._sel_none_btn.setVisible(True)
+        self._preview_cb.setVisible(True)
         self._count_label.setVisible(True)
         self._add_btn.setVisible(True)
         self._add_btn.setEnabled(True)
@@ -235,11 +244,30 @@ class UrlDialog(QDialog):
         self._file_list.itemChanged.connect(self._update_count)
         self.adjustSize()
 
-        self._preview_worker = PreviewWorker(files)
+        if self._preview_cb.isChecked():
+            self._start_previews()
+
+    def _start_previews(self):
+        if self._preview_worker and self._preview_worker.isRunning():
+            return
+        self._file_list.setIconSize(QSize(48, 48))
+        self._preview_worker = PreviewWorker(self._cloud_files)
         self._preview_worker.preview_ready.connect(self._on_preview_ready)
         self._preview_worker.start()
 
+    def _toggle_previews(self, checked):
+        if checked:
+            self._start_previews()
+        else:
+            if self._preview_worker and self._preview_worker.isRunning():
+                self._preview_worker.terminate()
+            for i in range(self._file_list.count()):
+                self._file_list.item(i).setIcon(QIcon())
+            self._file_list.setIconSize(QSize(0, 0))
+
     def _on_preview_ready(self, index, image):
+        if not self._preview_cb.isChecked():
+            return
         if index < self._file_list.count():
             pix = QPixmap.fromImage(image).scaled(
                 48, 48, Qt.AspectRatioMode.KeepAspectRatio,
