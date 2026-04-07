@@ -470,9 +470,9 @@ class SettingsWindow(QMainWindow):
     def _apply_class_timers(self):
         if self._class_groups:
             timers = groups_to_timers(self._class_groups)
+            last_timer = timers[-1] if timers else 300
             for i, img in enumerate(self.images):
-                if i < len(timers):
-                    img.timer = timers[i]
+                img.timer = timers[i] if i < len(timers) else last_timer
         if self.editor and self.editor.isVisible():
             self.editor.refresh(self.images)
 
