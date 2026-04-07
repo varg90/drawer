@@ -2,7 +2,7 @@ import random
 import qtawesome as qta
 from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QGraphicsOpacityEffect,
                               QApplication)
-from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon, QFont
+from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon
 from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
                            QEasingCurve)
 from core.timer_logic import format_time, auto_warn_seconds
@@ -20,49 +20,9 @@ CLR_DIM = QColor(255, 255, 255, 75)
 CLR_WARNING = QColor(255, 85, 85, 200)
 
 
-class ShadowLabel(QLabel):
-    """QLabel that draws text with a dark shadow for readability on light images."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._color = QColor(255, 255, 255, 115)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.setStyleSheet("background: transparent;")
-
-    def set_color(self, color):
-        self._color = color
-        self.update()
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-        p.setFont(self.font())
-        # Shadow
-        p.setPen(QColor(0, 0, 0, 180))
-        p.drawText(self.rect().adjusted(1, 1, 1, 1), self.alignment(), self.text())
-        # Text
-        p.setPen(self._color)
-        p.drawText(self.rect(), self.alignment(), self.text())
-        p.end()
-
-
 def _icon(name, color=CLR_NORMAL, size=15):
     """Create QIcon from qtawesome Phosphor icon."""
     return qta.icon(name, color=color)
-
-
-def _icon_shadowed(name, color, size):
-    """Create QPixmap with icon + dark shadow underneath."""
-    shadow_color = QColor(0, 0, 0, 160)
-    shadow_pix = qta.icon(name, color=shadow_color).pixmap(QSize(size, size))
-    main_pix = qta.icon(name, color=color).pixmap(QSize(size, size))
-    result = QPixmap(size + 1, size + 1)
-    result.fill(QColor(0, 0, 0, 0))
-    p = QPainter(result)
-    p.drawPixmap(1, 1, shadow_pix)
-    p.drawPixmap(0, 0, main_pix)
-    p.end()
-    return result
 
 
 def _icon_btn(icon_name, size, parent, color=CLR_NORMAL, tooltip=""):
@@ -174,29 +134,27 @@ class ViewerWindow(QWidget):
 
         # Side navigation (visual only — clicks handled in mousePressEvent)
         self._left_nav = QLabel(self)
-        self._left_nav.setPixmap(_icon_shadowed("ph.caret-left-light", CLR_DIM, 22))
+        self._left_nav.setPixmap(_icon("ph.caret-left-light", CLR_DIM).pixmap(QSize(22, 22)))
         self._left_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._left_nav.setStyleSheet("background: transparent;")
         self._left_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._right_nav = QLabel(self)
-        self._right_nav.setPixmap(_icon_shadowed("ph.caret-right-light", CLR_DIM, 22))
+        self._right_nav.setPixmap(_icon("ph.caret-right-light", CLR_DIM).pixmap(QSize(22, 22)))
         self._right_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._right_nav.setStyleSheet("background: transparent;")
         self._right_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        # Bottom: timer + counter (shadow labels)
-        font13 = QFont()
-        font13.setPixelSize(13)
+        # Bottom: timer + counter
+        self._timer_label = QLabel(self)
+        self._timer_label.setStyleSheet(
+            "color: rgba(255,255,255,115); font-size: 13px; background: transparent;")
+        self._timer_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        self._timer_label = ShadowLabel(self)
-        self._timer_label.setFont(font13)
-        self._timer_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-
-        self._counter_label = ShadowLabel(self)
-        self._counter_label.setFont(font13)
-        self._counter_label.set_color(QColor(255, 255, 255, 90))
-        self._counter_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._counter_label = QLabel(self)
+        self._counter_label.setStyleSheet(
+            "color: rgba(255,255,255,90); font-size: 13px; background: transparent;")
+        self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         # Coffee icon (always visible when paused)
         self._coffee_label = QLabel(self)
@@ -247,17 +205,15 @@ class ViewerWindow(QWidget):
 
     def _update_center_icon(self):
         if self._paused:
-            pix = _icon_shadowed("ph.play-fill", CLR_HOVER, 40)
+            self._center_btn.setIcon(_icon("ph.play-fill", CLR_HOVER, 40))
         else:
-            pix = _icon_shadowed("ph.pause-fill", CLR_HOVER, 40)
-        self._center_btn.setIcon(QIcon(pix))
-        self._center_btn.setIconSize(QSize(40, 40))
+            self._center_btn.setIcon(_icon("ph.pause-fill", CLR_HOVER, 40))
 
     def _update_coffee(self):
         if self._paused:
             color = CLR_WARNING if self._is_warning else CLR_NORMAL
-            self._coffee_label.setPixmap(_icon_shadowed("ph.coffee-light", color, 15))
-            self._coffee_label.setFixedSize(16, 16)
+            self._coffee_label.setPixmap(
+                _icon("ph.coffee-light", color).pixmap(QSize(15, 15)))
             self._coffee_label.show()
         else:
             self._coffee_label.hide()
@@ -339,12 +295,13 @@ class ViewerWindow(QWidget):
         self._is_warning = self._countdown <= warn_secs and self._countdown > 0
 
         if self._is_warning:
-            self._timer_label.set_color(QColor(255, 85, 85, 200))
+            self._timer_label.setStyleSheet(
+                "color: rgba(255,85,85,200); font-size: 13px; background: transparent;")
             self._timer_label.setText(t)
-            # Always visible when warning
             self._timer_label.setGraphicsEffect(None)
         else:
-            self._timer_label.set_color(QColor(255, 255, 255, 115))
+            self._timer_label.setStyleSheet(
+                "color: rgba(255,255,255,115); font-size: 13px; background: transparent;")
             self._timer_label.setText(t)
             # Restore opacity effect if not visible
             if not self._controls_visible:
