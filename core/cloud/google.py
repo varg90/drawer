@@ -30,7 +30,7 @@ class GoogleDriveProvider(CloudProvider):
         resp = requests.get(FILES_URL, params={
             "q": f"'{folder_id}' in parents and trashed=false",
             "key": API_KEY,
-            "fields": "files(id,name,mimeType,size,resourceKey)",
+            "fields": "files(id,name,mimeType,size,resourceKey,thumbnailLink)",
             "pageSize": 1000,
             "includeItemsFromAllDrives": True,
             "supportsAllDrives": True,
@@ -49,7 +49,7 @@ class GoogleDriveProvider(CloudProvider):
 
         resp = requests.get(f"{FILES_URL}/{file_id}", params={
             "key": API_KEY,
-            "fields": "id,name,mimeType,size,resourceKey",
+            "fields": "id,name,mimeType,size,resourceKey,thumbnailLink",
         }, headers=headers)
         resp.raise_for_status()
         item = resp.json()
@@ -77,7 +77,7 @@ class GoogleDriveProvider(CloudProvider):
             name=item.get("name", ""),
             download_url=f"{FILES_URL}/{fid}?alt=media&key={API_KEY}",
             size=int(item.get("size", 0)),
-            preview_url=f"https://drive.google.com/thumbnail?id={fid}&sz=w200",
+            preview_url=item.get("thumbnailLink", ""),
         )
         cf.file_id = fid
         cf.resource_key = rk
