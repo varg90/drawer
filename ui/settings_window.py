@@ -110,13 +110,15 @@ class SettingsWindow(QMainWindow):
         root.setContentsMargins(16, 12, 16, 12)
         root.setSpacing(10)
 
-        # 1. Header row: REFBOT (centered) + theme toggle
+        # 1. Header row: ? + REFBOT (centered) + theme toggle
         header_row = QHBoxLayout()
+        self._help_btn = QPushButton("?")
+        self._help_btn.setFixedSize(16, 16)
+        self._help_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._help_btn.clicked.connect(self._show_help)
+        header_row.addWidget(self._help_btn)
         self._theme_btn = ThemeToggleButton(self.theme)
         self._theme_btn.clicked.connect(self._toggle_theme)
-        spacer = QWidget()
-        spacer.setFixedWidth(self._theme_btn.sizeHint().width())
-        header_row.addWidget(spacer)
         self._title = QLabel("REFBOT")
         self._title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_row.addWidget(self._title, 1)
@@ -299,6 +301,10 @@ class SettingsWindow(QMainWindow):
             f"color: {t.text_header}; font-size: 12px; font-weight: 500; "
             f"letter-spacing: 3px;")
 
+        self._help_btn.setStyleSheet(
+            f"background-color: transparent; color: {t.text_hint}; "
+            f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500;")
+
         self._drop_zone.setStyleSheet(
             f"background-color: {t.bg_secondary}; border: 1px dashed {t.border_active}; "
             f"color: {t.text_secondary}; font-size: 12px; font-weight: 500;")
@@ -351,6 +357,35 @@ class SettingsWindow(QMainWindow):
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; color: {t.start_text}; "
             f"font-size: 14px; font-weight: 600; letter-spacing: 1px; border: none;")
+
+    def _show_help(self):
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Справка")
+        t = self.theme
+        dlg.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(16, 12, 16, 12)
+        lbl = QLabel(
+            "<b>Настройки</b><br><br>"
+            "Перетащите изображения или папки в окно<br>"
+            "для добавления файлов<br><br>"
+            "<b>Слайдшоу</b><br><br>"
+            "<table>"
+            "<tr><td>Пробел&nbsp;&nbsp;</td><td>пауза / продолжить</td></tr>"
+            "<tr><td>\u2190 \u2192&nbsp;&nbsp;</td><td>предыдущее / следующее</td></tr>"
+            "<tr><td>F11&nbsp;&nbsp;</td><td>полный экран</td></tr>"
+            "<tr><td>Esc&nbsp;&nbsp;</td><td>выйти из полного экрана</td></tr>"
+            "<tr><td>? или H&nbsp;&nbsp;</td><td>справка</td></tr>"
+            "</table><br>"
+            "ПКМ + перетаскивание — переместить окно<br>"
+            "Края окна — изменить размер"
+        )
+        lbl.setStyleSheet(f"color: {t.text_primary}; font-size: 11px;")
+        lbl.setWordWrap(True)
+        layout.addWidget(lbl)
+        dlg.adjustSize()
+        dlg.exec()
 
     def _toggle_theme(self):
         self.theme.toggle()
