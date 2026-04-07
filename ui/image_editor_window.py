@@ -66,7 +66,7 @@ class ImageEditorWindow(QWidget):
         self._build_ui()
         self._apply_theme()
         self._set_view_mode(self._view_mode)
-        QTimer.singleShot(0, self._rebuild)
+        self._needs_initial_rebuild = True
 
         # Open at minimum size, centered over parent
         self.adjustSize()
@@ -640,7 +640,11 @@ class ImageEditorWindow(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
-        self._reflow_grid()
+        if self._needs_initial_rebuild:
+            self._needs_initial_rebuild = False
+            QTimer.singleShot(10, self._rebuild)
+        else:
+            self._reflow_grid()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
