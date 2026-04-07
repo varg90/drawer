@@ -127,7 +127,7 @@ class UrlDialog(QDialog):
 
         # File list with checkboxes
         self._file_list = QListWidget()
-        self._file_list.setIconSize(QSize(48, 48))
+        self._file_list.setIconSize(QSize(0, 0))
         self._file_list.setMinimumHeight(200)
         root.addWidget(self._file_list)
 
@@ -141,7 +141,7 @@ class UrlDialog(QDialog):
         self._sel_none_btn.clicked.connect(self._select_none)
         sel_row.addWidget(self._sel_none_btn)
         self._preview_cb = QCheckBox("Превью")
-        self._preview_cb.setChecked(True)
+        self._preview_cb.setChecked(False)
         self._preview_cb.toggled.connect(self._toggle_previews)
         sel_row.addWidget(self._preview_cb)
         sel_row.addStretch()
