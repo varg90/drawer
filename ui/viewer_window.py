@@ -503,14 +503,7 @@ class ViewerWindow(QWidget):
         pos = event.position().toPoint()
         # Update cursor
         corner = self._get_corner(pos)
-        if corner in ("tl", "br"):
-            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
-        elif corner in ("tr", "bl"):
-            self.setCursor(Qt.CursorShape.SizeBDiagCursor)
-        elif corner:
-            self.setCursor(Qt.CursorShape.SizeAllCursor)
-        else:
-            self.unsetCursor()
+        self._update_cursor(corner)
 
         buttons = event.buttons()
         if buttons & Qt.MouseButton.RightButton and self._drag_pos is not None:
@@ -527,17 +520,19 @@ class ViewerWindow(QWidget):
             self._resize_corner = None
             self._resize_start_pos = None
             self._resize_start_geom = None
+            pos = event.position().toPoint()
+            self._update_cursor(self._get_corner(pos))
 
     def _get_corner(self, pos):
         w, h = self.width(), self.height()
         x, y = pos.x(), pos.y()
-        edge = 8  # edge grab zone
+        edge = 6
         g = CORNER_GRIP
         in_left = x < g
         in_right = x > w - g
         in_top = y < g
         in_bottom = y > h - g
-        # Corners first
+        # Corners
         if in_top and in_left:
             return "tl"
         if in_top and in_right:
@@ -548,14 +543,26 @@ class ViewerWindow(QWidget):
             return "br"
         # Edges
         if x < edge:
-            return "bl"
+            return "l"
         if x > w - edge:
-            return "br"
+            return "r"
         if y < edge:
-            return "tl"
+            return "t"
         if y > h - edge:
-            return "br"
+            return "b"
         return None
+
+    def _update_cursor(self, corner):
+        if corner in ("tl", "br"):
+            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+        elif corner in ("tr", "bl"):
+            self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+        elif corner in ("l", "r"):
+            self.setCursor(Qt.CursorShape.SizeHorCursor)
+        elif corner in ("t", "b"):
+            self.setCursor(Qt.CursorShape.SizeVerCursor)
+        else:
+            self.unsetCursor()
 
     def _do_resize(self, global_pos):
         if not self._resize_start_pos or not self._resize_start_geom:
@@ -565,21 +572,21 @@ class ViewerWindow(QWidget):
         geom = self._resize_start_geom
         corner = self._resize_corner
 
-        if corner == "br":
+        if corner in ("br", "r", "b"):
             new_w = max(MIN_WIDTH, geom.width() + dx)
             new_h = max(MIN_HEIGHT, int(new_w / self._aspect))
             self.setGeometry(geom.x(), geom.y(), new_w, new_h)
-        elif corner == "bl":
+        elif corner in ("bl", "l"):
             new_w = max(MIN_WIDTH, geom.width() - dx)
             new_h = max(MIN_HEIGHT, int(new_w / self._aspect))
             new_x = geom.right() - new_w
             self.setGeometry(new_x, geom.y(), new_w, new_h)
-        elif corner == "tr":
+        elif corner in ("tr",):
             new_w = max(MIN_WIDTH, geom.width() + dx)
             new_h = max(MIN_HEIGHT, int(new_w / self._aspect))
             new_y = geom.bottom() - new_h
             self.setGeometry(geom.x(), new_y, new_w, new_h)
-        elif corner == "tl":
+        elif corner in ("tl", "t"):
             new_w = max(MIN_WIDTH, geom.width() - dx)
             new_h = max(MIN_HEIGHT, int(new_w / self._aspect))
             new_x = geom.right() - new_w
