@@ -72,17 +72,17 @@ class ViewerWindow(QWidget):
         ctrl_layout.setContentsMargins(12, 4, 12, 4)
         ctrl_layout.setSpacing(6)
 
-        self._prev_btn = QPushButton("\u25c1")
+        self._prev_btn = QPushButton("\u23ee")
         self._prev_btn.setStyleSheet(btn_style)
         self._prev_btn.clicked.connect(self._prev)
         ctrl_layout.addWidget(self._prev_btn)
 
-        self._pause_btn = QPushButton("\u25ae\u25ae")
+        self._pause_btn = QPushButton("\u23f8")
         self._pause_btn.setStyleSheet(btn_style)
         self._pause_btn.clicked.connect(self._toggle_pause)
         ctrl_layout.addWidget(self._pause_btn)
 
-        self._next_btn = QPushButton("\u25b7")
+        self._next_btn = QPushButton("\u23ed")
         self._next_btn.setStyleSheet(btn_style)
         self._next_btn.clicked.connect(self._next)
         ctrl_layout.addWidget(self._next_btn)
@@ -252,9 +252,9 @@ class ViewerWindow(QWidget):
         self._paused = not self._paused
         if self._paused:
             self._qtimer.stop()
-            self._pause_btn.setText("\u25b7")
+            self._pause_btn.setText("\u25b6")
         else:
-            self._pause_btn.setText("\u25ae\u25ae")
+            self._pause_btn.setText("\u23f8")
             self._qtimer.start()
 
     def _open_settings(self):
