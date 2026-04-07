@@ -61,6 +61,7 @@ class ImageEditorWindow(QWidget):
         self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
         self._pix_cache = {}  # path -> QPixmap (original size, max ~GRID_MAX)
         self._selected_tiles = set()  # set of ClickableLabel
+        self._list_groups = []  # list of (header_btn, list_widget)
         self.setWindowTitle("Изображения")
         self._build_ui()
         self._apply_theme()
@@ -109,14 +110,18 @@ class ImageEditorWindow(QWidget):
         # Stacked widget: list view and grid view
         self._stack = QStackedWidget()
 
-        # --- List view ---
-        self._list = QListWidget()
-        self._list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        self._list.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self._list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self._list.setIconSize(QSize(24, 24))
-        self._list.model().rowsMoved.connect(self._on_reorder)
-        self._stack.addWidget(self._list)
+        # --- List view (grouped) ---
+        self._list_scroll = QScrollArea()
+        self._list_scroll.setWidgetResizable(True)
+        self._list_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._list_container = QWidget()
+        self._list_layout = QVBoxLayout(self._list_container)
+        self._list_layout.setContentsMargins(0, 0, 0, 0)
+        self._list_layout.setSpacing(4)
+        self._list_layout.addStretch()
+        self._list_scroll.setWidget(self._list_container)
+        self._list_groups = []  # list of (header_btn, list_widget)
+        self._stack.addWidget(self._list_scroll)
 
         # --- Grid view (grouped) ---
         self._grid_scroll = QScrollArea()
@@ -201,7 +206,10 @@ class ImageEditorWindow(QWidget):
                   f"font-size: 11px; color: {t.text_primary}; }}"
                   f"QListWidget::item {{ padding: 3px; }}"
                   f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}")
-        self._list.setStyleSheet(list_s)
+        self._list_style = list_s
+        scroll_s = (f"QScrollArea {{ background-color: {t.bg_secondary}; border: none; }}"
+                    f"QWidget {{ background-color: {t.bg_secondary}; }}")
+        self._list_scroll.setStyleSheet(scroll_s)
         self._grid_scroll.setStyleSheet(
             f"QScrollArea {{ background-color: {t.bg_secondary}; border: none; }}"
             f"QWidget {{ background-color: {t.bg_secondary}; }}")
@@ -257,7 +265,7 @@ class ImageEditorWindow(QWidget):
     def _set_view_mode(self, mode):
         self._view_mode = mode
         if mode == "list":
-            self._stack.setCurrentWidget(self._list)
+            self._stack.setCurrentWidget(self._list_scroll)
         else:
             self._stack.setCurrentWidget(self._grid_scroll)
         self._update_view_buttons()
@@ -338,32 +346,91 @@ class ImageEditorWindow(QWidget):
         return f"{i + 1}.  {name}    {format_time(img.timer)}"
 
     def _rebuild_list(self):
-        # Fast path: update text only if same images in same order
-        if self._list.count() == len(self.images):
-            same = True
-            for i, img in enumerate(self.images):
-                item = self._list.item(i)
-                idx = item.data(Qt.ItemDataRole.UserRole)
-                if idx != i:
-                    same = False
-                    break
-            if same:
-                for i, img in enumerate(self.images):
-                    item = self._list.item(i)
-                    item.setText(self._format_item_text(i, img))
-                    self._style_item(item, img)
-                return
+        # Fast path: update text only if groups match
+        if self._list_groups:
+            old_indices = []
+            for _, lw in self._list_groups:
+                for j in range(lw.count()):
+                    old_indices.append(lw.item(j).data(Qt.ItemDataRole.UserRole))
+            if old_indices == list(range(len(self.images))):
+                # Same images, just update text and regroup if timers changed
+                cur_groups = self._group_by_timer()
+                old_keys = [(h.text().split(" — ")[0]) for h, _ in self._list_groups]
+                new_keys = []
+                for tv, items in cur_groups.items():
+                    new_keys.append(format_time(tv) if tv else "Не в сеансе")
+                if old_keys == new_keys:
+                    gi = 0
+                    for tv, items in cur_groups.items():
+                        _, lw = self._list_groups[gi]
+                        for j, (idx, img) in enumerate(items):
+                            item = lw.item(j)
+                            item.setText(self._format_item_text(idx, img))
+                            self._style_item(item, img)
+                        gi += 1
+                    return
 
-        self._list.clear()
+        # Full rebuild
+        for header, lw in self._list_groups:
+            header.setParent(None)
+            lw.setParent(None)
+            header.deleteLater()
+            lw.deleteLater()
+        self._list_groups = []
+
+        groups = self._group_by_timer()
+        insert_pos = 0
+
+        for timer_val, items in groups.items():
+            if timer_val == 0:
+                label = f"Не в сеансе — {len(items)}"
+                style = self._grid_header_inactive_style
+            else:
+                label = f"{format_time(timer_val)} — {len(items)}"
+                style = self._grid_header_style
+            header = QPushButton(label)
+            header.setStyleSheet(style)
+            header.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            lw = QListWidget()
+            lw.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+            lw.setDefaultDropAction(Qt.DropAction.MoveAction)
+            lw.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+            lw.setIconSize(QSize(24, 24))
+            lw.setStyleSheet(self._list_style)
+            lw.model().rowsMoved.connect(self._on_reorder)
+
+            for idx, img in items:
+                text = self._format_item_text(idx, img)
+                item = QListWidgetItem(text)
+                pix = self._get_pixmap(img.path)
+                if not pix.isNull():
+                    item.setIcon(QIcon(pix))
+                item.setData(Qt.ItemDataRole.UserRole, idx)
+                self._style_item(item, img)
+                lw.addItem(item)
+
+            lw.setFixedHeight(len(items) * 30 + 4)
+
+            if timer_val == 0:
+                lw.setVisible(False)
+
+            header.clicked.connect(lambda checked, w=lw: w.setVisible(not w.isVisible()))
+
+            self._list_layout.insertWidget(insert_pos, header)
+            self._list_layout.insertWidget(insert_pos + 1, lw)
+            self._list_groups.append((header, lw))
+            insert_pos += 2
+
+    def _group_by_timer(self):
+        from collections import OrderedDict
+        groups = OrderedDict()
         for i, img in enumerate(self.images):
-            text = self._format_item_text(i, img)
-            item = QListWidgetItem(text)
-            pix = self._get_pixmap(img.path)
-            if not pix.isNull():
-                item.setIcon(QIcon(pix))
-            item.setData(Qt.ItemDataRole.UserRole, i)
-            self._style_item(item, img)
-            self._list.addItem(item)
+            key = img.timer
+            if key not in groups:
+                groups[key] = []
+            groups[key].append((i, img))
+        return groups
 
     def _rebuild_grid(self):
         self._selected_tiles.clear()
@@ -375,15 +442,7 @@ class ImageEditorWindow(QWidget):
             grid.deleteLater()
         self._grid_groups = []
 
-        # Group images by timer
-        from collections import OrderedDict
-        groups = OrderedDict()
-        for i, img in enumerate(self.images):
-            key = img.timer
-            if key not in groups:
-                groups[key] = []
-            groups[key].append((i, img))
-
+        groups = self._group_by_timer()
         sz = self._zoom_slider.value()
         insert_pos = 0
 
@@ -484,28 +543,35 @@ class ImageEditorWindow(QWidget):
         self._emit()
 
     def _move_up(self):
-        row = self._list.currentRow()
-        if row > 0:
-            self.images[row], self.images[row - 1] = self.images[row - 1], self.images[row]
-            self._rebuild()
-            self._list.setCurrentRow(row - 1)
-            self._emit()
+        for _, lw in self._list_groups:
+            row = lw.currentRow()
+            if row > 0:
+                idx_a = lw.item(row).data(Qt.ItemDataRole.UserRole)
+                idx_b = lw.item(row - 1).data(Qt.ItemDataRole.UserRole)
+                self.images[idx_a], self.images[idx_b] = self.images[idx_b], self.images[idx_a]
+                self._rebuild()
+                self._emit()
+                return
 
     def _move_down(self):
-        row = self._list.currentRow()
-        if 0 <= row < len(self.images) - 1:
-            self.images[row], self.images[row + 1] = self.images[row + 1], self.images[row]
-            self._rebuild()
-            self._list.setCurrentRow(row + 1)
-            self._emit()
+        for _, lw in self._list_groups:
+            row = lw.currentRow()
+            if 0 <= row < lw.count() - 1:
+                idx_a = lw.item(row).data(Qt.ItemDataRole.UserRole)
+                idx_b = lw.item(row + 1).data(Qt.ItemDataRole.UserRole)
+                self.images[idx_a], self.images[idx_b] = self.images[idx_b], self.images[idx_a]
+                self._rebuild()
+                self._emit()
+                return
 
     def _on_reorder(self):
         new_order = []
-        for i in range(self._list.count()):
-            item = self._list.item(i)
-            orig_idx = item.data(Qt.ItemDataRole.UserRole)
-            if orig_idx is not None and orig_idx < len(self.images):
-                new_order.append(self.images[orig_idx])
+        for _, lw in self._list_groups:
+            for i in range(lw.count()):
+                item = lw.item(i)
+                orig_idx = item.data(Qt.ItemDataRole.UserRole)
+                if orig_idx is not None and orig_idx < len(self.images):
+                    new_order.append(self.images[orig_idx])
         if new_order:
             self.images = new_order
             self._rebuild()
@@ -514,11 +580,12 @@ class ImageEditorWindow(QWidget):
     def _delete_selected(self):
         indices_to_remove = set()
         if self._view_mode == "list":
-            for idx in self._list.selectedIndexes():
-                item = self._list.item(idx.row())
-                orig = item.data(Qt.ItemDataRole.UserRole)
-                if orig is not None:
-                    indices_to_remove.add(orig)
+            for _, lw in self._list_groups:
+                for idx in lw.selectedIndexes():
+                    item = lw.item(idx.row())
+                    orig = item.data(Qt.ItemDataRole.UserRole)
+                    if orig is not None:
+                        indices_to_remove.add(orig)
         else:
             for lbl in self._selected_tiles:
                 idx = lbl.property("img_idx")
