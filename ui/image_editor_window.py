@@ -266,6 +266,22 @@ class ImageEditorWindow(QWidget):
         return pix
 
     def _rebuild_list(self):
+        # Fast path: update text only if same images in same order
+        if self._list.count() == len(self.images):
+            same = True
+            for i, img in enumerate(self.images):
+                item = self._list.item(i)
+                idx = item.data(Qt.ItemDataRole.UserRole)
+                if idx != i:
+                    same = False
+                    break
+            if same:
+                for i, img in enumerate(self.images):
+                    name = self._short_name(img.path)
+                    timer_str = format_time(img.timer)
+                    self._list.item(i).setText(f"{i + 1}.  {name}    {timer_str}")
+                return
+
         self._list.clear()
         for i, img in enumerate(self.images):
             name = self._short_name(img.path)
@@ -279,6 +295,18 @@ class ImageEditorWindow(QWidget):
             self._list.addItem(item)
 
     def _rebuild_grid(self):
+        # Fast path: update text only if same images
+        if self._grid.count() == len(self.images):
+            same = True
+            for i in range(self._grid.count()):
+                if self._grid.item(i).data(Qt.ItemDataRole.UserRole) != i:
+                    same = False
+                    break
+            if same:
+                for i, img in enumerate(self.images):
+                    self._grid.item(i).setText(format_time(img.timer))
+                return
+
         self._grid.clear()
         sz = self._zoom_slider.value()
         for i, img in enumerate(self.images):
@@ -295,8 +323,11 @@ class ImageEditorWindow(QWidget):
         self._grid.setGridSize(QSize(sz + 8, sz + 28))
 
     def refresh(self, images):
+        old_paths = {img.path for img in self.images}
         self.images = list(images)
-        self._pix_cache.clear()
+        new_paths = {img.path for img in self.images}
+        if old_paths != new_paths:
+            self._pix_cache.clear()
         self._rebuild()
 
     def _emit(self):
