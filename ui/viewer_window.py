@@ -71,11 +71,23 @@ class IconButton(QPushButton):
                 p.drawLine(QPointF(cx - s, cy + dy), QPointF(cx + s, cy + dy))
 
         elif self._icon_type == "help":
-            font = p.font()
-            font.setPixelSize(int(s * 2.6))
-            font.setWeight(QFont.Weight.Light)
-            p.setFont(font)
-            p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, "?")
+            # ? drawn with lines — arc + stem + dot
+            import math
+            r = s * 0.7
+            # Top arc (from ~210° to ~330°)
+            pts = []
+            for deg in range(210, 335, 8):
+                rad = math.radians(deg)
+                pts.append(QPointF(cx + r * math.cos(rad), cy - s * 0.35 + r * math.sin(rad)))
+            for i in range(len(pts) - 1):
+                p.drawLine(pts[i], pts[i + 1])
+            # Stem down to center
+            p.drawLine(pts[-1], QPointF(cx, cy + s * 0.15))
+            # Dot
+            p.setBrush(color)
+            dot_r = 1.2
+            p.drawEllipse(QPointF(cx, cy + s * 0.8), dot_r, dot_r)
+            p.setBrush(Qt.BrushStyle.NoBrush)
 
         elif self._icon_type == "fullscreen":
             d = s * 0.9
