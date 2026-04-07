@@ -236,29 +236,24 @@ class ViewerWindow(QWidget):
     def _update_coffee(self):
         if self._paused:
             color = CLR_WARNING if self._is_warning else CLR_NORMAL
-            sz = getattr(self, "_cur_font_sz", 20)
             self._coffee_label.setPixmap(
-                _icon("ph.coffee-light", color).pixmap(QSize(sz, sz)))
-            self._coffee_label.setFixedSize(sz, sz)
+                _icon("ph.coffee-light", color).pixmap(QSize(20, 20)))
+            self._coffee_label.setFixedSize(20, 20)
             self._coffee_label.show()
         else:
             self._coffee_label.hide()
         self._layout_bottom(self.width(), self.height())
 
     def _layout_bottom(self, w, h):
-        s = getattr(self, "_cur_scale", 1.0)
-        icon_sz = int(20 * s)
-        lbl_h = max(20, int(28 * s))
-        margin = max(8, int(10 * s))
-        bottom_y = h - lbl_h - max(4, int(6 * s))
-        x = margin
+        lbl_h = 24
+        bottom_y = h - lbl_h - 8
+        x = 10
         if self._coffee_label.isVisible():
-            self._coffee_label.setFixedSize(icon_sz, icon_sz)
-            self._coffee_label.move(x, bottom_y + (lbl_h - icon_sz) // 2)
-            x += icon_sz + max(4, int(6 * s))
-        self._timer_label.setGeometry(x, bottom_y, max(60, int(100 * s)), lbl_h)
-        cw = max(50, int(80 * s))
-        self._counter_label.setGeometry(w - cw - margin, bottom_y, cw, lbl_h)
+            self._coffee_label.setFixedSize(20, 20)
+            self._coffee_label.move(x, bottom_y + 2)
+            x += 26
+        self._timer_label.setGeometry(x, bottom_y, 80, lbl_h)
+        self._counter_label.setGeometry(w - 70, bottom_y, 60, lbl_h)
         self._counter_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     # ------------------------------------------------------------------ Image display
@@ -336,9 +331,8 @@ class ViewerWindow(QWidget):
             self._timer_color = "rgba(255,255,255,115)"
             if not self._controls_visible:
                 self._opacity_effects[idx].setOpacity(0.0)
-        fs = getattr(self, "_cur_font_sz", 20)
         self._timer_label.setStyleSheet(
-            f"color: {self._timer_color}; font-size: {fs}px; background: transparent;")
+            f"color: {self._timer_color}; font-size: 20px; background: transparent;")
         self._timer_label.setText(t)
 
         # Progress bar
@@ -471,71 +465,35 @@ class ViewerWindow(QWidget):
             cb()
         event.accept()
 
-    def _scale(self):
-        """Scale factor based on window size. 1.0 at ~600px height."""
-        return max(0.7, min(1.8, max(self.width(), self.height()) / 700))
-
     def resizeEvent(self, event):
         super().resizeEvent(event)
         w, h = self.width(), self.height()
-        s = self._scale()
 
         self._img_label.setGeometry(0, 0, w, h)
         self._gradient.setGeometry(0, 0, w, h)
 
-        # Scaled sizes
-        icon_sz = int(20 * s)
-        btn_sz = icon_sz + 6
-        center_sz = int(40 * s)
-        center_btn = center_sz + 20
-        nav_sz = int(25 * s)
-        margin = int(8 * s)
-        font_sz = int(20 * s)
-
-        # Update icon sizes on buttons
-        self._info_btn.setIconSize(QSize(icon_sz, icon_sz))
-        self._info_btn.setFixedSize(btn_sz, btn_sz)
-        self._settings_btn.setIconSize(QSize(icon_sz, icon_sz))
-        self._settings_btn.setFixedSize(btn_sz, btn_sz)
-        self._close_btn.setIconSize(QSize(icon_sz, icon_sz))
-        self._close_btn.setFixedSize(btn_sz, btn_sz)
-        self._center_btn.setIconSize(QSize(center_sz, center_sz))
-        self._center_btn.setFixedSize(center_btn, center_btn)
-        self._left_nav.setPixmap(_icon("ph.caret-left-light", CLR_DIM).pixmap(QSize(nav_sz, nav_sz)))
-        self._right_nav.setPixmap(_icon("ph.caret-right-light", CLR_DIM).pixmap(QSize(nav_sz, nav_sz)))
-
-        # Store font size for timer updates
-        self._cur_font_sz = font_sz
-
-        # Font size for labels
-        timer_color = getattr(self, "_timer_color", "rgba(255,255,255,115)")
-        self._timer_label.setStyleSheet(
-            f"color: {timer_color}; font-size: {font_sz}px; background: transparent;")
-        self._counter_label.setStyleSheet(
-            f"color: rgba(255,255,255,90); font-size: {font_sz}px; background: transparent;")
+        # Fixed sizes
+        btn_sz = 26
+        margin = 8
 
         # Top left: info
-        self._top_left.setGeometry(margin, margin // 2, btn_sz, btn_sz)
+        self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
         self._info_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
         # Top right: settings + close
-        gap = int(4 * s)
+        gap = 4
         tr_w = btn_sz * 2 + gap
-        self._top_right.setGeometry(w - tr_w - margin, margin // 2, tr_w, btn_sz)
+        self._top_right.setGeometry(w - tr_w - margin, margin, tr_w, btn_sz)
         self._settings_btn.setGeometry(0, 0, btn_sz, btn_sz)
         self._close_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
 
         # Center
-        self._center_btn.move((w - center_btn) // 2, (h - center_btn) // 2)
+        self._center_btn.move((w - 60) // 2, (h - 60) // 2)
 
         # Side nav
-        nav_h = int(40 * s)
-        nav_y = (h - nav_h) // 2
-        self._left_nav.setGeometry(margin // 2, nav_y, nav_sz, nav_h)
-        self._right_nav.setGeometry(w - nav_sz - margin // 2, nav_y, nav_sz, nav_h)
-
-        # Store scale for _layout_bottom
-        self._cur_scale = s
+        nav_y = (h - 40) // 2
+        self._left_nav.setGeometry(4, nav_y, 25, 40)
+        self._right_nav.setGeometry(w - 29, nav_y, 25, 40)
 
         # Bottom layout
         self._layout_bottom(w, h)
