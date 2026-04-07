@@ -3,7 +3,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                               QLabel, QListWidget, QListWidgetItem, QFileDialog,
                               QSlider, QStackedWidget, QScrollArea)
 from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRect
+from PyQt6.QtWidgets import QLayout
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
 from core.models import ImageItem
@@ -13,6 +14,67 @@ from core.cloud.cache import CacheManager
 GRID_MIN = 48
 GRID_MAX = 256
 GRID_DEFAULT = 80
+
+
+class FlowLayout(QLayout):
+    """Layout that arranges widgets in a horizontal flow, wrapping to next row."""
+
+    def __init__(self, parent=None, spacing=1):
+        super().__init__(parent)
+        self._items = []
+        self._spacing = spacing
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items[index]
+        return None
+
+    def takeAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items.pop(index)
+        return None
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._do_layout(QRect(0, 0, width, 0), apply=False)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._do_layout(rect, apply=True)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        s = QSize(0, 0)
+        for item in self._items:
+            s = s.expandedTo(item.minimumSize())
+        return s
+
+    def _do_layout(self, rect, apply):
+        x = rect.x()
+        y = rect.y()
+        row_h = 0
+        sp = self._spacing
+        for item in self._items:
+            sz = item.sizeHint()
+            if x + sz.width() > rect.right() + 1 and row_h > 0:
+                x = rect.x()
+                y += row_h + sp
+                row_h = 0
+            if apply:
+                item.setGeometry(QRect(x, y, sz.width(), sz.height()))
+            x += sz.width() + sp
+            row_h = max(row_h, sz.height())
+        return y + row_h - rect.y()
 
 
 class ImageEditorWindow(QWidget):
@@ -166,10 +228,6 @@ class ImageEditorWindow(QWidget):
                   f"QListWidget::item {{ padding: 3px; }}"
                   f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}")
         self._list.setStyleSheet(list_s)
-        self._grid_list_style = (
-            f"QListWidget {{ background-color: {t.bg_secondary}; border: none; }}"
-            f"QListWidget::item {{ padding: 0px; margin: 0px; }}"
-            f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}")
         self._grid_scroll.setStyleSheet(
             f"QScrollArea {{ background-color: {t.bg_secondary}; border: none; }}"
             f"QWidget {{ background-color: {t.bg_secondary}; }}")
@@ -245,24 +303,24 @@ class ImageEditorWindow(QWidget):
         if not self._grid_groups:
             return
         for header, grid in self._grid_groups:
-            grid.setIconSize(QSize(value, value))
-            grid.setGridSize(QSize(value + 1, value + 1))
-            # Rescale icons in place
-            for j in range(grid.count()):
-                item = grid.item(j)
-                idx = item.data(Qt.ItemDataRole.UserRole)
+            layout = grid.layout()
+            if not layout:
+                continue
+            for j in range(layout.count()):
+                lbl = layout.itemAt(j).widget()
+                if lbl is None:
+                    continue
+                lbl.setFixedSize(value, value)
+                idx = lbl.property("img_idx")
                 if idx is not None and idx < len(self.images):
                     pix = self._get_pixmap(self.images[idx].path)
                     if not pix.isNull():
                         scaled = pix.scaled(value, value,
                                             Qt.AspectRatioMode.KeepAspectRatio,
                                             Qt.TransformationMode.SmoothTransformation)
-                        item.setIcon(QIcon(scaled))
-            # Resize grid height to fit
-            if grid.isVisible():
-                cols = max(1, (self._grid_scroll.width() - 20) // (value + 1))
-                rows = (grid.count() + cols - 1) // cols
-                grid.setFixedHeight(rows * (value + 1) + 2)
+                        lbl.setPixmap(scaled)
+            grid.updateGeometry()
+            grid.adjustSize()
 
     # ------------------------------------------------------------------ Rebuild
 
@@ -371,32 +429,21 @@ class ImageEditorWindow(QWidget):
             header.setStyleSheet(style)
             header.setCursor(Qt.CursorShape.PointingHandCursor)
 
-            # Grid for this group
-            grid = QListWidget()
-            grid.setViewMode(QListWidget.ViewMode.IconMode)
-            grid.setResizeMode(QListWidget.ResizeMode.Adjust)
-            grid.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-            grid.setMovement(QListWidget.Movement.Free)
-            grid.setSpacing(0)
-            grid.setIconSize(QSize(sz, sz))
-            grid.setGridSize(QSize(sz + 1, sz + 1))
-            grid.setStyleSheet(self._grid_list_style)
-
+            # Flow container for this group
+            grid = QWidget()
+            flow = FlowLayout(grid, spacing=1)
             for idx, img in items:
-                item = QListWidgetItem()
+                lbl = QLabel()
+                lbl.setFixedSize(sz, sz)
+                lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 pix = self._get_pixmap(img.path)
                 if not pix.isNull():
                     scaled = pix.scaled(sz, sz,
                                         Qt.AspectRatioMode.KeepAspectRatio,
                                         Qt.TransformationMode.SmoothTransformation)
-                    item.setIcon(QIcon(scaled))
-                item.setData(Qt.ItemDataRole.UserRole, idx)
-                grid.addItem(item)
-
-            # Size the grid to fit content
-            cols = max(1, (self._grid_scroll.width() - 20) // (sz + 1))
-            rows = (len(items) + cols - 1) // cols
-            grid.setFixedHeight(rows * (sz + 1) + 2)
+                    lbl.setPixmap(scaled)
+                lbl.setProperty("img_idx", idx)
+                flow.addWidget(lbl)
 
             if timer_val == 0:
                 grid.setVisible(False)
@@ -498,13 +545,6 @@ class ImageEditorWindow(QWidget):
                 orig = item.data(Qt.ItemDataRole.UserRole)
                 if orig is not None:
                     indices_to_remove.add(orig)
-        else:
-            for _, grid in self._grid_groups:
-                for idx in grid.selectedIndexes():
-                    item = grid.item(idx.row())
-                    orig = item.data(Qt.ItemDataRole.UserRole)
-                    if orig is not None:
-                        indices_to_remove.add(orig)
         for i in sorted(indices_to_remove, reverse=True):
             if 0 <= i < len(self.images):
                 self.images.pop(i)
