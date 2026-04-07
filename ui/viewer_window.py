@@ -135,15 +135,15 @@ class ViewerWindow(QWidget):
         # Top bar (gradient drawn in paintEvent)
         self._top_left = QWidget(self)
         self._top_left.setStyleSheet("background: transparent;")
-        self._info_btn = _icon_btn("ph.info-light", 20, self._top_left, tooltip="Инфо")
+        self._info_btn = _icon_btn("ph.info", 20, self._top_left, tooltip="Инфо")
         self._info_btn.clicked.connect(self._show_help)
         self._info_btn.move(0, 0)
 
         self._top_right = QWidget(self)
         self._top_right.setStyleSheet("background: transparent;")
-        self._settings_btn = _icon_btn("ph.dots-three-vertical-light", 20, self._top_right, tooltip="Настройки")
+        self._settings_btn = _icon_btn("ph.dots-three-vertical", 20, self._top_right, tooltip="Настройки")
         self._settings_btn.clicked.connect(self._open_settings)
-        self._close_btn = _icon_btn("ph.x-thin", 20, self._top_right, tooltip="Закрыть")
+        self._close_btn = _icon_btn("ph.x", 20, self._top_right, tooltip="Закрыть")
         self._close_btn.clicked.connect(self.close)
 
         # Center play/pause
@@ -158,13 +158,13 @@ class ViewerWindow(QWidget):
 
         # Side navigation (visual only — clicks handled in mousePressEvent)
         self._left_nav = QLabel(self)
-        self._left_nav.setPixmap(_icon("ph.caret-left-light", CLR_DIM).pixmap(QSize(20, 20)))
+        self._left_nav.setPixmap(_icon("ph.caret-left", CLR_DIM).pixmap(QSize(20, 20)))
         self._left_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._left_nav.setStyleSheet("background: transparent;")
         self._left_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._right_nav = QLabel(self)
-        self._right_nav.setPixmap(_icon("ph.caret-right-light", CLR_DIM).pixmap(QSize(20, 20)))
+        self._right_nav.setPixmap(_icon("ph.caret-right", CLR_DIM).pixmap(QSize(20, 20)))
         self._right_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._right_nav.setStyleSheet("background: transparent;")
         self._right_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -183,7 +183,7 @@ class ViewerWindow(QWidget):
         # Coffee icon (always visible when paused)
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _icon("ph.coffee-light", CLR_NORMAL).pixmap(QSize(20, 20)))
+            _icon("ph.coffee", CLR_NORMAL).pixmap(QSize(20, 20)))
         self._coffee_label.setFixedSize(20, 20)
         self._coffee_label.setStyleSheet("background: transparent;")
         self._coffee_label.hide()
@@ -237,7 +237,7 @@ class ViewerWindow(QWidget):
         if self._paused:
             color = CLR_WARNING if self._is_warning else CLR_NORMAL
             self._coffee_label.setPixmap(
-                _icon("ph.coffee-light", color).pixmap(QSize(20, 20)))
+                _icon("ph.coffee", color).pixmap(QSize(20, 20)))
             self._coffee_label.setFixedSize(20, 20)
             self._coffee_label.show()
         else:
