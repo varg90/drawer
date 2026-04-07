@@ -226,7 +226,8 @@ class ViewerWindow(QWidget):
             self._coffee_label.move(x, bottom_y + 1)
             x += 20
         self._timer_label.setGeometry(x, bottom_y, 80, 16)
-        self._counter_label.setGeometry(w - 60, bottom_y, 50, 16)
+        self._counter_label.setGeometry(w - 70, bottom_y, 60, 16)
+        self._counter_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     # ------------------------------------------------------------------ Image display
 
@@ -480,15 +481,15 @@ class ViewerWindow(QWidget):
         if self._controls_visible:
             p = QPainter(self)
             w, h = self.width(), self.height()
-            # Top gradient — taller and darker
-            grad_h = 50
+            # Top gradient
+            grad_h = 60
             for i in range(grad_h):
-                alpha = int(180 * (1 - i / grad_h) ** 1.5)
+                alpha = int(220 * (1 - i / grad_h) ** 1.3)
                 p.fillRect(0, i, w, 1, QColor(0, 0, 0, alpha))
             # Bottom gradient
-            bot_h = 40
+            bot_h = 50
             for i in range(bot_h):
-                alpha = int(160 * (1 - i / bot_h) ** 1.5)
+                alpha = int(200 * (1 - i / bot_h) ** 1.3)
                 p.fillRect(0, h - bot_h + i, w, 1, QColor(0, 0, 0, alpha))
             p.end()
 
