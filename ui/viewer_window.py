@@ -82,7 +82,7 @@ class IconButton(QPushButton):
             p.setPen(QPen(color, 2))
             p.setBrush(Qt.BrushStyle.NoBrush)
             font = p.font()
-            font.setPixelSize(int(s * 2.2))
+            font.setPixelSize(int(s * 3))
             font.setBold(True)
             p.setFont(font)
             p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, "?")
