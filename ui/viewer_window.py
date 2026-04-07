@@ -156,6 +156,7 @@ class ViewerWindow(QWidget):
         self._img_label = QLabel(self)
         self._img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._img_label.setStyleSheet("background-color: black;")
+        self._img_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._img_label.setGeometry(self.rect())
 
         # Bottom nav bar — centered at bottom
@@ -231,6 +232,7 @@ class ViewerWindow(QWidget):
 
         # Warn overlay label
         self._warn_label = QLabel("", self)
+        self._warn_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._warn_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._warn_label.setStyleSheet(
             "color: rgba(255, 80, 80, 220); font-size: 16px; font-weight: bold; background: transparent;"
