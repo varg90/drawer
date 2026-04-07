@@ -75,7 +75,7 @@ class GoogleDriveProvider(CloudProvider):
         rk = item.get("resourceKey", "")
         cf = CloudFile(
             name=item.get("name", ""),
-            download_url=f"{FILES_URL}/{fid}?alt=media&key={API_KEY}",
+            download_url=f"https://drive.google.com/uc?export=download&id={fid}",
             size=int(item.get("size", 0)),
             preview_url=item.get("thumbnailLink", ""),
         )
