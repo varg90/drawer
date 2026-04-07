@@ -48,22 +48,18 @@ class IconButton(QPushButton):
         s = min(w, h) * 0.32  # scale
 
         if self._icon_type == "prev":
-            # <<  — two chevrons pointing left
-            p.setPen(QPen(color, 2))
+            # ‹  — single thick chevron left
+            p.setPen(QPen(color, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawLine(QPointF(cx, cy - s), QPointF(cx - s, cy))
-            p.drawLine(QPointF(cx - s, cy), QPointF(cx, cy + s))
-            p.drawLine(QPointF(cx + s, cy - s), QPointF(cx, cy))
-            p.drawLine(QPointF(cx, cy), QPointF(cx + s, cy + s))
+            p.drawLine(QPointF(cx + s * 0.4, cy - s), QPointF(cx - s * 0.4, cy))
+            p.drawLine(QPointF(cx - s * 0.4, cy), QPointF(cx + s * 0.4, cy + s))
 
         elif self._icon_type == "next":
-            # >>  — two chevrons pointing right
-            p.setPen(QPen(color, 2))
+            # ›  — single thick chevron right
+            p.setPen(QPen(color, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawLine(QPointF(cx - s, cy - s), QPointF(cx, cy))
-            p.drawLine(QPointF(cx, cy), QPointF(cx - s, cy + s))
-            p.drawLine(QPointF(cx, cy - s), QPointF(cx + s, cy))
-            p.drawLine(QPointF(cx + s, cy), QPointF(cx, cy + s))
+            p.drawLine(QPointF(cx - s * 0.4, cy - s), QPointF(cx + s * 0.4, cy))
+            p.drawLine(QPointF(cx + s * 0.4, cy), QPointF(cx - s * 0.4, cy + s))
 
         elif self._icon_type == "pause":
             # ||  — two bars
