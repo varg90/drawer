@@ -11,7 +11,7 @@ from core.timer_logic import format_time
 from core.cloud.cache import CacheManager
 
 GRID_MIN = 48
-GRID_MAX = 200
+GRID_MAX = 256
 GRID_DEFAULT = 80
 
 
@@ -230,7 +230,19 @@ class ImageEditorWindow(QWidget):
 
     def _on_zoom(self, value):
         self._grid.setIconSize(QSize(value, value))
-        self._rebuild_grid()
+        self._grid.setGridSize(QSize(value + 8, value + 28))
+        # Force full rebuild to rescale icons
+        count = self._grid.count()
+        for i in range(count):
+            item = self._grid.item(i)
+            idx = item.data(Qt.ItemDataRole.UserRole)
+            if idx is not None and idx < len(self.images):
+                pix = self._get_pixmap(self.images[idx].path)
+                if not pix.isNull():
+                    scaled = pix.scaled(value, value,
+                                        Qt.AspectRatioMode.KeepAspectRatio,
+                                        Qt.TransformationMode.SmoothTransformation)
+                    item.setIcon(QIcon(scaled))
 
     # ------------------------------------------------------------------ Rebuild
 
