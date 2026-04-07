@@ -509,6 +509,25 @@ class ImageEditorWindow(QWidget):
             self._rebuild()
             self._emit()
 
+    def _reflow_grid(self):
+        if self._view_mode != "grid" or not self._grid_groups:
+            return
+        sz = self._zoom_slider.value()
+        w = max(self._grid_scroll.viewport().width(), 200)
+        for _, grid in self._grid_groups:
+            labels = getattr(grid, "_labels", [])
+            if labels and grid.isVisible():
+                h = _flow_position(labels, w, sz)
+                grid.setFixedHeight(h)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._reflow_grid()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._reflow_grid()
+
     def closeEvent(self, event):
         if self._parent and hasattr(self._parent, "_on_editor_close"):
             self._parent._on_editor_close()
