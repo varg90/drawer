@@ -1,7 +1,7 @@
 import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                               QLabel, QListWidget, QListWidgetItem, QFileDialog,
-                              QSlider, QStackedWidget)
+                              QSlider, QStackedWidget, QScrollArea)
 from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from core.constants import SUPPORTED_FORMATS
@@ -82,19 +82,18 @@ class ImageEditorWindow(QWidget):
         self._list.model().rowsMoved.connect(self._on_reorder)
         self._stack.addWidget(self._list)
 
-        # --- Grid view ---
-        self._grid = QListWidget()
-        self._grid.setViewMode(QListWidget.ViewMode.IconMode)
-        self._grid.setResizeMode(QListWidget.ResizeMode.Adjust)
-        self._grid.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        self._grid.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self._grid.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self._grid.setMovement(QListWidget.Movement.Snap)
-        self._grid.setSpacing(2)
-        self._grid.setIconSize(QSize(GRID_DEFAULT, GRID_DEFAULT))
-        self._grid.setGridSize(QSize(GRID_DEFAULT + 4, GRID_DEFAULT + 18))
-        self._grid.model().rowsMoved.connect(self._on_grid_reorder)
-        self._stack.addWidget(self._grid)
+        # --- Grid view (grouped) ---
+        self._grid_scroll = QScrollArea()
+        self._grid_scroll.setWidgetResizable(True)
+        self._grid_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._grid_container = QWidget()
+        self._grid_layout = QVBoxLayout(self._grid_container)
+        self._grid_layout.setContentsMargins(0, 0, 0, 0)
+        self._grid_layout.setSpacing(4)
+        self._grid_layout.addStretch()
+        self._grid_scroll.setWidget(self._grid_container)
+        self._grid_groups = []  # list of (header_btn, list_widget)
+        self._stack.addWidget(self._grid_scroll)
 
         root.addWidget(self._stack)
 
@@ -167,7 +166,18 @@ class ImageEditorWindow(QWidget):
                   f"QListWidget::item {{ padding: 3px; }}"
                   f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}")
         self._list.setStyleSheet(list_s)
-        self._grid.setStyleSheet(list_s)
+        self._grid_list_style = list_s
+        self._grid_scroll.setStyleSheet(
+            f"QScrollArea {{ background-color: {t.bg_secondary}; border: none; }}"
+            f"QWidget {{ background-color: {t.bg_secondary}; }}")
+        self._grid_header_style = (
+            f"background-color: {t.bg_button}; color: {t.text_secondary}; "
+            f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
+            f"padding: 2px 8px; text-align: left;")
+        self._grid_header_inactive_style = (
+            f"background-color: {t.bg_button}; color: {t.text_hint}; "
+            f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
+            f"padding: 2px 8px; text-align: left;")
 
         self._zoom_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
@@ -214,7 +224,7 @@ class ImageEditorWindow(QWidget):
         if mode == "list":
             self._stack.setCurrentWidget(self._list)
         else:
-            self._stack.setCurrentWidget(self._grid)
+            self._stack.setCurrentWidget(self._grid_scroll)
         self._update_view_buttons()
         self._update_bottom_controls()
         self._rebuild()
@@ -229,20 +239,7 @@ class ImageEditorWindow(QWidget):
         self._grid_btn.setVisible(True)
 
     def _on_zoom(self, value):
-        self._grid.setIconSize(QSize(value, value))
-        self._grid.setGridSize(QSize(value + 4, value + 18))
-        # Force full rebuild to rescale icons
-        count = self._grid.count()
-        for i in range(count):
-            item = self._grid.item(i)
-            idx = item.data(Qt.ItemDataRole.UserRole)
-            if idx is not None and idx < len(self.images):
-                pix = self._get_pixmap(self.images[idx].path)
-                if not pix.isNull():
-                    scaled = pix.scaled(value, value,
-                                        Qt.AspectRatioMode.KeepAspectRatio,
-                                        Qt.TransformationMode.SmoothTransformation)
-                    item.setIcon(QIcon(scaled))
+        self._rebuild_grid()
 
     # ------------------------------------------------------------------ Rebuild
 
@@ -319,35 +316,71 @@ class ImageEditorWindow(QWidget):
             self._list.addItem(item)
 
     def _rebuild_grid(self):
-        # Fast path: update text only if same images
-        if self._grid.count() == len(self.images):
-            same = True
-            for i in range(self._grid.count()):
-                if self._grid.item(i).data(Qt.ItemDataRole.UserRole) != i:
-                    same = False
-                    break
-            if same:
-                for i, img in enumerate(self.images):
-                    item = self._grid.item(i)
-                    item.setText("—" if img.timer == 0 else format_time(img.timer))
-                    self._style_item(item, img)
-                return
+        # Clear old groups
+        for header, grid in self._grid_groups:
+            header.setParent(None)
+            grid.setParent(None)
+            header.deleteLater()
+            grid.deleteLater()
+        self._grid_groups = []
 
-        self._grid.clear()
-        sz = self._zoom_slider.value()
+        # Group images by timer
+        from collections import OrderedDict
+        groups = OrderedDict()
         for i, img in enumerate(self.images):
-            timer_str = "—" if img.timer == 0 else format_time(img.timer)
-            item = QListWidgetItem(timer_str)
-            pix = self._get_pixmap(img.path)
-            if not pix.isNull():
-                scaled = pix.scaled(sz, sz,
-                                    Qt.AspectRatioMode.KeepAspectRatio,
-                                    Qt.TransformationMode.SmoothTransformation)
-                item.setIcon(QIcon(scaled))
-            item.setData(Qt.ItemDataRole.UserRole, i)
-            self._style_item(item, img)
-            self._grid.addItem(item)
-        self._grid.setGridSize(QSize(sz + 4, sz + 18))
+            key = img.timer
+            if key not in groups:
+                groups[key] = []
+            groups[key].append((i, img))
+
+        sz = self._zoom_slider.value()
+        insert_pos = 0
+
+        for timer_val, items in groups.items():
+            # Header
+            if timer_val == 0:
+                label = f"Не в сеансе — {len(items)}"
+                style = self._grid_header_inactive_style
+            else:
+                label = f"{format_time(timer_val)} — {len(items)}"
+                style = self._grid_header_style
+            header = QPushButton(label)
+            header.setStyleSheet(style)
+            header.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            # Grid for this group
+            grid = QListWidget()
+            grid.setViewMode(QListWidget.ViewMode.IconMode)
+            grid.setResizeMode(QListWidget.ResizeMode.Adjust)
+            grid.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+            grid.setMovement(QListWidget.Movement.Free)
+            grid.setSpacing(2)
+            grid.setIconSize(QSize(sz, sz))
+            grid.setGridSize(QSize(sz + 4, sz + 4))
+            grid.setStyleSheet(self._grid_list_style)
+
+            for idx, img in items:
+                item = QListWidgetItem()
+                pix = self._get_pixmap(img.path)
+                if not pix.isNull():
+                    scaled = pix.scaled(sz, sz,
+                                        Qt.AspectRatioMode.KeepAspectRatio,
+                                        Qt.TransformationMode.SmoothTransformation)
+                    item.setIcon(QIcon(scaled))
+                item.setData(Qt.ItemDataRole.UserRole, idx)
+                grid.addItem(item)
+
+            # Size the grid to fit content
+            cols = max(1, (self._grid_scroll.width() - 20) // (sz + 6))
+            rows = (len(items) + cols - 1) // cols
+            grid.setFixedHeight(rows * (sz + 6) + 4)
+
+            header.clicked.connect(lambda checked, g=grid: g.setVisible(not g.isVisible()))
+
+            self._grid_layout.insertWidget(insert_pos, header)
+            self._grid_layout.insertWidget(insert_pos + 1, grid)
+            self._grid_groups.append((header, grid))
+            insert_pos += 2
 
     def refresh(self, images):
         old_paths = {img.path for img in self.images}
@@ -431,29 +464,27 @@ class ImageEditorWindow(QWidget):
             self._rebuild()
             self._emit()
 
-    def _on_grid_reorder(self):
-        new_order = []
-        for i in range(self._grid.count()):
-            item = self._grid.item(i)
-            orig_idx = item.data(Qt.ItemDataRole.UserRole)
-            if orig_idx is not None and orig_idx < len(self.images):
-                new_order.append(self.images[orig_idx])
-        if new_order:
-            self.images = new_order
+    def _delete_selected(self):
+        indices_to_remove = set()
+        if self._view_mode == "list":
+            for idx in self._list.selectedIndexes():
+                item = self._list.item(idx.row())
+                orig = item.data(Qt.ItemDataRole.UserRole)
+                if orig is not None:
+                    indices_to_remove.add(orig)
+        else:
+            for _, grid in self._grid_groups:
+                for idx in grid.selectedIndexes():
+                    item = grid.item(idx.row())
+                    orig = item.data(Qt.ItemDataRole.UserRole)
+                    if orig is not None:
+                        indices_to_remove.add(orig)
+        for i in sorted(indices_to_remove, reverse=True):
+            if 0 <= i < len(self.images):
+                self.images.pop(i)
+        if indices_to_remove:
             self._rebuild()
             self._emit()
-
-    def _delete_selected(self):
-        if self._view_mode == "list":
-            widget = self._list
-        else:
-            widget = self._grid
-        rows = sorted([idx.row() for idx in widget.selectedIndexes()], reverse=True)
-        for row in rows:
-            if 0 <= row < len(self.images):
-                self.images.pop(row)
-        self._rebuild()
-        self._emit()
 
     def closeEvent(self, event):
         if self._parent and hasattr(self._parent, "_on_editor_close"):
