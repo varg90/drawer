@@ -140,8 +140,14 @@ class ViewerWindow(QWidget):
         self._qtimer.setInterval(1000)
         self._qtimer.timeout.connect(self._tick)
 
-        # Show first image
-        self.resize(800, 600)
+        # Show first image — fit within screen
+        from PyQt6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen().availableGeometry()
+        max_w = int(screen.width() * 0.7)
+        max_h = int(screen.height() * 0.7)
+        self.resize(min(800, max_w), min(600, max_h))
+        self._screen_max_w = screen.width() - 20
+        self._screen_max_h = screen.height() - 20
         self._show_current_image()
 
     # ------------------------------------------------------------------ Image display
@@ -160,9 +166,15 @@ class ViewerWindow(QWidget):
         self._pixmap = pix
         self._aspect = pix.width() / pix.height() if pix.height() else 1.0
 
-        # Resize window to image aspect ratio preserving current width
+        # Resize window to image aspect ratio, fit within screen
         w = self.width()
         h = max(MIN_HEIGHT, int(w / self._aspect))
+        if h > self._screen_max_h:
+            h = self._screen_max_h
+            w = max(MIN_WIDTH, int(h * self._aspect))
+        if w > self._screen_max_w:
+            w = self._screen_max_w
+            h = max(MIN_HEIGHT, int(w / self._aspect))
         self.resize(w, h)
 
         self._update_display()
@@ -337,6 +349,8 @@ class ViewerWindow(QWidget):
             self.setCursor(Qt.CursorShape.SizeFDiagCursor)
         elif corner in ("tr", "bl"):
             self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+        elif corner:
+            self.setCursor(Qt.CursorShape.SizeAllCursor)
         else:
             self.unsetCursor()
 
@@ -359,11 +373,13 @@ class ViewerWindow(QWidget):
     def _get_corner(self, pos):
         w, h = self.width(), self.height()
         x, y = pos.x(), pos.y()
+        edge = 8  # edge grab zone
         g = CORNER_GRIP
         in_left = x < g
         in_right = x > w - g
         in_top = y < g
         in_bottom = y > h - g
+        # Corners first
         if in_top and in_left:
             return "tl"
         if in_top and in_right:
@@ -371,6 +387,15 @@ class ViewerWindow(QWidget):
         if in_bottom and in_left:
             return "bl"
         if in_bottom and in_right:
+            return "br"
+        # Edges
+        if x < edge:
+            return "bl"
+        if x > w - edge:
+            return "br"
+        if y < edge:
+            return "tl"
+        if y > h - edge:
             return "br"
         return None
 
