@@ -65,6 +65,25 @@ class ProgressBar(QWidget):
         p.end()
 
 
+class _GradientOverlay(QWidget):
+    """Transparent widget that draws top/bottom gradients over the image."""
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        w, h = self.width(), self.height()
+        # Top gradient
+        top_h = min(80, h // 3)
+        for i in range(top_h):
+            alpha = int(200 * (1 - i / top_h) ** 1.2)
+            p.fillRect(0, i, w, 1, QColor(0, 0, 0, alpha))
+        # Bottom gradient
+        bot_h = min(70, h // 3)
+        for i in range(bot_h):
+            alpha = int(180 * (i / bot_h) ** 1.2)
+            p.fillRect(0, h - bot_h + i, w, 1, QColor(0, 0, 0, alpha))
+        p.end()
+
+
 class ViewerWindow(QWidget):
     def __init__(self, images, settings, on_close=None):
         super().__init__()
@@ -105,6 +124,11 @@ class ViewerWindow(QWidget):
         self._img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._img_label.setStyleSheet("background-color: black;")
         self._img_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+        # Gradient overlay (above image, below controls)
+        self._gradient = _GradientOverlay(self)
+        self._gradient.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._gradient.hide()
 
         # ---- Hover overlays (fade in/out) ----
 
@@ -455,6 +479,7 @@ class ViewerWindow(QWidget):
         s = self._scale()
 
         self._img_label.setGeometry(0, 0, w, h)
+        self._gradient.setGeometry(0, 0, w, h)
 
         # Scaled sizes
         icon_sz = int(16 * s)
@@ -517,31 +542,21 @@ class ViewerWindow(QWidget):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        if self._controls_visible:
-            p = QPainter(self)
-            w, h = self.width(), self.height()
-            s = self._scale()
-            # Top gradient
-            grad_h = int(60 * s)
-            for i in range(grad_h):
-                alpha = int(220 * (1 - i / grad_h) ** 1.3)
-                p.fillRect(0, i, w, 1, QColor(0, 0, 0, alpha))
-            # Bottom gradient
-            bot_h = int(50 * s)
-            for i in range(bot_h):
-                alpha = int(200 * (1 - i / bot_h) ** 1.3)
-                p.fillRect(0, h - bot_h + i, w, 1, QColor(0, 0, 0, alpha))
-            p.end()
 
     def enterEvent(self, event):
         super().enterEvent(event)
+        self._gradient.show()
+        self._gradient.raise_()
+        # Raise all controls above gradient
+        for w in self._hover_widgets:
+            w.raise_()
+        self._coffee_label.raise_()
         self._fade_controls(True)
-        self.update()  # repaint gradient
 
     def leaveEvent(self, event):
         super().leaveEvent(event)
+        self._gradient.hide()
         self._fade_controls(False)
-        self.update()
 
     # ------------------------------------------------------------------ Mouse handling
 
