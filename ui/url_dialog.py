@@ -28,6 +28,28 @@ class FetchWorker(QThread):
             self.error.emit(str(e))
 
 
+class PreviewWorker(QThread):
+    preview_ready = pyqtSignal(int, QImage)  # index, image
+
+    def __init__(self, files):
+        super().__init__()
+        self._files = files
+
+    def run(self):
+        for i, cf in enumerate(self._files):
+            if not cf.preview_url:
+                continue
+            try:
+                resp = requests.get(cf.preview_url, timeout=5)
+                resp.raise_for_status()
+                img = QImage()
+                img.loadFromData(resp.content)
+                if not img.isNull():
+                    self.preview_ready.emit(i, img)
+            except Exception:
+                pass
+
+
 class DownloadWorker(QThread):
     progress = pyqtSignal(int, int)  # current, total
     file_done = pyqtSignal(object, str)  # CloudFile, local_path
@@ -71,6 +93,7 @@ class UrlDialog(QDialog):
         self._cache = CacheManager()
         self._worker = None
         self._dl_worker = None
+        self._preview_worker = None
 
         self._build_ui()
         self._apply_theme()
@@ -100,7 +123,7 @@ class UrlDialog(QDialog):
 
         # File list with checkboxes
         self._file_list = QListWidget()
-        self._file_list.setIconSize(QSize(32, 32))
+        self._file_list.setIconSize(QSize(48, 48))
         self._file_list.setMinimumHeight(200)
         root.addWidget(self._file_list)
 
@@ -211,6 +234,17 @@ class UrlDialog(QDialog):
         self._update_count()
         self._file_list.itemChanged.connect(self._update_count)
         self.adjustSize()
+
+        self._preview_worker = PreviewWorker(files)
+        self._preview_worker.preview_ready.connect(self._on_preview_ready)
+        self._preview_worker.start()
+
+    def _on_preview_ready(self, index, image):
+        if index < self._file_list.count():
+            pix = QPixmap.fromImage(image).scaled(
+                48, 48, Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation)
+            self._file_list.item(index).setIcon(QIcon(pix))
 
     def _on_fetch_error(self, msg):
         self._fetch_btn.setEnabled(True)
