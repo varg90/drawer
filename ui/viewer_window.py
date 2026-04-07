@@ -178,11 +178,6 @@ class ViewerWindow(QWidget):
         top_layout.setContentsMargins(4, 2, 4, 2)
         top_layout.setSpacing(2)
 
-        self._help_btn = IconButton("help", 24, self._top_buttons)
-        self._help_btn.setToolTip("Горячие клавиши")
-        self._help_btn.clicked.connect(self._show_help)
-        top_layout.addWidget(self._help_btn)
-
         self._fullscreen_btn = IconButton("fullscreen", 24, self._top_buttons)
         self._fullscreen_btn.setToolTip("На весь экран")
         self._fullscreen_btn.clicked.connect(self._toggle_fullscreen)
@@ -200,6 +195,12 @@ class ViewerWindow(QWidget):
 
         self._top_buttons.adjustSize()
         self._top_buttons.hide()
+
+        # Top-left help button
+        self._help_btn = IconButton("help", 24, self)
+        self._help_btn.setToolTip("Горячие клавиши")
+        self._help_btn.clicked.connect(self._show_help)
+        self._help_btn.hide()
 
         # Counter label (bottom)
         self._counter_label = QLabel("")
@@ -439,6 +440,8 @@ class ViewerWindow(QWidget):
         top_w = self._top_buttons.sizeHint().width()
         top_h = self._top_buttons.sizeHint().height()
         self._top_buttons.setGeometry(w - top_w - 8, 8, top_w, top_h)
+        # Top-left help button
+        self._help_btn.move(8, 8)
         # Counter top-left (offset if warning visible)
         self._counter_label.setGeometry(8, 28, w - 8, COUNTER_HEIGHT)
         # Warning above nav bar
@@ -458,10 +461,12 @@ class ViewerWindow(QWidget):
         if visible:
             self._controls_bar.show()
             self._top_buttons.show()
+            self._help_btn.show()
             self._counter_label.show()
         else:
             self._controls_bar.hide()
             self._top_buttons.hide()
+            self._help_btn.hide()
             self._counter_label.hide()
 
     # ------------------------------------------------------------------ Mouse handling
