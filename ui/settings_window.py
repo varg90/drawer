@@ -11,7 +11,6 @@ from core.file_utils import filter_image_files, scan_folder
 from core.session import save_session, load_session
 from core.models import ImageItem
 from ui.theme import Theme
-from core.cloud.cache import CacheManager
 
 
 ALL_TIERS = [(30, "30с"), (60, "1м"), (180, "3м"),
@@ -274,17 +273,6 @@ class SettingsWindow(QMainWindow):
         self._topmost_cb = QCheckBox("Поверх всех окон")
         root.addWidget(self._topmost_cb)
 
-        # 8.5. Cache clear
-        cache_row = QHBoxLayout()
-        cache_row.addStretch()
-        self._cache_btn = QPushButton("Очистить кеш")
-        self._cache_btn.clicked.connect(self._clear_cache)
-        cache_row.addWidget(self._cache_btn)
-        self._cache_size_label = QLabel("")
-        cache_row.addWidget(self._cache_size_label)
-        cache_row.addStretch()
-        root.addLayout(cache_row)
-
         # 9. Start button
         self._start_btn = QPushButton("СТАРТ")
         self._start_btn.setFixedHeight(40)
@@ -346,9 +334,6 @@ class SettingsWindow(QMainWindow):
                   f"padding: 5px 14px;")
         self._auto_btn.setStyleSheet(auto_s)
         self._reset_btn.setStyleSheet(auto_s)
-        self._cache_btn.setStyleSheet(auto_s)
-        self._cache_size_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
 
         self._groups_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: 11px; font-weight: 500;")
@@ -600,14 +585,6 @@ class SettingsWindow(QMainWindow):
             self.images.append(ImageItem(path=p, timer=timer))
         self._on_images_changed()
 
-    def _clear_cache(self):
-        CacheManager().clear()
-        self._update_cache_size()
-
-    def _update_cache_size(self):
-        size = CacheManager().size()
-        self._cache_size_label.setText(CacheManager.format_size(size) if size > 0 else "")
-
     def _on_images_changed(self):
         self._update_thumbnails()
         self._update_summary()
@@ -732,7 +709,6 @@ class SettingsWindow(QMainWindow):
         self._set_timer_mode(self._timer_mode)
         self._update_thumbnails()
         self._update_summary()
-        self._update_cache_size()
 
     def _save_session(self):
         data = {
