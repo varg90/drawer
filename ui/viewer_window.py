@@ -40,82 +40,58 @@ class IconButton(QPushButton):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         alpha = 220 if self._hovered else 140
         color = QColor(255, 255, 255, alpha)
-        p.setPen(QPen(color, 1.5))
-        p.setBrush(color)
+        pen = QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
 
         w, h = self.width(), self.height()
         cx, cy = w / 2, h / 2
-        s = min(w, h) * 0.32  # scale
+        s = min(w, h) * 0.28
 
         if self._icon_type == "prev":
-            # ‹  — single thick chevron left
-            p.setPen(QPen(color, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-            p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawLine(QPointF(cx + s * 0.4, cy - s), QPointF(cx - s * 0.4, cy))
             p.drawLine(QPointF(cx - s * 0.4, cy), QPointF(cx + s * 0.4, cy + s))
 
         elif self._icon_type == "next":
-            # ›  — single thick chevron right
-            p.setPen(QPen(color, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-            p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawLine(QPointF(cx - s * 0.4, cy - s), QPointF(cx + s * 0.4, cy))
             p.drawLine(QPointF(cx + s * 0.4, cy), QPointF(cx - s * 0.4, cy + s))
 
         elif self._icon_type == "pause":
-            # ||  — two bars
-            bw = s * 0.3
-            p.drawRect(QRect(int(cx - s), int(cy - s), int(bw), int(s * 2)))
-            p.drawRect(QRect(int(cx + s - bw), int(cy - s), int(bw), int(s * 2)))
+            p.drawLine(QPointF(cx - s * 0.5, cy - s), QPointF(cx - s * 0.5, cy + s))
+            p.drawLine(QPointF(cx + s * 0.5, cy - s), QPointF(cx + s * 0.5, cy + s))
 
         elif self._icon_type == "play":
-            # ▶  — triangle
-            tri = QPolygonF([QPointF(cx - s * 0.7, cy - s), QPointF(cx + s, cy), QPointF(cx - s * 0.7, cy + s)])
+            tri = QPolygonF([QPointF(cx - s * 0.5, cy - s), QPointF(cx + s, cy), QPointF(cx - s * 0.5, cy + s)])
             p.drawPolygon(tri)
 
         elif self._icon_type == "settings":
-            # ☰  — three horizontal lines
-            p.setPen(QPen(color, 2))
-            p.setBrush(Qt.BrushStyle.NoBrush)
             for dy in [-s * 0.7, 0, s * 0.7]:
                 p.drawLine(QPointF(cx - s, cy + dy), QPointF(cx + s, cy + dy))
 
         elif self._icon_type == "help":
-            # ?  — question mark
-            p.setPen(color)
-            p.setBrush(Qt.BrushStyle.NoBrush)
             font = p.font()
-            font.setPixelSize(int(s * 2.5))
-            font.setBold(False)
-            font.setWeight(QFont.Weight.Normal)
+            font.setPixelSize(int(s * 2.6))
+            font.setWeight(QFont.Weight.Light)
             p.setFont(font)
-            p.drawText(QRect(0, 1, w, h), Qt.AlignmentFlag.AlignCenter, "?")
+            p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, "?")
 
         elif self._icon_type == "fullscreen":
-            # ⛶  — four corners
-            p.setPen(QPen(color, 1.5))
-            p.setBrush(Qt.BrushStyle.NoBrush)
             d = s * 0.9
-            c = s * 0.4
+            c = s * 0.5
             for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
                 ox, oy = cx + dx * d, cy + dy * d
                 p.drawLine(QPointF(ox, oy), QPointF(ox - dx * c, oy))
                 p.drawLine(QPointF(ox, oy), QPointF(ox, oy - dy * c))
 
         elif self._icon_type == "exitfullscreen":
-            # Inward corners
-            p.setPen(QPen(color, 1.5))
-            p.setBrush(Qt.BrushStyle.NoBrush)
             d = s * 0.4
-            c = s * 0.4
+            c = s * 0.5
             for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
                 ox, oy = cx + dx * d, cy + dy * d
                 p.drawLine(QPointF(ox, oy), QPointF(ox + dx * c, oy))
                 p.drawLine(QPointF(ox, oy), QPointF(ox, oy + dy * c))
 
         elif self._icon_type == "close":
-            # ×  — cross
-            p.setPen(QPen(color, 2))
-            p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawLine(QPointF(cx - s * 0.7, cy - s * 0.7), QPointF(cx + s * 0.7, cy + s * 0.7))
             p.drawLine(QPointF(cx + s * 0.7, cy - s * 0.7), QPointF(cx - s * 0.7, cy + s * 0.7))
 
