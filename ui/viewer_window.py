@@ -81,13 +81,14 @@ class IconButton(QPushButton):
 
         elif self._icon_type == "help":
             # ?  — question mark
-            p.setPen(QPen(color, 2))
+            p.setPen(color)
             p.setBrush(Qt.BrushStyle.NoBrush)
             font = p.font()
-            font.setPixelSize(int(s * 3))
-            font.setBold(True)
+            font.setPixelSize(int(s * 2.5))
+            font.setBold(False)
+            font.setWeight(QFont.Weight.Normal)
             p.setFont(font)
-            p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, "?")
+            p.drawText(QRect(0, 1, w, h), Qt.AlignmentFlag.AlignCenter, "?")
 
         elif self._icon_type == "fullscreen":
             # ⛶  — four corners
