@@ -90,9 +90,9 @@ class ImageEditorWindow(QWidget):
         self._grid.setDefaultDropAction(Qt.DropAction.MoveAction)
         self._grid.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self._grid.setMovement(QListWidget.Movement.Snap)
-        self._grid.setSpacing(4)
+        self._grid.setSpacing(2)
         self._grid.setIconSize(QSize(GRID_DEFAULT, GRID_DEFAULT))
-        self._grid.setGridSize(QSize(GRID_DEFAULT + 8, GRID_DEFAULT + 28))
+        self._grid.setGridSize(QSize(GRID_DEFAULT + 4, GRID_DEFAULT + 18))
         self._grid.model().rowsMoved.connect(self._on_grid_reorder)
         self._stack.addWidget(self._grid)
 
@@ -230,7 +230,7 @@ class ImageEditorWindow(QWidget):
 
     def _on_zoom(self, value):
         self._grid.setIconSize(QSize(value, value))
-        self._grid.setGridSize(QSize(value + 8, value + 28))
+        self._grid.setGridSize(QSize(value + 4, value + 18))
         # Force full rebuild to rescale icons
         count = self._grid.count()
         for i in range(count):
@@ -347,7 +347,7 @@ class ImageEditorWindow(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, i)
             self._style_item(item, img)
             self._grid.addItem(item)
-        self._grid.setGridSize(QSize(sz + 8, sz + 28))
+        self._grid.setGridSize(QSize(sz + 4, sz + 18))
 
     def refresh(self, images):
         old_paths = {img.path for img in self.images}
