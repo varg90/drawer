@@ -398,6 +398,9 @@ class ImageEditorWindow(QWidget):
             rows = (len(items) + cols - 1) // cols
             grid.setFixedHeight(rows * (sz + 1) + 2)
 
+            if timer_val == 0:
+                grid.setVisible(False)
+
             header.clicked.connect(lambda checked, g=grid: g.setVisible(not g.isVisible()))
 
             self._grid_layout.insertWidget(insert_pos, header)
