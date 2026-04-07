@@ -70,9 +70,13 @@ class DownloadWorker(QThread):
                 if cached:
                     self.file_done.emit(cf, cached)
                 else:
-                    resp = requests.get(cf.download_url)
-                    resp.raise_for_status()
-                    path = self._cache.put(cf, resp.content)
+                    import tempfile, os
+                    tmp = os.path.join(tempfile.gettempdir(), f"refbot_dl_{i}")
+                    self._provider.download(cf, tmp)
+                    with open(tmp, "rb") as f:
+                        data = f.read()
+                    os.unlink(tmp)
+                    path = self._cache.put(cf, data)
                     self.file_done.emit(cf, path)
             except Exception:
                 pass  # skip failed files
@@ -337,7 +341,8 @@ class UrlDialog(QDialog):
         self._progress.setVisible(False)
         if self._results:
             self.images_loaded.emit(self._results)
-            self._status.setText(f"Добавлено: {len(self._results)}")
+            self.accept()
+            return
         else:
             self._status.setText("Не удалось скачать файлы")
         self._add_btn.setEnabled(True)
