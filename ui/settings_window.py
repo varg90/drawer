@@ -11,6 +11,7 @@ from core.file_utils import filter_image_files, scan_folder
 from core.session import save_session, load_session
 from core.models import ImageItem
 from ui.theme import Theme
+from core.cloud.cache import CacheManager
 
 
 ALL_TIERS = [(30, "30с"), (60, "1м"), (180, "3м"),
@@ -59,9 +60,9 @@ class TierToggle(QPushButton):
     def __init__(self, text, seconds, parent=None):
         super().__init__(text, parent)
         self.seconds = seconds
-        self._active = True
+        self._active = False
         self.setCheckable(True)
-        self.setChecked(True)
+        self.setChecked(False)
         self.clicked.connect(self._on_click)
 
     def _on_click(self):
@@ -273,6 +274,17 @@ class SettingsWindow(QMainWindow):
         self._topmost_cb = QCheckBox("Поверх всех окон")
         root.addWidget(self._topmost_cb)
 
+        # 8.5. Cache clear
+        cache_row = QHBoxLayout()
+        cache_row.addStretch()
+        self._cache_btn = QPushButton("Очистить кеш")
+        self._cache_btn.clicked.connect(self._clear_cache)
+        cache_row.addWidget(self._cache_btn)
+        self._cache_size_label = QLabel("")
+        cache_row.addWidget(self._cache_size_label)
+        cache_row.addStretch()
+        root.addLayout(cache_row)
+
         # 9. Start button
         self._start_btn = QPushButton("СТАРТ")
         self._start_btn.setFixedHeight(40)
@@ -334,6 +346,9 @@ class SettingsWindow(QMainWindow):
                   f"padding: 5px 14px;")
         self._auto_btn.setStyleSheet(auto_s)
         self._reset_btn.setStyleSheet(auto_s)
+        self._cache_btn.setStyleSheet(auto_s)
+        self._cache_size_label.setStyleSheet(
+            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
 
         self._groups_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: 11px; font-weight: 500;")
@@ -360,10 +375,15 @@ class SettingsWindow(QMainWindow):
         self._timer_mode = mode
         if mode == "standard":
             self._mode_stack.setCurrentWidget(self._standard_widget)
+            timer = self.get_timer_seconds()
+            for img in self.images:
+                img.timer = timer
         else:
             self._mode_stack.setCurrentWidget(self._session_widget)
         self._update_mode_buttons()
         self._update_summary()
+        if self.editor and self.editor.isVisible():
+            self.editor.refresh(self.images)
 
     def _update_mode_buttons(self):
         t = self.theme
@@ -384,8 +404,12 @@ class SettingsWindow(QMainWindow):
         for i, (s, _) in enumerate(TIMER_PRESETS):
             if s == secs:
                 self._preset_index = i
+                for img in self.images:
+                    img.timer = s
                 self._update_preset_styles()
                 self._update_summary()
+                if self.editor and self.editor.isVisible():
+                    self.editor.refresh(self.images)
                 return
 
     def _update_preset_styles(self):
@@ -458,6 +482,15 @@ class SettingsWindow(QMainWindow):
         self._update_groups_display()
         self._update_summary()
 
+    def _apply_class_timers(self):
+        if self._class_groups:
+            timers = groups_to_timers(self._class_groups)
+            for i, img in enumerate(self.images):
+                if i < len(timers):
+                    img.timer = timers[i]
+        if self.editor and self.editor.isVisible():
+            self.editor.refresh(self.images)
+
     def _auto_distribute(self):
         if not self.images:
             return
@@ -476,6 +509,7 @@ class SettingsWindow(QMainWindow):
         combined = self._manual_groups + auto_groups
         combined.sort(key=lambda g: g[1])
         self._class_groups = combined
+        self._apply_class_timers()
         self._update_groups_display()
         self._update_summary()
 
@@ -566,6 +600,14 @@ class SettingsWindow(QMainWindow):
             self.images.append(ImageItem(path=p, timer=timer))
         self._on_images_changed()
 
+    def _clear_cache(self):
+        CacheManager().clear()
+        self._update_cache_size()
+
+    def _update_cache_size(self):
+        size = CacheManager().size()
+        self._cache_size_label.setText(CacheManager.format_size(size) if size > 0 else "")
+
     def _on_images_changed(self):
         self._update_thumbnails()
         self._update_summary()
@@ -576,9 +618,14 @@ class SettingsWindow(QMainWindow):
     def _open_editor(self):
         from ui.image_editor_window import ImageEditorWindow
         if self.editor is None or not self.editor.isVisible():
-            self.editor = ImageEditorWindow(self.images, self.theme, parent=self)
+            view = getattr(self, "_last_editor_view", "list")
+            self.editor = ImageEditorWindow(self.images, self.theme, parent=self, view_mode=view)
             self.editor.images_updated.connect(self._on_editor_update)
             self.editor.show()
+
+    def _on_editor_close(self):
+        if self.editor:
+            self._last_editor_view = self.editor._view_mode
 
     def _on_editor_update(self, images):
         self.images = images
@@ -665,6 +712,16 @@ class SettingsWindow(QMainWindow):
         self._random_cb.setChecked(data.get("random_order", False))
         self._topmost_cb.setChecked(data.get("topmost", False))
 
+        saved_tiers = data.get("tiers")
+        if saved_tiers is not None:
+            for btn in self._tier_toggles:
+                active = btn.seconds in saved_tiers
+                btn.setChecked(active)
+                btn._active = active
+            self._update_tier_styles()
+
+        self._last_editor_view = data.get("editor_view", "list")
+
         theme_name = data.get("theme", "dark")
         if theme_name != self.theme.name:
             self.theme.toggle()
@@ -675,6 +732,7 @@ class SettingsWindow(QMainWindow):
         self._set_timer_mode(self._timer_mode)
         self._update_thumbnails()
         self._update_summary()
+        self._update_cache_size()
 
     def _save_session(self):
         data = {
@@ -685,6 +743,8 @@ class SettingsWindow(QMainWindow):
             "random_order": self._random_cb.isChecked(),
             "topmost": self._topmost_cb.isChecked(),
             "theme": self.theme.name,
+            "tiers": [btn.seconds for btn in self._tier_toggles if btn.isChecked()],
+            "editor_view": self.editor._view_mode if self.editor and self.editor.isVisible() else getattr(self, "_last_editor_view", "list"),
         }
         save_session(data)
 
