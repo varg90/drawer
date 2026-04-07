@@ -2,7 +2,7 @@ import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                               QLabel, QListWidget, QListWidgetItem, QFileDialog,
                               QSlider, QStackedWidget)
-from PyQt6.QtGui import QPixmap, QIcon
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
@@ -265,6 +265,19 @@ class ImageEditorWindow(QWidget):
             self._pix_cache[path] = pix
         return pix
 
+    def _style_item(self, item, img):
+        t = self.theme
+        if img.timer == 0:
+            item.setForeground(QBrush(QColor(t.text_hint)))
+        else:
+            item.setForeground(QBrush(QColor(t.text_primary)))
+
+    def _format_item_text(self, i, img):
+        name = self._short_name(img.path)
+        if img.timer == 0:
+            return f"{i + 1}.  {name}    —"
+        return f"{i + 1}.  {name}    {format_time(img.timer)}"
+
     def _rebuild_list(self):
         # Fast path: update text only if same images in same order
         if self._list.count() == len(self.images):
@@ -277,21 +290,20 @@ class ImageEditorWindow(QWidget):
                     break
             if same:
                 for i, img in enumerate(self.images):
-                    name = self._short_name(img.path)
-                    timer_str = format_time(img.timer)
-                    self._list.item(i).setText(f"{i + 1}.  {name}    {timer_str}")
+                    item = self._list.item(i)
+                    item.setText(self._format_item_text(i, img))
+                    self._style_item(item, img)
                 return
 
         self._list.clear()
         for i, img in enumerate(self.images):
-            name = self._short_name(img.path)
-            timer_str = format_time(img.timer)
-            text = f"{i + 1}.  {name}    {timer_str}"
+            text = self._format_item_text(i, img)
             item = QListWidgetItem(text)
             pix = self._get_pixmap(img.path)
             if not pix.isNull():
                 item.setIcon(QIcon(pix))
             item.setData(Qt.ItemDataRole.UserRole, i)
+            self._style_item(item, img)
             self._list.addItem(item)
 
     def _rebuild_grid(self):
@@ -304,13 +316,15 @@ class ImageEditorWindow(QWidget):
                     break
             if same:
                 for i, img in enumerate(self.images):
-                    self._grid.item(i).setText(format_time(img.timer))
+                    item = self._grid.item(i)
+                    item.setText("—" if img.timer == 0 else format_time(img.timer))
+                    self._style_item(item, img)
                 return
 
         self._grid.clear()
         sz = self._zoom_slider.value()
         for i, img in enumerate(self.images):
-            timer_str = format_time(img.timer)
+            timer_str = "—" if img.timer == 0 else format_time(img.timer)
             item = QListWidgetItem(timer_str)
             pix = self._get_pixmap(img.path)
             if not pix.isNull():
@@ -319,6 +333,7 @@ class ImageEditorWindow(QWidget):
                                     Qt.TransformationMode.SmoothTransformation)
                 item.setIcon(QIcon(scaled))
             item.setData(Qt.ItemDataRole.UserRole, i)
+            self._style_item(item, img)
             self._grid.addItem(item)
         self._grid.setGridSize(QSize(sz + 8, sz + 28))
 
