@@ -15,6 +15,21 @@ GRID_MAX = 256
 GRID_DEFAULT = 80
 
 
+class ClickableLabel(QLabel):
+    """QLabel with click-to-select support."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._selected = False
+
+    def mousePressEvent(self, event):
+        editor = self.window()
+        if not hasattr(editor, "_on_tile_click"):
+            return
+        ctrl = event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        editor._on_tile_click(self, ctrl)
+
+
 def _flow_position(labels, container_width, sz, gap=1):
     """Position labels in a flow layout manually. Returns total height."""
     x, y, row_h = 0, 0, 0
@@ -45,6 +60,7 @@ class ImageEditorWindow(QWidget):
         self._parent = parent
         self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
         self._pix_cache = {}  # path -> QPixmap (original size, max ~GRID_MAX)
+        self._selected_tiles = set()  # set of ClickableLabel
         self.setWindowTitle("Изображения")
         self._build_ui()
         self._apply_theme()
@@ -350,6 +366,7 @@ class ImageEditorWindow(QWidget):
             self._list.addItem(item)
 
     def _rebuild_grid(self):
+        self._selected_tiles.clear()
         # Clear old groups
         for header, grid in self._grid_groups:
             header.setParent(None)
@@ -386,7 +403,7 @@ class ImageEditorWindow(QWidget):
             grid = QWidget()
             labels = []
             for idx, img in items:
-                lbl = QLabel(grid)
+                lbl = ClickableLabel(grid)
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 pix = self._get_pixmap(img.path)
                 if not pix.isNull():
@@ -502,12 +519,38 @@ class ImageEditorWindow(QWidget):
                 orig = item.data(Qt.ItemDataRole.UserRole)
                 if orig is not None:
                     indices_to_remove.add(orig)
+        else:
+            for lbl in self._selected_tiles:
+                idx = lbl.property("img_idx")
+                if idx is not None:
+                    indices_to_remove.add(idx)
+            self._selected_tiles.clear()
         for i in sorted(indices_to_remove, reverse=True):
             if 0 <= i < len(self.images):
                 self.images.pop(i)
         if indices_to_remove:
             self._rebuild()
             self._emit()
+
+    def _on_tile_click(self, lbl, ctrl):
+        t = self.theme
+        if ctrl:
+            if lbl in self._selected_tiles:
+                self._selected_tiles.discard(lbl)
+                lbl._selected = False
+                lbl.setStyleSheet("")
+            else:
+                self._selected_tiles.add(lbl)
+                lbl._selected = True
+                lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
+        else:
+            for old in self._selected_tiles:
+                old._selected = False
+                old.setStyleSheet("")
+            self._selected_tiles.clear()
+            self._selected_tiles.add(lbl)
+            lbl._selected = True
+            lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
 
     def _reflow_grid(self):
         if self._view_mode != "grid" or not self._grid_groups:
