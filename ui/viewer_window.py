@@ -76,6 +76,16 @@ class IconButton(QPushButton):
             for dy in [-s * 0.7, 0, s * 0.7]:
                 p.drawLine(QPointF(cx - s, cy + dy), QPointF(cx + s, cy + dy))
 
+        elif self._icon_type == "help":
+            # ?  — question mark
+            p.setPen(QPen(color, 2))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            font = p.font()
+            font.setPixelSize(int(s * 2.2))
+            font.setBold(True)
+            p.setFont(font)
+            p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, "?")
+
         elif self._icon_type == "fullscreen":
             # ⛶  — four corners
             p.setPen(QPen(color, 1.5))
@@ -184,6 +194,11 @@ class ViewerWindow(QWidget):
         top_layout = QHBoxLayout(self._top_buttons)
         top_layout.setContentsMargins(4, 2, 4, 2)
         top_layout.setSpacing(2)
+
+        self._help_btn = IconButton("help", 24, self._top_buttons)
+        self._help_btn.setToolTip("Горячие клавиши")
+        self._help_btn.clicked.connect(self._show_help)
+        top_layout.addWidget(self._help_btn)
 
         self._fullscreen_btn = IconButton("fullscreen", 24, self._top_buttons)
         self._fullscreen_btn.setToolTip("На весь экран")
@@ -347,6 +362,28 @@ class ViewerWindow(QWidget):
             self._pause_btn.set_icon_type("pause")
             self._qtimer.start()
 
+    def _show_help(self):
+        if hasattr(self, "_help_overlay") and self._help_overlay.isVisible():
+            self._help_overlay.hide()
+            return
+        self._help_overlay = QLabel(self)
+        self._help_overlay.setStyleSheet(
+            "background-color: rgba(0, 0, 0, 210); color: rgba(255,255,255,200); "
+            "font-size: 13px; padding: 20px;")
+        self._help_overlay.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self._help_overlay.setText(
+            "Пробел — пауза / продолжить\n"
+            "\u2190  \u2192  — предыдущее / следующее\n"
+            "F11 — полный экран\n"
+            "Esc — выйти из полного экрана\n"
+            "? — эта справка\n\n"
+            "ПКМ + перетаскивание — переместить окно\n"
+            "Края окна — изменить размер"
+        )
+        self._help_overlay.setGeometry(self.rect())
+        self._help_overlay.show()
+        self._help_overlay.mousePressEvent = lambda e: self._help_overlay.hide()
+
     def _toggle_fullscreen(self):
         if self.isFullScreen():
             self.showNormal()
@@ -390,6 +427,11 @@ class ViewerWindow(QWidget):
             self._prev()
         elif event.key() == Qt.Key.Key_Right:
             self._next()
+        elif event.key() == Qt.Key.Key_Question or event.key() == Qt.Key.Key_H:
+            self._show_help()
+        elif event.key() == Qt.Key.Key_Escape:
+            if hasattr(self, "_help_overlay") and self._help_overlay.isVisible():
+                self._help_overlay.hide()
         else:
             super().keyPressEvent(event)
 
