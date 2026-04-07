@@ -71,15 +71,11 @@ class IconButton(QPushButton):
                 p.drawLine(QPointF(cx - s, cy + dy), QPointF(cx + s, cy + dy))
 
         elif self._icon_type == "help":
-            # Circle + ? mark
-            r = s * 1.1
-            p.drawEllipse(QPointF(cx, cy), r, r)
-            # ? character inside
             font = p.font()
-            font.setPixelSize(int(s * 1.8))
+            font.setPixelSize(int(s * 2.8))
             font.setWeight(QFont.Weight.DemiBold)
             p.setFont(font)
-            p.drawText(QRect(0, -1, w, h), Qt.AlignmentFlag.AlignCenter, "?")
+            p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, "?")
 
         elif self._icon_type == "fullscreen":
             d = s * 0.9
