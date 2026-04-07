@@ -243,7 +243,7 @@ class ImageEditorWindow(QWidget):
             return
         for header, grid in self._grid_groups:
             grid.setIconSize(QSize(value, value))
-            grid.setGridSize(QSize(value + 4, value + 4))
+            grid.setGridSize(QSize(value + 2, value + 2))
             # Rescale icons in place
             for j in range(grid.count()):
                 item = grid.item(j)
@@ -257,9 +257,9 @@ class ImageEditorWindow(QWidget):
                         item.setIcon(QIcon(scaled))
             # Resize grid height to fit
             if grid.isVisible():
-                cols = max(1, (self._grid_scroll.width() - 20) // (value + 6))
+                cols = max(1, (self._grid_scroll.width() - 20) // (value + 3))
                 rows = (grid.count() + cols - 1) // cols
-                grid.setFixedHeight(rows * (value + 6) + 4)
+                grid.setFixedHeight(rows * (value + 3) + 4)
 
     # ------------------------------------------------------------------ Rebuild
 
@@ -374,9 +374,9 @@ class ImageEditorWindow(QWidget):
             grid.setResizeMode(QListWidget.ResizeMode.Adjust)
             grid.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
             grid.setMovement(QListWidget.Movement.Free)
-            grid.setSpacing(2)
+            grid.setSpacing(1)
             grid.setIconSize(QSize(sz, sz))
-            grid.setGridSize(QSize(sz + 4, sz + 4))
+            grid.setGridSize(QSize(sz + 2, sz + 2))
             grid.setStyleSheet(self._grid_list_style)
 
             for idx, img in items:
@@ -391,9 +391,9 @@ class ImageEditorWindow(QWidget):
                 grid.addItem(item)
 
             # Size the grid to fit content
-            cols = max(1, (self._grid_scroll.width() - 20) // (sz + 6))
+            cols = max(1, (self._grid_scroll.width() - 20) // (sz + 3))
             rows = (len(items) + cols - 1) // cols
-            grid.setFixedHeight(rows * (sz + 6) + 4)
+            grid.setFixedHeight(rows * (sz + 3) + 4)
 
             header.clicked.connect(lambda checked, g=grid: g.setVisible(not g.isVisible()))
 
