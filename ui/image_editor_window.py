@@ -246,7 +246,7 @@ class ImageEditorWindow(QWidget):
             return
         for header, grid in self._grid_groups:
             grid.setIconSize(QSize(value, value))
-            grid.setGridSize(QSize(value + 2, value + 2))
+            grid.setGridSize(QSize(value + 1, value + 1))
             # Rescale icons in place
             for j in range(grid.count()):
                 item = grid.item(j)
@@ -260,9 +260,9 @@ class ImageEditorWindow(QWidget):
                         item.setIcon(QIcon(scaled))
             # Resize grid height to fit
             if grid.isVisible():
-                cols = max(1, (self._grid_scroll.width() - 20) // (value + 3))
+                cols = max(1, (self._grid_scroll.width() - 20) // (value + 1))
                 rows = (grid.count() + cols - 1) // cols
-                grid.setFixedHeight(rows * (value + 3) + 4)
+                grid.setFixedHeight(rows * (value + 1) + 2)
 
     # ------------------------------------------------------------------ Rebuild
 
@@ -379,7 +379,7 @@ class ImageEditorWindow(QWidget):
             grid.setMovement(QListWidget.Movement.Free)
             grid.setSpacing(0)
             grid.setIconSize(QSize(sz, sz))
-            grid.setGridSize(QSize(sz + 2, sz + 2))
+            grid.setGridSize(QSize(sz + 1, sz + 1))
             grid.setStyleSheet(self._grid_list_style)
 
             for idx, img in items:
@@ -394,9 +394,9 @@ class ImageEditorWindow(QWidget):
                 grid.addItem(item)
 
             # Size the grid to fit content
-            cols = max(1, (self._grid_scroll.width() - 20) // (sz + 3))
+            cols = max(1, (self._grid_scroll.width() - 20) // (sz + 1))
             rows = (len(items) + cols - 1) // cols
-            grid.setFixedHeight(rows * (sz + 3) + 4)
+            grid.setFixedHeight(rows * (sz + 1) + 2)
 
             header.clicked.connect(lambda checked, g=grid: g.setVisible(not g.isVisible()))
 
