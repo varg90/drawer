@@ -295,24 +295,19 @@ class ViewerWindow(QWidget):
             warn_secs = 0
         self._is_warning = self._countdown <= warn_secs and self._countdown > 0
 
+        idx = self._hover_widgets.index(self._timer_label)
         if self._is_warning:
             self._timer_label.setStyleSheet(
                 "color: rgba(255,85,85,200); font-size: 25px; background: transparent;")
             self._timer_label.setText(t)
-            self._timer_label.setGraphicsEffect(None)
+            # Always visible — force opacity to 1
+            self._opacity_effects[idx].setOpacity(1.0)
         else:
             self._timer_label.setStyleSheet(
                 "color: rgba(255,255,255,115); font-size: 25px; background: transparent;")
             self._timer_label.setText(t)
-            # Restore opacity effect if not visible
             if not self._controls_visible:
-                has_effect = self._timer_label.graphicsEffect() is not None
-                if not has_effect:
-                    idx = self._hover_widgets.index(self._timer_label)
-                    effect = QGraphicsOpacityEffect(self._timer_label)
-                    effect.setOpacity(0.0)
-                    self._timer_label.setGraphicsEffect(effect)
-                    self._opacity_effects[idx] = effect
+                self._opacity_effects[idx].setOpacity(0.0)
 
         # Progress bar
         if self._total_time > 0:
@@ -403,14 +398,17 @@ class ViewerWindow(QWidget):
         for i, effect in enumerate(self._opacity_effects):
             widget = self._hover_widgets[i]
             # Skip timer if warning (always visible)
-            if widget == self._timer_label and self._is_warning:
+            if not show and widget == self._timer_label and self._is_warning:
                 continue
-            anim = QPropertyAnimation(effect, b"opacity", self)
-            anim.setDuration(FADE_MS)
-            anim.setStartValue(effect.opacity())
-            anim.setEndValue(target)
-            anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-            anim.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
+            try:
+                anim = QPropertyAnimation(effect, b"opacity", self)
+                anim.setDuration(FADE_MS)
+                anim.setStartValue(effect.opacity())
+                anim.setEndValue(target)
+                anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+                anim.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
+            except RuntimeError:
+                pass
 
     # ------------------------------------------------------------------ Events
 
