@@ -19,6 +19,7 @@ class IconButton(QPushButton):
         self._icon_type = icon_type
         self.setFixedSize(size, size)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setStyleSheet("background: transparent; border: none;")
         self._hovered = False
 

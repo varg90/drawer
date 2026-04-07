@@ -114,6 +114,7 @@ class SettingsWindow(QMainWindow):
         header_row = QHBoxLayout()
         self._help_btn = QPushButton("?")
         self._help_btn.setFixedSize(16, 16)
+        self._help_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._help_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._help_btn.clicked.connect(self._show_help)
         header_row.addWidget(self._help_btn)
