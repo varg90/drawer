@@ -91,8 +91,8 @@ class DownloadWorker(QThread):
                 try:
                     cf, path = future.result()
                     self.file_done.emit(cf, path)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[DownloadWorker] error: {e}")
                 self.progress.emit(done, total)
         self.finished.emit()
 
