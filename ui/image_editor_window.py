@@ -239,7 +239,27 @@ class ImageEditorWindow(QWidget):
         self._grid_btn.setVisible(True)
 
     def _on_zoom(self, value):
-        self._rebuild_grid()
+        if not self._grid_groups:
+            return
+        for header, grid in self._grid_groups:
+            grid.setIconSize(QSize(value, value))
+            grid.setGridSize(QSize(value + 4, value + 4))
+            # Rescale icons in place
+            for j in range(grid.count()):
+                item = grid.item(j)
+                idx = item.data(Qt.ItemDataRole.UserRole)
+                if idx is not None and idx < len(self.images):
+                    pix = self._get_pixmap(self.images[idx].path)
+                    if not pix.isNull():
+                        scaled = pix.scaled(value, value,
+                                            Qt.AspectRatioMode.KeepAspectRatio,
+                                            Qt.TransformationMode.SmoothTransformation)
+                        item.setIcon(QIcon(scaled))
+            # Resize grid height to fit
+            if grid.isVisible():
+                cols = max(1, (self._grid_scroll.width() - 20) // (value + 6))
+                rows = (grid.count() + cols - 1) // cols
+                grid.setFixedHeight(rows * (value + 6) + 4)
 
     # ------------------------------------------------------------------ Rebuild
 
