@@ -17,15 +17,22 @@ GRID_DEFAULT = 80
 
 def _flow_position(labels, container_width, sz, gap=1):
     """Position labels in a flow layout manually. Returns total height."""
-    x, y = 0, 0
+    x, y, row_h = 0, 0, 0
     for lbl in labels:
-        if x + sz > container_width and x > 0:
+        pix = lbl.pixmap()
+        if pix and not pix.isNull():
+            w, h = pix.width(), pix.height()
+        else:
+            w, h = sz, sz
+        if x + w > container_width and x > 0:
             x = 0
-            y += sz + gap
+            y += row_h + gap
+            row_h = 0
+        lbl.setFixedSize(w, h)
         lbl.move(x, y)
-        lbl.setFixedSize(sz, sz)
-        x += sz + gap
-    return y + sz if labels else 0
+        x += w + gap
+        row_h = max(row_h, h)
+    return y + row_h if labels else 0
 
 
 class ImageEditorWindow(QWidget):
