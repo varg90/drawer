@@ -649,6 +649,7 @@ class SettingsWindow(QMainWindow):
         settings = {
             "order": "random" if self._random_cb.isChecked() else "sequential",
             "topmost": self._topmost_cb.isChecked(),
+            "viewer_size": getattr(self, "_last_viewer_size", None),
         }
         from ui.viewer_window import ViewerWindow
         self.viewer = ViewerWindow(show_images, settings, on_close=self._on_viewer_closed)
@@ -656,6 +657,11 @@ class SettingsWindow(QMainWindow):
         self.hide()
 
     def _on_viewer_closed(self):
+        if self.viewer:
+            if self.viewer.isFullScreen():
+                pass  # don't save fullscreen size
+            else:
+                self._last_viewer_size = [self.viewer.width(), self.viewer.height()]
         self.viewer = None
         self.show()
 
@@ -697,6 +703,7 @@ class SettingsWindow(QMainWindow):
             self._update_tier_styles()
 
         self._last_editor_view = data.get("editor_view", "list")
+        self._last_viewer_size = data.get("viewer_size")
 
         theme_name = data.get("theme", "dark")
         if theme_name != self.theme.name:
@@ -720,6 +727,7 @@ class SettingsWindow(QMainWindow):
             "theme": self.theme.name,
             "tiers": [btn.seconds for btn in self._tier_toggles if btn.isChecked()],
             "editor_view": self.editor._view_mode if self.editor and self.editor.isVisible() else getattr(self, "_last_editor_view", "list"),
+            "viewer_size": getattr(self, "_last_viewer_size", None),
         }
         save_session(data)
 
