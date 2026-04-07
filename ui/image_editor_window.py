@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                               QLabel, QListWidget, QListWidgetItem, QFileDialog,
                               QSlider, QStackedWidget, QScrollArea, QStyle)
 from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
 from core.models import ImageItem
@@ -66,7 +66,7 @@ class ImageEditorWindow(QWidget):
         self._build_ui()
         self._apply_theme()
         self._set_view_mode(self._view_mode)
-        self._rebuild()
+        QTimer.singleShot(0, self._rebuild)
 
         # Open at minimum size, centered over parent
         self.adjustSize()
