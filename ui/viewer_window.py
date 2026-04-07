@@ -76,6 +76,28 @@ class IconButton(QPushButton):
             for dy in [-s * 0.7, 0, s * 0.7]:
                 p.drawLine(QPointF(cx - s, cy + dy), QPointF(cx + s, cy + dy))
 
+        elif self._icon_type == "fullscreen":
+            # ⛶  — four corners
+            p.setPen(QPen(color, 1.5))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            d = s * 0.9
+            c = s * 0.4
+            for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                ox, oy = cx + dx * d, cy + dy * d
+                p.drawLine(QPointF(ox, oy), QPointF(ox - dx * c, oy))
+                p.drawLine(QPointF(ox, oy), QPointF(ox, oy - dy * c))
+
+        elif self._icon_type == "exitfullscreen":
+            # Inward corners
+            p.setPen(QPen(color, 1.5))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            d = s * 0.4
+            c = s * 0.4
+            for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                ox, oy = cx + dx * d, cy + dy * d
+                p.drawLine(QPointF(ox, oy), QPointF(ox + dx * c, oy))
+                p.drawLine(QPointF(ox, oy), QPointF(ox, oy + dy * c))
+
         elif self._icon_type == "close":
             # ×  — cross
             p.setPen(QPen(color, 2))
@@ -163,6 +185,11 @@ class ViewerWindow(QWidget):
         top_layout.setContentsMargins(4, 2, 4, 2)
         top_layout.setSpacing(2)
 
+        self._fullscreen_btn = IconButton("fullscreen", 24, self._top_buttons)
+        self._fullscreen_btn.setToolTip("На весь экран")
+        self._fullscreen_btn.clicked.connect(self._toggle_fullscreen)
+        top_layout.addWidget(self._fullscreen_btn)
+
         self._settings_btn = IconButton("settings", 24, self._top_buttons)
         self._settings_btn.setToolTip("Настройки")
         self._settings_btn.clicked.connect(self._open_settings)
@@ -202,11 +229,15 @@ class ViewerWindow(QWidget):
         # Show first image — fit within screen
         from PyQt6.QtWidgets import QApplication
         screen = QApplication.primaryScreen().availableGeometry()
-        max_w = int(screen.width() * 0.7)
-        max_h = int(screen.height() * 0.7)
-        self.resize(min(800, max_w), min(600, max_h))
         self._screen_max_w = screen.width() - 20
         self._screen_max_h = screen.height() - 20
+        saved = settings.get("viewer_size")
+        if saved and len(saved) == 2:
+            self.resize(min(saved[0], self._screen_max_w), min(saved[1], self._screen_max_h))
+        else:
+            max_w = int(screen.width() * 0.7)
+            max_h = int(screen.height() * 0.7)
+            self.resize(min(800, max_w), min(600, max_h))
         self._show_current_image()
 
     # ------------------------------------------------------------------ Image display
@@ -316,6 +347,17 @@ class ViewerWindow(QWidget):
             self._pause_btn.set_icon_type("pause")
             self._qtimer.start()
 
+    def _toggle_fullscreen(self):
+        if self.isFullScreen():
+            self.showNormal()
+            self._fullscreen_btn.set_icon_type("fullscreen")
+            self._fullscreen_btn.setToolTip("На весь экран")
+        else:
+            self.showFullScreen()
+            self._fullscreen_btn.set_icon_type("exitfullscreen")
+            self._fullscreen_btn.setToolTip("Выйти из полноэкранного")
+        self._update_display()
+
     def _open_settings(self):
         self._qtimer.stop()
         if self.on_close:
@@ -336,6 +378,20 @@ class ViewerWindow(QWidget):
         self._counter_label.setText(f"{current} / {total}")
 
     # ------------------------------------------------------------------ Events
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_F11:
+            self._toggle_fullscreen()
+        elif event.key() == Qt.Key.Key_Escape and self.isFullScreen():
+            self._toggle_fullscreen()
+        elif event.key() == Qt.Key.Key_Space:
+            self._toggle_pause()
+        elif event.key() == Qt.Key.Key_Left:
+            self._prev()
+        elif event.key() == Qt.Key.Key_Right:
+            self._next()
+        else:
+            super().keyPressEvent(event)
 
     def closeEvent(self, event):
         self._qtimer.stop()
