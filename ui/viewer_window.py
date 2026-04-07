@@ -135,15 +135,15 @@ class ViewerWindow(QWidget):
         # Top bar (gradient drawn in paintEvent)
         self._top_left = QWidget(self)
         self._top_left.setStyleSheet("background: transparent;")
-        self._info_btn = _icon_btn("ph.info-light", 16, self._top_left, tooltip="Инфо")
+        self._info_btn = _icon_btn("ph.info-light", 20, self._top_left, tooltip="Инфо")
         self._info_btn.clicked.connect(self._show_help)
         self._info_btn.move(0, 0)
 
         self._top_right = QWidget(self)
         self._top_right.setStyleSheet("background: transparent;")
-        self._settings_btn = _icon_btn("ph.dots-three-vertical-light", 16, self._top_right, tooltip="Настройки")
+        self._settings_btn = _icon_btn("ph.dots-three-vertical-light", 20, self._top_right, tooltip="Настройки")
         self._settings_btn.clicked.connect(self._open_settings)
-        self._close_btn = _icon_btn("ph.x-thin", 16, self._top_right, tooltip="Закрыть")
+        self._close_btn = _icon_btn("ph.x-thin", 20, self._top_right, tooltip="Закрыть")
         self._close_btn.clicked.connect(self.close)
 
         # Center play/pause
@@ -158,13 +158,13 @@ class ViewerWindow(QWidget):
 
         # Side navigation (visual only — clicks handled in mousePressEvent)
         self._left_nav = QLabel(self)
-        self._left_nav.setPixmap(_icon("ph.caret-left-light", CLR_DIM).pixmap(QSize(16, 16)))
+        self._left_nav.setPixmap(_icon("ph.caret-left-light", CLR_DIM).pixmap(QSize(20, 20)))
         self._left_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._left_nav.setStyleSheet("background: transparent;")
         self._left_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._right_nav = QLabel(self)
-        self._right_nav.setPixmap(_icon("ph.caret-right-light", CLR_DIM).pixmap(QSize(16, 16)))
+        self._right_nav.setPixmap(_icon("ph.caret-right-light", CLR_DIM).pixmap(QSize(20, 20)))
         self._right_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._right_nav.setStyleSheet("background: transparent;")
         self._right_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -172,19 +172,19 @@ class ViewerWindow(QWidget):
         # Bottom: timer + counter
         self._timer_label = QLabel(self)
         self._timer_label.setStyleSheet(
-            "color: rgba(255,255,255,115); font-size: 16px; background: transparent;")
+            "color: rgba(255,255,255,115); font-size: 20px; background: transparent;")
         self._timer_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._counter_label = QLabel(self)
         self._counter_label.setStyleSheet(
-            "color: rgba(255,255,255,90); font-size: 16px; background: transparent;")
+            "color: rgba(255,255,255,90); font-size: 20px; background: transparent;")
         self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         # Coffee icon (always visible when paused)
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _icon("ph.coffee-light", CLR_NORMAL).pixmap(QSize(16, 16)))
-        self._coffee_label.setFixedSize(16, 16)
+            _icon("ph.coffee-light", CLR_NORMAL).pixmap(QSize(20, 20)))
+        self._coffee_label.setFixedSize(20, 20)
         self._coffee_label.setStyleSheet("background: transparent;")
         self._coffee_label.hide()
 
@@ -236,7 +236,7 @@ class ViewerWindow(QWidget):
     def _update_coffee(self):
         if self._paused:
             color = CLR_WARNING if self._is_warning else CLR_NORMAL
-            sz = getattr(self, "_cur_font_sz", 16)
+            sz = getattr(self, "_cur_font_sz", 20)
             self._coffee_label.setPixmap(
                 _icon("ph.coffee-light", color).pixmap(QSize(sz, sz)))
             self._coffee_label.setFixedSize(sz, sz)
@@ -247,7 +247,7 @@ class ViewerWindow(QWidget):
 
     def _layout_bottom(self, w, h):
         s = getattr(self, "_cur_scale", 1.0)
-        icon_sz = int(16 * s)
+        icon_sz = int(20 * s)
         lbl_h = max(20, int(28 * s))
         margin = max(8, int(10 * s))
         bottom_y = h - lbl_h - max(4, int(6 * s))
@@ -336,7 +336,7 @@ class ViewerWindow(QWidget):
             self._timer_color = "rgba(255,255,255,115)"
             if not self._controls_visible:
                 self._opacity_effects[idx].setOpacity(0.0)
-        fs = getattr(self, "_cur_font_sz", 16)
+        fs = getattr(self, "_cur_font_sz", 20)
         self._timer_label.setStyleSheet(
             f"color: {self._timer_color}; font-size: {fs}px; background: transparent;")
         self._timer_label.setText(t)
@@ -381,7 +381,7 @@ class ViewerWindow(QWidget):
         self._help_overlay = QLabel(self)
         self._help_overlay.setStyleSheet(
             "background-color: rgba(0, 0, 0, 210); color: rgba(255,255,255,200); "
-            "font-size: 16px; padding: 20px;")
+            "font-size: 20px; padding: 20px;")
         self._help_overlay.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self._help_overlay.setText(
             "Пробел — пауза / продолжить\n"
@@ -484,13 +484,13 @@ class ViewerWindow(QWidget):
         self._gradient.setGeometry(0, 0, w, h)
 
         # Scaled sizes
-        icon_sz = int(16 * s)
+        icon_sz = int(20 * s)
         btn_sz = icon_sz + 6
         center_sz = int(40 * s)
         center_btn = center_sz + 20
         nav_sz = int(25 * s)
         margin = int(8 * s)
-        font_sz = int(16 * s)
+        font_sz = int(20 * s)
 
         # Update icon sizes on buttons
         self._info_btn.setIconSize(QSize(icon_sz, icon_sz))
