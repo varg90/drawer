@@ -110,13 +110,16 @@ class SettingsWindow(QMainWindow):
         root.setContentsMargins(16, 12, 16, 12)
         root.setSpacing(10)
 
-        # 1. Header row: REFBOT + theme toggle
+        # 1. Header row: REFBOT (centered) + theme toggle
         header_row = QHBoxLayout()
+        self._theme_btn = ThemeToggleButton(self.theme)
+        self._theme_btn.clicked.connect(self._toggle_theme)
+        spacer = QWidget()
+        spacer.setFixedWidth(self._theme_btn.sizeHint().width())
+        header_row.addWidget(spacer)
         self._title = QLabel("REFBOT")
         self._title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_row.addWidget(self._title, 1)
-        self._theme_btn = ThemeToggleButton(self.theme)
-        self._theme_btn.clicked.connect(self._toggle_theme)
         header_row.addWidget(self._theme_btn)
         root.addLayout(header_row)
 
