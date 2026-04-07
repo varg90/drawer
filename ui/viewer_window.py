@@ -222,16 +222,17 @@ class ViewerWindow(QWidget):
     def _layout_bottom(self, w, h):
         s = getattr(self, "_cur_scale", 1.0)
         icon_sz = int(16 * s)
-        lbl_h = int(28 * s)
-        margin = int(10 * s)
-        bottom_y = h - lbl_h - int(6 * s)
+        lbl_h = max(20, int(28 * s))
+        margin = max(8, int(10 * s))
+        bottom_y = h - lbl_h - max(4, int(6 * s))
         x = margin
         if self._coffee_label.isVisible():
             self._coffee_label.setFixedSize(icon_sz, icon_sz)
             self._coffee_label.move(x, bottom_y + (lbl_h - icon_sz) // 2)
-            x += icon_sz + int(5 * s)
-        self._timer_label.setGeometry(x, bottom_y, int(100 * s), lbl_h)
-        self._counter_label.setGeometry(w - int(90 * s), bottom_y, int(80 * s), lbl_h)
+            x += icon_sz + max(4, int(6 * s))
+        self._timer_label.setGeometry(x, bottom_y, max(60, int(100 * s)), lbl_h)
+        cw = max(50, int(80 * s))
+        self._counter_label.setGeometry(w - cw - margin, bottom_y, cw, lbl_h)
         self._counter_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     # ------------------------------------------------------------------ Image display
@@ -446,7 +447,7 @@ class ViewerWindow(QWidget):
 
     def _scale(self):
         """Scale factor based on window size. 1.0 at ~600px height."""
-        return max(0.5, min(2.0, min(self.width(), self.height()) / 600))
+        return max(0.7, min(1.8, max(self.width(), self.height()) / 700))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
