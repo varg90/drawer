@@ -1,7 +1,7 @@
 import random
 from PyQt6.QtWidgets import QWidget, QLabel, QHBoxLayout, QPushButton, QVBoxLayout
-from PyQt6.QtGui import QPixmap, QCursor, QColor, QPainter, QFont
-from PyQt6.QtCore import Qt, QTimer, QPoint, QSize, QRect
+from PyQt6.QtGui import QPixmap, QCursor, QColor, QPainter, QFont, QPen, QPolygonF
+from PyQt6.QtCore import Qt, QTimer, QPoint, QSize, QRect, QPointF
 from core.timer_logic import format_time, auto_warn_seconds
 
 CORNER_GRIP = 50  # pixels from corner to trigger resize
@@ -9,6 +9,81 @@ CONTROLS_HEIGHT = 48
 COUNTER_HEIGHT = 28
 MIN_WIDTH = 200
 MIN_HEIGHT = 150
+
+
+class IconButton(QPushButton):
+    """Minimalist painted icon button."""
+
+    def __init__(self, icon_type, size=28, parent=None):
+        super().__init__(parent)
+        self._icon_type = icon_type
+        self.setFixedSize(size, size)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet("background: transparent; border: none;")
+        self._hovered = False
+
+    def set_icon_type(self, icon_type):
+        self._icon_type = icon_type
+        self.update()
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        alpha = 220 if self._hovered else 140
+        color = QColor(255, 255, 255, alpha)
+        p.setPen(QPen(color, 1.5))
+        p.setBrush(color)
+
+        w, h = self.width(), self.height()
+        cx, cy = w / 2, h / 2
+        s = min(w, h) * 0.32  # scale
+
+        if self._icon_type == "prev":
+            # |◁  — bar + triangle
+            p.drawLine(QPointF(cx - s, cy - s), QPointF(cx - s, cy + s))
+            tri = QPolygonF([QPointF(cx + s, cy - s), QPointF(cx - s * 0.3, cy), QPointF(cx + s, cy + s)])
+            p.drawPolygon(tri)
+
+        elif self._icon_type == "next":
+            # ▷|  — triangle + bar
+            p.drawLine(QPointF(cx + s, cy - s), QPointF(cx + s, cy + s))
+            tri = QPolygonF([QPointF(cx - s, cy - s), QPointF(cx + s * 0.3, cy), QPointF(cx - s, cy + s)])
+            p.drawPolygon(tri)
+
+        elif self._icon_type == "pause":
+            # ||  — two bars
+            bw = s * 0.3
+            p.drawRect(QRect(int(cx - s), int(cy - s), int(bw), int(s * 2)))
+            p.drawRect(QRect(int(cx + s - bw), int(cy - s), int(bw), int(s * 2)))
+
+        elif self._icon_type == "play":
+            # ▶  — triangle
+            tri = QPolygonF([QPointF(cx - s * 0.7, cy - s), QPointF(cx + s, cy), QPointF(cx - s * 0.7, cy + s)])
+            p.drawPolygon(tri)
+
+        elif self._icon_type == "settings":
+            # ☰  — three horizontal lines
+            p.setPen(QPen(color, 2))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            for dy in [-s * 0.7, 0, s * 0.7]:
+                p.drawLine(QPointF(cx - s, cy + dy), QPointF(cx + s, cy + dy))
+
+        elif self._icon_type == "close":
+            # ×  — cross
+            p.setPen(QPen(color, 2))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawLine(QPointF(cx - s * 0.7, cy - s * 0.7), QPointF(cx + s * 0.7, cy + s * 0.7))
+            p.drawLine(QPointF(cx + s * 0.7, cy - s * 0.7), QPointF(cx - s * 0.7, cy + s * 0.7))
+
+        p.end()
 
 
 class ViewerWindow(QWidget):
@@ -50,45 +125,30 @@ class ViewerWindow(QWidget):
         self._img_label.setStyleSheet("background-color: black;")
         self._img_label.setGeometry(self.rect())
 
-        # Controls overlay (top bar)
-        btn_style = """
-            QPushButton {
-                background: transparent;
-                color: #ccc;
-                font-size: 16px;
-                font-weight: bold;
-                border: none;
-                padding: 2px 8px;
-            }
-            QPushButton:hover { color: #fff; }
-        """
-
         # Bottom nav bar — centered at bottom
         self._controls_bar = QWidget(self)
         self._controls_bar.setStyleSheet(
-            "background-color: rgba(20, 20, 20, 200);"
+            "background-color: rgba(20, 20, 20, 180);"
         )
         ctrl_layout = QHBoxLayout(self._controls_bar)
-        ctrl_layout.setContentsMargins(12, 4, 12, 4)
-        ctrl_layout.setSpacing(6)
+        ctrl_layout.setContentsMargins(10, 4, 10, 4)
+        ctrl_layout.setSpacing(4)
 
-        self._prev_btn = QPushButton("\u23ee")
-        self._prev_btn.setStyleSheet(btn_style)
+        self._prev_btn = IconButton("prev", 28, self._controls_bar)
         self._prev_btn.clicked.connect(self._prev)
         ctrl_layout.addWidget(self._prev_btn)
 
-        self._pause_btn = QPushButton("\u23f8")
-        self._pause_btn.setStyleSheet(btn_style)
+        self._pause_btn = IconButton("pause", 28, self._controls_bar)
         self._pause_btn.clicked.connect(self._toggle_pause)
         ctrl_layout.addWidget(self._pause_btn)
 
-        self._next_btn = QPushButton("\u23ed")
-        self._next_btn.setStyleSheet(btn_style)
+        self._next_btn = IconButton("next", 28, self._controls_bar)
         self._next_btn.clicked.connect(self._next)
         ctrl_layout.addWidget(self._next_btn)
 
         self._timer_label = QLabel("")
-        self._timer_label.setStyleSheet("color: white; font-size: 14px;")
+        self._timer_label.setStyleSheet(
+            "color: rgba(255,255,255,160); font-size: 13px; background: transparent;")
         ctrl_layout.addWidget(self._timer_label)
 
         self._controls_bar.adjustSize()
@@ -97,20 +157,19 @@ class ViewerWindow(QWidget):
         # Top-right buttons
         self._top_buttons = QWidget(self)
         self._top_buttons.setStyleSheet(
-            "background-color: rgba(20, 20, 20, 200);"
+            "background-color: rgba(20, 20, 20, 180);"
         )
         top_layout = QHBoxLayout(self._top_buttons)
-        top_layout.setContentsMargins(6, 2, 6, 2)
+        top_layout.setContentsMargins(4, 2, 4, 2)
         top_layout.setSpacing(2)
 
-        self._settings_btn = QPushButton("\u2261")
-        self._settings_btn.setStyleSheet(btn_style)
-        self._settings_btn.setToolTip("Вернуться к настройкам")
+        self._settings_btn = IconButton("settings", 24, self._top_buttons)
+        self._settings_btn.setToolTip("Настройки")
         self._settings_btn.clicked.connect(self._open_settings)
         top_layout.addWidget(self._settings_btn)
 
-        self._close_btn = QPushButton("x")
-        self._close_btn.setStyleSheet(btn_style)
+        self._close_btn = IconButton("close", 24, self._top_buttons)
+        self._close_btn.setToolTip("Закрыть")
         self._close_btn.clicked.connect(self.close)
         top_layout.addWidget(self._close_btn)
 
@@ -252,9 +311,9 @@ class ViewerWindow(QWidget):
         self._paused = not self._paused
         if self._paused:
             self._qtimer.stop()
-            self._pause_btn.setText("\u25b6")
+            self._pause_btn.set_icon_type("play")
         else:
-            self._pause_btn.setText("\u23f8")
+            self._pause_btn.set_icon_type("pause")
             self._qtimer.start()
 
     def _open_settings(self):
