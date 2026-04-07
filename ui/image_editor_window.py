@@ -27,8 +27,8 @@ class ImageEditorWindow(QWidget):
         self._pix_cache = {}  # path -> QPixmap (original size, max ~GRID_MAX)
         self.setWindowTitle("Изображения")
         self._build_ui()
-        self._set_view_mode(self._view_mode)
         self._apply_theme()
+        self._set_view_mode(self._view_mode)
         self._rebuild()
 
         # Open at minimum size, centered over parent
