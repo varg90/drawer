@@ -359,10 +359,8 @@ class ViewerWindow(QWidget):
         self._update_display()
 
     def _open_settings(self):
-        was_paused = self._paused
         if not self._paused:
             self._toggle_pause()
-        self.hide()
         if self.on_close:
             self.on_close(return_only=True)
 
