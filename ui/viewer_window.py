@@ -72,17 +72,17 @@ class ViewerWindow(QWidget):
         ctrl_layout.setContentsMargins(12, 4, 12, 4)
         ctrl_layout.setSpacing(6)
 
-        self._prev_btn = QPushButton("<<")
+        self._prev_btn = QPushButton("\u25c1")
         self._prev_btn.setStyleSheet(btn_style)
         self._prev_btn.clicked.connect(self._prev)
         ctrl_layout.addWidget(self._prev_btn)
 
-        self._pause_btn = QPushButton("||")
+        self._pause_btn = QPushButton("\u25ae\u25ae")
         self._pause_btn.setStyleSheet(btn_style)
         self._pause_btn.clicked.connect(self._toggle_pause)
         ctrl_layout.addWidget(self._pause_btn)
 
-        self._next_btn = QPushButton(">>")
+        self._next_btn = QPushButton("\u25b7")
         self._next_btn.setStyleSheet(btn_style)
         self._next_btn.clicked.connect(self._next)
         ctrl_layout.addWidget(self._next_btn)
@@ -103,7 +103,7 @@ class ViewerWindow(QWidget):
         top_layout.setContentsMargins(6, 2, 6, 2)
         top_layout.setSpacing(2)
 
-        self._settings_btn = QPushButton("⚙")
+        self._settings_btn = QPushButton("\u2261")
         self._settings_btn.setStyleSheet(btn_style)
         self._settings_btn.setToolTip("Вернуться к настройкам")
         self._settings_btn.clicked.connect(self._open_settings)
@@ -252,9 +252,9 @@ class ViewerWindow(QWidget):
         self._paused = not self._paused
         if self._paused:
             self._qtimer.stop()
-            self._pause_btn.setText(">")
+            self._pause_btn.setText("\u25b7")
         else:
-            self._pause_btn.setText("||")
+            self._pause_btn.setText("\u25ae\u25ae")
             self._qtimer.start()
 
     def _open_settings(self):
