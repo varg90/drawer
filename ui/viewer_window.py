@@ -236,8 +236,10 @@ class ViewerWindow(QWidget):
     def _update_coffee(self):
         if self._paused:
             color = CLR_WARNING if self._is_warning else CLR_NORMAL
+            sz = getattr(self, "_cur_font_sz", 16)
             self._coffee_label.setPixmap(
-                _icon("ph.coffee-light", color).pixmap(QSize(16, 16)))
+                _icon("ph.coffee-light", color).pixmap(QSize(sz, sz)))
+            self._coffee_label.setFixedSize(sz, sz)
             self._coffee_label.show()
         else:
             self._coffee_label.hide()
@@ -326,18 +328,18 @@ class ViewerWindow(QWidget):
         self._is_warning = self._countdown <= warn_secs and self._countdown > 0
 
         idx = self._hover_widgets.index(self._timer_label)
+        # Only change color, not font-size (font-size managed by resizeEvent)
         if self._is_warning:
-            self._timer_label.setStyleSheet(
-                "color: rgba(255,85,85,200); font-size: 16px; background: transparent;")
-            self._timer_label.setText(t)
-            # Always visible — force opacity to 1
+            self._timer_color = "rgba(255,85,85,200)"
             self._opacity_effects[idx].setOpacity(1.0)
         else:
-            self._timer_label.setStyleSheet(
-                "color: rgba(255,255,255,115); font-size: 16px; background: transparent;")
-            self._timer_label.setText(t)
+            self._timer_color = "rgba(255,255,255,115)"
             if not self._controls_visible:
                 self._opacity_effects[idx].setOpacity(0.0)
+        fs = getattr(self, "_cur_font_sz", 16)
+        self._timer_label.setStyleSheet(
+            f"color: {self._timer_color}; font-size: {fs}px; background: transparent;")
+        self._timer_label.setText(t)
 
         # Progress bar
         if self._total_time > 0:
@@ -502,10 +504,13 @@ class ViewerWindow(QWidget):
         self._left_nav.setPixmap(_icon("ph.caret-left-light", CLR_DIM).pixmap(QSize(nav_sz, nav_sz)))
         self._right_nav.setPixmap(_icon("ph.caret-right-light", CLR_DIM).pixmap(QSize(nav_sz, nav_sz)))
 
+        # Store font size for timer updates
+        self._cur_font_sz = font_sz
+
         # Font size for labels
+        timer_color = getattr(self, "_timer_color", "rgba(255,255,255,115)")
         self._timer_label.setStyleSheet(
-            self._timer_label.styleSheet().split("font-size")[0] +
-            f"font-size: {font_sz}px; background: transparent;")
+            f"color: {timer_color}; font-size: {font_sz}px; background: transparent;")
         self._counter_label.setStyleSheet(
             f"color: rgba(255,255,255,90); font-size: {font_sz}px; background: transparent;")
 
