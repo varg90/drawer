@@ -1,7 +1,7 @@
 import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                               QLabel, QListWidget, QListWidgetItem, QFileDialog,
-                              QSlider, QStackedWidget, QScrollArea)
+                              QSlider, QStackedWidget, QScrollArea, QStyle)
 from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from core.constants import SUPPORTED_FORMATS
@@ -84,15 +84,20 @@ class ImageEditorWindow(QWidget):
         # Toolbar
         toolbar = QHBoxLayout()
         toolbar.setSpacing(6)
-        self._add_files_btn = QPushButton("+ File")
+        style = self.style()
+        self._add_files_btn = QPushButton()
+        self._add_files_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_FileIcon))
         self._add_files_btn.setToolTip("Добавить файлы")
+        self._add_files_btn.setFixedSize(26, 22)
         self._add_files_btn.clicked.connect(self._add_files)
         toolbar.addWidget(self._add_files_btn)
-        self._add_folder_btn = QPushButton("+ Dir")
+        self._add_folder_btn = QPushButton()
+        self._add_folder_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DirIcon))
         self._add_folder_btn.setToolTip("Добавить папку")
+        self._add_folder_btn.setFixedSize(26, 22)
         self._add_folder_btn.clicked.connect(self._add_folder)
         toolbar.addWidget(self._add_folder_btn)
-        self._url_btn = QPushButton("+ URL")
+        self._url_btn = QPushButton("URL")
         self._url_btn.setToolTip("Загрузить по URL")
         self._url_btn.clicked.connect(self._add_from_url)
         toolbar.addWidget(self._url_btn)
