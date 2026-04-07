@@ -220,13 +220,18 @@ class ViewerWindow(QWidget):
         self._layout_bottom(self.width(), self.height())
 
     def _layout_bottom(self, w, h):
-        bottom_y = h - 34
-        x = 10
+        s = getattr(self, "_cur_scale", 1.0)
+        icon_sz = int(25 * s)
+        lbl_h = int(28 * s)
+        margin = int(10 * s)
+        bottom_y = h - lbl_h - int(6 * s)
+        x = margin
         if self._coffee_label.isVisible():
-            self._coffee_label.move(x, bottom_y)
-            x += 30
-        self._timer_label.setGeometry(x, bottom_y, 100, 28)
-        self._counter_label.setGeometry(w - 90, bottom_y, 80, 28)
+            self._coffee_label.setFixedSize(icon_sz, icon_sz)
+            self._coffee_label.move(x, bottom_y + (lbl_h - icon_sz) // 2)
+            x += icon_sz + int(5 * s)
+        self._timer_label.setGeometry(x, bottom_y, int(100 * s), lbl_h)
+        self._counter_label.setGeometry(w - int(90 * s), bottom_y, int(80 * s), lbl_h)
         self._counter_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     # ------------------------------------------------------------------ Image display
@@ -439,32 +444,67 @@ class ViewerWindow(QWidget):
             cb()
         event.accept()
 
+    def _scale(self):
+        """Scale factor based on window size. 1.0 at ~600px height."""
+        return max(0.5, min(2.0, min(self.width(), self.height()) / 600))
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         w, h = self.width(), self.height()
+        s = self._scale()
 
         self._img_label.setGeometry(0, 0, w, h)
 
+        # Scaled sizes
+        icon_sz = int(25 * s)
+        btn_sz = icon_sz + 6
+        center_sz = int(40 * s)
+        center_btn = center_sz + 20
+        nav_sz = int(25 * s)
+        margin = int(8 * s)
+        font_sz = int(25 * s)
+
+        # Update icon sizes on buttons
+        self._info_btn.setIconSize(QSize(icon_sz, icon_sz))
+        self._info_btn.setFixedSize(btn_sz, btn_sz)
+        self._settings_btn.setIconSize(QSize(icon_sz, icon_sz))
+        self._settings_btn.setFixedSize(btn_sz, btn_sz)
+        self._close_btn.setIconSize(QSize(icon_sz, icon_sz))
+        self._close_btn.setFixedSize(btn_sz, btn_sz)
+        self._center_btn.setIconSize(QSize(center_sz, center_sz))
+        self._center_btn.setFixedSize(center_btn, center_btn)
+        self._left_nav.setPixmap(_icon("ph.caret-left-light", CLR_DIM).pixmap(QSize(nav_sz, nav_sz)))
+        self._right_nav.setPixmap(_icon("ph.caret-right-light", CLR_DIM).pixmap(QSize(nav_sz, nav_sz)))
+
+        # Font size for labels
+        self._timer_label.setStyleSheet(
+            self._timer_label.styleSheet().split("font-size")[0] +
+            f"font-size: {font_sz}px; background: transparent;")
+        self._counter_label.setStyleSheet(
+            f"color: rgba(255,255,255,90); font-size: {font_sz}px; background: transparent;")
+
         # Top left: info
-        btn_sz = 31
-        self._top_left.setGeometry(6, 4, btn_sz, btn_sz)
+        self._top_left.setGeometry(margin, margin // 2, btn_sz, btn_sz)
         self._info_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
         # Top right: settings + close
-        gap = 4
+        gap = int(4 * s)
         tr_w = btn_sz * 2 + gap
-        self._top_right.setGeometry(w - tr_w - 6, 4, tr_w, btn_sz)
+        self._top_right.setGeometry(w - tr_w - margin, margin // 2, tr_w, btn_sz)
         self._settings_btn.setGeometry(0, 0, btn_sz, btn_sz)
         self._close_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
 
         # Center
-        self._center_btn.move((w - 60) // 2, (h - 60) // 2)
+        self._center_btn.move((w - center_btn) // 2, (h - center_btn) // 2)
 
-        # Side nav (centered vertically)
-        nav_h = 40
+        # Side nav
+        nav_h = int(40 * s)
         nav_y = (h - nav_h) // 2
-        self._left_nav.setGeometry(4, nav_y, 25, nav_h)
-        self._right_nav.setGeometry(w - 29, nav_y, 25, nav_h)
+        self._left_nav.setGeometry(margin // 2, nav_y, nav_sz, nav_h)
+        self._right_nav.setGeometry(w - nav_sz - margin // 2, nav_y, nav_sz, nav_h)
+
+        # Store scale for _layout_bottom
+        self._cur_scale = s
 
         # Bottom layout
         self._layout_bottom(w, h)
@@ -479,13 +519,14 @@ class ViewerWindow(QWidget):
         if self._controls_visible:
             p = QPainter(self)
             w, h = self.width(), self.height()
+            s = self._scale()
             # Top gradient
-            grad_h = 60
+            grad_h = int(60 * s)
             for i in range(grad_h):
                 alpha = int(220 * (1 - i / grad_h) ** 1.3)
                 p.fillRect(0, i, w, 1, QColor(0, 0, 0, alpha))
             # Bottom gradient
-            bot_h = 50
+            bot_h = int(50 * s)
             for i in range(bot_h):
                 alpha = int(200 * (1 - i / bot_h) ** 1.3)
                 p.fillRect(0, h - bot_h + i, w, 1, QColor(0, 0, 0, alpha))
