@@ -217,6 +217,16 @@ class ViewerWindow(QWidget):
             self._coffee_label.show()
         else:
             self._coffee_label.hide()
+        self._layout_bottom(self.width(), self.height())
+
+    def _layout_bottom(self, w, h):
+        bottom_y = h - 22
+        x = 10
+        if self._coffee_label.isVisible():
+            self._coffee_label.move(x, bottom_y + 1)
+            x += 20
+        self._timer_label.setGeometry(x, bottom_y, 80, 16)
+        self._counter_label.setGeometry(w - 60, bottom_y, 50, 16)
 
     # ------------------------------------------------------------------ Image display
 
@@ -438,32 +448,28 @@ class ViewerWindow(QWidget):
         self._img_label.setGeometry(0, 0, w, h)
 
         # Top left: info
-        self._top_left.setGeometry(8, 6, 30, 30)
+        self._top_left.setGeometry(6, 4, 24, 24)
+        self._info_btn.setGeometry(0, 0, 24, 24)
 
         # Top right: settings + close
-        btn_w = self._settings_btn.width()
-        self._settings_btn.move(0, 0)
-        self._close_btn.move(btn_w + 4, 0)
-        self._top_right.setGeometry(w - (btn_w * 2 + 4) - 8, 6, btn_w * 2 + 4, 30)
+        btn_sz = 24
+        gap = 6
+        tr_w = btn_sz * 2 + gap
+        self._top_right.setGeometry(w - tr_w - 6, 4, tr_w, btn_sz)
+        self._settings_btn.setGeometry(0, 0, btn_sz, btn_sz)
+        self._close_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
 
         # Center
         self._center_btn.move((w - 60) // 2, (h - 60) // 2)
 
-        # Side nav (centered vertically, compact)
+        # Side nav (centered vertically)
         nav_h = 40
         nav_y = (h - nav_h) // 2
         self._left_nav.setGeometry(6, nav_y, 22, nav_h)
         self._right_nav.setGeometry(w - 28, nav_y, 22, nav_h)
 
-        # Bottom: coffee + timer left, counter right
-        bottom_y = h - 24
-        coffee_x = 10
-        if self._coffee_label.isVisible():
-            self._coffee_label.move(coffee_x, bottom_y + 2)
-            self._timer_label.setGeometry(coffee_x + 20, bottom_y, 80, 16)
-        else:
-            self._timer_label.setGeometry(coffee_x, bottom_y, 80, 16)
-        self._counter_label.setGeometry(w - 60, bottom_y, 50, 16)
+        # Bottom layout
+        self._layout_bottom(w, h)
 
         # Progress bar at very bottom
         self._progress_bar.setGeometry(0, h - 3, w, 3)
