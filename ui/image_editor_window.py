@@ -8,6 +8,7 @@ from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
 from core.models import ImageItem
 from core.timer_logic import format_time
+from core.cloud.cache import CacheManager
 
 GRID_MIN = 48
 GRID_MAX = 200
@@ -121,6 +122,13 @@ class ImageEditorWindow(QWidget):
         self._zoom_slider.valueChanged.connect(self._on_zoom)
         bottom.addWidget(self._zoom_slider)
 
+        # Cache clear
+        self._cache_btn = QPushButton("Очистить кеш")
+        self._cache_btn.clicked.connect(self._clear_cache)
+        bottom.addWidget(self._cache_btn)
+        self._cache_size_label = QLabel("")
+        bottom.addWidget(self._cache_size_label)
+
         bottom.addStretch()
 
         # View mode toggle (always visible)
@@ -150,7 +158,8 @@ class ImageEditorWindow(QWidget):
                  f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
                  f"padding: 3px 6px;")
         for btn in [self._add_files_btn, self._add_folder_btn, self._url_btn,
-                    self._clear_btn, self._del_btn, self._up_btn, self._down_btn]:
+                    self._clear_btn, self._del_btn, self._up_btn, self._down_btn,
+                    self._cache_btn]:
             btn.setStyleSheet(btn_s)
 
         list_s = (f"QListWidget {{ background-color: {t.bg_secondary}; border: none; "
@@ -167,7 +176,25 @@ class ImageEditorWindow(QWidget):
             f"QSlider::handle:horizontal {{ background: {t.text_secondary}; "
             f"width: 12px; margin: -4px 0; }}")
 
+        self._cache_size_label.setStyleSheet(
+            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
+
         self._update_view_buttons()
+        self._update_cache_size()
+
+    def _update_cache_size(self):
+        size = CacheManager().size()
+        if size > 0:
+            self._cache_btn.setVisible(True)
+            self._cache_size_label.setText(CacheManager.format_size(size))
+            self._cache_size_label.setVisible(True)
+        else:
+            self._cache_btn.setVisible(False)
+            self._cache_size_label.setVisible(False)
+
+    def _clear_cache(self):
+        CacheManager().clear()
+        self._update_cache_size()
 
     def _update_view_buttons(self):
         t = self.theme
@@ -311,6 +338,7 @@ class ImageEditorWindow(QWidget):
         self._pix_cache.clear()
         self._rebuild()
         self._emit()
+        self._update_cache_size()
 
     def _clear(self):
         self.images = []
