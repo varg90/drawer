@@ -166,7 +166,10 @@ class ImageEditorWindow(QWidget):
                   f"QListWidget::item {{ padding: 3px; }}"
                   f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}")
         self._list.setStyleSheet(list_s)
-        self._grid_list_style = list_s
+        self._grid_list_style = (
+            f"QListWidget {{ background-color: {t.bg_secondary}; border: none; }}"
+            f"QListWidget::item {{ padding: 0px; margin: 0px; }}"
+            f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}")
         self._grid_scroll.setStyleSheet(
             f"QScrollArea {{ background-color: {t.bg_secondary}; border: none; }}"
             f"QWidget {{ background-color: {t.bg_secondary}; }}")
@@ -374,7 +377,7 @@ class ImageEditorWindow(QWidget):
             grid.setResizeMode(QListWidget.ResizeMode.Adjust)
             grid.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
             grid.setMovement(QListWidget.Movement.Free)
-            grid.setSpacing(1)
+            grid.setSpacing(0)
             grid.setIconSize(QSize(sz, sz))
             grid.setGridSize(QSize(sz + 2, sz + 2))
             grid.setStyleSheet(self._grid_list_style)
