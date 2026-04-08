@@ -392,10 +392,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
     def _toggle_theme(self):
         self.theme.toggle()
         self._apply_theme()
-        if self.editor is not None and self.editor.isVisible():
-            self.editor._panel.theme = self.theme
-            self.editor._panel._apply_theme()
-            self.editor._panel._rebuild()
+        self._refresh_editor_theme()
 
     def _pick_accent(self):
         from PyQt6.QtWidgets import QColorDialog
@@ -404,9 +401,15 @@ class SettingsWindow(QMainWindow, SnapMixin):
         if color.isValid():
             self.theme.accent = color.name()
             self._apply_theme()
-            if self.editor is not None and self.editor.isVisible():
-                self.editor._panel._apply_theme()
-                self.editor._panel._rebuild()
+            self._refresh_editor_theme()
+
+    def _refresh_editor_theme(self):
+        if self.editor is not None and self.editor.isVisible():
+            self.editor.theme = self.theme
+            self.editor._apply_theme()
+            self.editor._panel.theme = self.theme
+            self.editor._panel._apply_theme()
+            self.editor._panel._rebuild()
 
     # ------------------------------------------------------------------ Toggle methods
 
@@ -761,6 +764,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
         from ui.viewer_window import ViewerWindow
         self.viewer = ViewerWindow(show_images, settings, on_close=self._on_viewer_closed)
         self.viewer.show()
+        # Hide editor window too
+        if self.editor is not None and self.editor.isVisible():
+            self.editor.hide()
         self.hide()
 
     def _on_viewer_closed(self, return_only=False):
@@ -771,6 +777,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
         else:
             self.viewer = None
             self.show()
+        # Restore editor if it was hidden
+        if self.editor is not None and not self.editor.isVisible():
+            self.editor.show()
 
     # ------------------------------------------------------------------ Session save/restore
 
