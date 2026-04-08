@@ -424,6 +424,10 @@ class SettingsWindow(QMainWindow):
     def _toggle_theme(self):
         self.theme.toggle()
         self._apply_theme()
+        if self._editor_panel is not None:
+            self._editor_panel.theme = self.theme
+            self._editor_panel._apply_theme()
+            self._editor_panel._rebuild()
 
     def _pick_accent(self):
         from PyQt6.QtWidgets import QColorDialog
@@ -432,6 +436,9 @@ class SettingsWindow(QMainWindow):
         if color.isValid():
             self.theme.accent = color.name()
             self._apply_theme()
+            if self._editor_panel is not None:
+                self._editor_panel._apply_theme()
+                self._editor_panel._rebuild()
 
     # ------------------------------------------------------------------ Toggle methods
 
