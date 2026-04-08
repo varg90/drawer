@@ -175,12 +175,6 @@ class EditorPanel(QWidget):
         toolbar.addWidget(self._url_btn)
         toolbar.addStretch()
 
-        self._detach_btn = make_icon_btn(
-            Icons.DETACH, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Detach to window",
-        )
-        self._detach_btn.clicked.connect(self.detach_requested.emit)
-
         self._clear_btn = make_icon_btn(
             Icons.ERASER, self.theme.text_secondary,
             size=S.EDITOR_BTN, tooltip="Clear all",
@@ -193,7 +187,6 @@ class EditorPanel(QWidget):
         )
         self._close_btn.clicked.connect(self.close_requested.emit)
 
-        toolbar.addWidget(self._detach_btn)
         toolbar.addWidget(self._clear_btn)
         toolbar.addWidget(self._close_btn)
 
@@ -353,7 +346,6 @@ class EditorPanel(QWidget):
             (self._add_files_btn, Icons.ADD_FILE),
             (self._add_folder_btn, Icons.ADD_FOLDER),
             (self._url_btn, Icons.ADD_URL),
-            (self._detach_btn, Icons.DETACH),
             (self._clear_btn, Icons.ERASER),
             (self._close_btn, Icons.CLOSE),
             (self._cache_btn, Icons.TRASH),
