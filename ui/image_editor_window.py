@@ -70,8 +70,6 @@ class ImageEditorWindow(QWidget):
         self._panel.close_requested.connect(self.close)
         # Hide the detach button — already detached
         self._panel._detach_btn.setVisible(False)
-        # Drag handle is only useful when docked; hide it in the float window
-        self._panel._drag_handle.hide()
         root.addWidget(self._panel)
 
     def _apply_theme(self):
@@ -107,45 +105,8 @@ class ImageEditorWindow(QWidget):
 
     def mouseMoveEvent(self, event):
         if event.buttons() & Qt.MouseButton.LeftButton and hasattr(self, '_drag_pos'):
-            new_pos = event.globalPosition().toPoint() - self._drag_pos
-            self.move(new_pos)
-            # Check proximity to main window for snap-to-dock
-            if self._parent and self._parent.isVisible():
-                self._check_dock_snap(new_pos)
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
             event.accept()
-
-    def _check_dock_snap(self, pos):
-        """Dock back to main window if floating editor drifts close enough."""
-        main_geo = self._parent.geometry()
-        snap = 25
-
-        editor_top = pos.y()
-        editor_left = pos.x()
-
-        # Right-edge snap: editor's left near main window's right edge
-        vertical_overlap = (
-            editor_top < main_geo.bottom() + snap
-            and editor_top + self.height() > main_geo.top() - snap
-        )
-        if abs(editor_left - main_geo.right()) < snap and vertical_overlap:
-            self._do_dock("right")
-            return
-
-        # Bottom-edge snap: editor's top near main window's bottom edge
-        horizontal_overlap = (
-            editor_left < main_geo.right() + snap
-            and editor_left + self.width() > main_geo.left() - snap
-        )
-        if abs(editor_top - main_geo.bottom()) < snap and horizontal_overlap:
-            self._do_dock("bottom")
-            return
-
-    def _do_dock(self, position="right"):
-        """Ask the main window to re-dock this editor, then close the float."""
-        if self._parent and hasattr(self._parent, '_dock_editor_from_detached'):
-            view = self._panel._view_mode if hasattr(self, '_panel') else 'list'
-            self._parent._dock_editor_from_detached(self.images, view, position)
-        self.close()
 
     def mouseReleaseEvent(self, event):
         if hasattr(self, '_drag_pos'):
