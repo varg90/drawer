@@ -75,6 +75,10 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._restore_session()
         self.setAcceptDrops(True)
 
+    @property
+    def _editor_visible(self):
+        return self.editor is not None and self.editor.isVisible()
+
     # ------------------------------------------------------------------ UI
 
     def _build_ui(self):
@@ -404,7 +408,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             self._refresh_editor_theme()
 
     def _refresh_editor_theme(self):
-        if self.editor is not None and self.editor.isVisible():
+        if self._editor_visible:
             self.editor.theme = self.theme
             self.editor._apply_theme()
             self.editor._panel.theme = self.theme
@@ -457,7 +461,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._update_mode_buttons()
         self._update_summary()
         self._apply_theme()  # refreshes duration picker color
-        if self.editor is not None and self.editor.isVisible():
+        if self._editor_visible:
             self.editor.refresh(self.images)
 
     def _update_mode_buttons(self):
@@ -487,7 +491,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
                     img.timer = s
                 self._update_preset_styles()
                 self._update_summary()
-                if self.editor is not None and self.editor.isVisible():
+                if self._editor_visible:
                     self.editor.refresh(self.images)
                 return
 
@@ -591,7 +595,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
                 if getattr(img, "pinned", False):
                     continue
                 img.timer = timers[i] if i < len(timers) else 0
-        if self.editor is not None and self.editor.isVisible():
+        if self._editor_visible:
             self.editor.refresh(self.images)
 
     def _auto_distribute(self):
@@ -686,12 +690,12 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._update_img_count()
         self._update_summary()
         self.images_changed.emit()
-        if self.editor is not None and self.editor.isVisible():
+        if self._editor_visible:
             self.editor.refresh(self.images)
 
     def _open_editor(self):
         """Open the editor as a separate window, snapped to the right."""
-        if self.editor is not None and self.editor.isVisible():
+        if self._editor_visible:
             self.editor.raise_()
             return
         from ui.image_editor_window import ImageEditorWindow
@@ -765,7 +769,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self.viewer = ViewerWindow(show_images, settings, on_close=self._on_viewer_closed)
         self.viewer.show()
         # Hide editor window too
-        if self.editor is not None and self.editor.isVisible():
+        if self._editor_visible:
             self.editor.hide()
         self.hide()
 
@@ -778,7 +782,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             self.viewer = None
             self.show()
         # Restore editor if it was hidden
-        if self.editor is not None and not self.editor.isVisible():
+        if self.editor is not None and not self._editor_visible:
             self.editor.show()
 
     # ------------------------------------------------------------------ Session save/restore
@@ -798,15 +802,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
                 break
 
         # Map old session file mode names to new names
-        saved_mode = data.get("timer_mode", "quick")
-        if saved_mode == "standard":
-            self._timer_mode = "quick"
-        elif saved_mode == "class":
-            self._timer_mode = "class"
-        elif saved_mode == "session":
-            self._timer_mode = "class"
-        else:
-            self._timer_mode = "quick"
+        _MODE_MAP = {"standard": "quick", "session": "class", "class": "class"}
+        self._timer_mode = _MODE_MAP.get(data.get("timer_mode", "quick"), "quick")
 
         session_secs = data.get("session_seconds")
         if session_secs:
@@ -860,7 +857,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             "accent": self.theme.accent,
             "tiers": [secs for btn, secs in self._class_btns if btn.isChecked()],
             "editor_view": (
-                self.editor._view_mode if self.editor is not None and self.editor.isVisible()
+                self.editor._view_mode if self._editor_visible
                 else getattr(self, "_last_editor_view", "list")
             ),
             "viewer_size": getattr(self, "_last_viewer_size", None),
