@@ -2,7 +2,7 @@ import os
 import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QPushButton, QLabel, QFileDialog,
-                              QSizePolicy, QApplication)
+                              QSizePolicy, QApplication, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QColor
 from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_PRESETS
@@ -56,6 +56,10 @@ class SettingsWindow(QMainWindow):
         self.editor = None
         self.theme = Theme("dark")
 
+        # Dock state for editor panel
+        self._dock_mode = "compact"   # "compact", "right", "detached"
+        self._editor_panel = None
+
         # "quick" replaces old "standard", "class" replaces old "session"
         self._timer_mode = "quick"
         self._preset_index = 3   # default 5min
@@ -75,9 +79,33 @@ class SettingsWindow(QMainWindow):
     # ------------------------------------------------------------------ UI
 
     def _build_ui(self):
+        # Outer horizontal layout: [settings_container | divider | editor_container]
         central = QWidget()
         self.setCentralWidget(central)
-        root = QVBoxLayout(central)
+        main_hbox = QHBoxLayout(central)
+        main_hbox.setContentsMargins(0, 0, 0, 0)
+        main_hbox.setSpacing(0)
+
+        # Left: fixed-width settings panel
+        settings_container = QWidget()
+        settings_container.setFixedWidth(S.MAIN_W)
+        main_hbox.addWidget(settings_container)
+
+        # Vertical divider (hidden until editor docked)
+        self._dock_divider = QFrame()
+        self._dock_divider.setFrameShape(QFrame.Shape.VLine)
+        self._dock_divider.setFixedWidth(1)
+        self._dock_divider.hide()
+        main_hbox.addWidget(self._dock_divider)
+
+        # Right: editor container (hidden until editor docked)
+        self._editor_container = QWidget()
+        self._editor_container.setFixedWidth(S.EDITOR_W)
+        self._editor_container.hide()
+        main_hbox.addWidget(self._editor_container)
+
+        # All settings content goes inside settings_container
+        root = QVBoxLayout(settings_container)
         root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
 
@@ -264,6 +292,7 @@ class SettingsWindow(QMainWindow):
     def _apply_theme(self):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
+        self._dock_divider.setStyleSheet(f"color: {t.border};")
 
         # Header title (may already exist from make_centered_header, refresh it)
         self._title.setStyleSheet(
@@ -421,6 +450,8 @@ class SettingsWindow(QMainWindow):
         self._apply_theme()  # refreshes duration picker color
         if self.editor and self.editor.isVisible():
             self.editor.refresh(self.images)
+        if self._editor_panel is not None and self._dock_mode == "right":
+            self._editor_panel.refresh(self.images)
 
     def _update_mode_buttons(self):
         t = self.theme
@@ -451,6 +482,8 @@ class SettingsWindow(QMainWindow):
                 self._update_summary()
                 if self.editor and self.editor.isVisible():
                     self.editor.refresh(self.images)
+                if self._editor_panel is not None and self._dock_mode == "right":
+                    self._editor_panel.refresh(self.images)
                 return
 
     def _update_preset_styles(self):
@@ -552,6 +585,8 @@ class SettingsWindow(QMainWindow):
                 img.timer = timers[i] if i < len(timers) else 0
         if self.editor and self.editor.isVisible():
             self.editor.refresh(self.images)
+        if self._editor_panel is not None and self._dock_mode == "right":
+            self._editor_panel.refresh(self.images)
 
     def _auto_distribute(self):
         if not self.images:
@@ -647,12 +682,69 @@ class SettingsWindow(QMainWindow):
         self.images_changed.emit()
         if self.editor and self.editor.isVisible():
             self.editor.refresh(self.images)
+        if self._editor_panel is not None and self._dock_mode == "right":
+            self._editor_panel.refresh(self.images)
 
     def _open_editor(self):
+        """Open editor panel docked to the right of the settings window."""
+        if self._dock_mode == "right":
+            return  # already docked, nothing to do
+        if self._dock_mode == "detached":
+            # Bring detached window to front if still open
+            if self.editor and self.editor.isVisible():
+                self.editor.raise_()
+                self.editor.activateWindow()
+                return
+
+        # Create EditorPanel lazily
+        if self._editor_panel is None:
+            from ui.editor_panel import EditorPanel
+            view = getattr(self, "_last_editor_view", "list")
+            self._editor_panel = EditorPanel(
+                self.images, self.theme, parent=self, view_mode=view)
+            self._editor_panel.images_updated.connect(self._on_editor_update)
+            self._editor_panel.close_requested.connect(self._close_editor)
+            self._editor_panel.detach_requested.connect(self._detach_editor)
+            layout = QVBoxLayout(self._editor_container)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(0)
+            layout.addWidget(self._editor_panel)
+        else:
+            self._editor_panel.refresh(self.images)
+
+        self._dock_divider.show()
+        self._editor_container.show()
+        self.setFixedSize(S.MAIN_W + 1 + S.EDITOR_W, S.MAIN_H)
+        self._dock_mode = "right"
+
+    def _close_editor(self):
+        """Hide the docked editor panel and shrink window back to compact size."""
+        if self._editor_panel is not None:
+            self._last_editor_view = self._editor_panel._view_mode
+        self._dock_divider.hide()
+        self._editor_container.hide()
+        self.setFixedSize(S.MAIN_W, S.MAIN_H)
+        self._dock_mode = "compact"
+
+    def _detach_editor(self):
+        """Detach the docked editor into its own floating window."""
+        if self._editor_panel is not None:
+            self._last_editor_view = self._editor_panel._view_mode
+        # Hide the docked panel first
+        self._dock_divider.hide()
+        self._editor_container.hide()
+        self.setFixedSize(S.MAIN_W, S.MAIN_H)
+        self._dock_mode = "detached"
+        # Open the standalone ImageEditorWindow
+        self._open_editor_detached()
+
+    def _open_editor_detached(self):
+        """Open the standalone ImageEditorWindow (original separate-window behavior)."""
         from ui.image_editor_window import ImageEditorWindow
         if self.editor is None or not self.editor.isVisible():
             view = getattr(self, "_last_editor_view", "list")
-            self.editor = ImageEditorWindow(self.images, self.theme, parent=self, view_mode=view)
+            self.editor = ImageEditorWindow(
+                self.images, self.theme, parent=self, view_mode=view)
             self.editor.images_updated.connect(self._on_editor_update)
             self.editor.show()
 
@@ -800,9 +892,11 @@ class SettingsWindow(QMainWindow):
             "theme": self.theme.name,
             "accent": self.theme.accent,
             "tiers": [secs for btn, secs in self._class_btns if btn.isChecked()],
-            "editor_view": (self.editor._view_mode
-                            if self.editor and self.editor.isVisible()
-                            else getattr(self, "_last_editor_view", "list")),
+            "editor_view": (
+                self.editor._view_mode if self.editor and self.editor.isVisible()
+                else self._editor_panel._view_mode if self._editor_panel is not None and self._dock_mode == "right"
+                else getattr(self, "_last_editor_view", "list")
+            ),
             "viewer_size": getattr(self, "_last_viewer_size", None),
         }
         save_session(data)
