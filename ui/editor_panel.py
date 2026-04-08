@@ -310,13 +310,23 @@ class EditorPanel(QWidget):
             f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px;")
 
         # Scroll area backgrounds + dashed drop-target border
+        # Use #id selector to avoid bleeding into child widgets
+        self._list_scroll.setObjectName("editorListScroll")
+        self._grid_scroll.setObjectName("editorGridScroll")
+        self._list_container.setObjectName("editorListContainer")
+        self._grid_container.setObjectName("editorGridContainer")
         scroll_s = (
-            f"QScrollArea {{ background-color: {t.bg_secondary}; "
-            f"border: 1px dashed {t.border}; }}"
-            f"QWidget {{ background-color: {t.bg_secondary}; }}"
+            f"QScrollArea#editorListScroll, QScrollArea#editorGridScroll {{ "
+            f"background-color: {t.bg_secondary}; border: 1px dashed {t.border}; }}"
+        )
+        container_s = (
+            f"QWidget#editorListContainer, QWidget#editorGridContainer {{ "
+            f"background-color: {t.bg_secondary}; }}"
         )
         self._list_scroll.setStyleSheet(scroll_s)
         self._grid_scroll.setStyleSheet(scroll_s)
+        self._list_container.setStyleSheet(container_s)
+        self._grid_container.setStyleSheet(container_s)
 
         # Styles stored for reuse in rebuild
         self._list_style = (
