@@ -97,7 +97,9 @@ class SnapMixin:
                     old_other._snapped_children = [
                         (w, s) for w, s in old_other._snapped_children if w is not self]
                 self._snapped_to = (other, side)
-                other._snapped_children.append((self, side))
+                # Avoid duplicates
+                if not any(w is self for w, _ in other._snapped_children):
+                    other._snapped_children.append((self, side))
         else:
             self.move(new_pos)
 
@@ -109,12 +111,17 @@ class SnapMixin:
         """Call from mouseReleaseEvent."""
         self._drag_pos = None
 
-    def _move_children(self):
+    def _move_children(self, _visited=None):
+        if _visited is None:
+            _visited = set()
+        _visited.add(id(self))
         for child, side in self._snapped_children:
+            if id(child) in _visited:
+                continue
             snap_pos = child._calc_snap_pos(self, side)
             if snap_pos is not None:
                 child.move(snap_pos)
-                child._move_children()
+                child._move_children(_visited)
 
     def _calc_snap_pos(self, other, side):
         og = other.geometry()
