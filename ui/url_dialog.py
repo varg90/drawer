@@ -102,7 +102,7 @@ class UrlDialog(QDialog):
 
     def __init__(self, theme, timer=300, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Загрузка по URL")
+        self.setWindowTitle("Load from URL")
         self.theme = theme
         self._timer = timer
         self._provider = None
@@ -126,10 +126,10 @@ class UrlDialog(QDialog):
         url_row = QHBoxLayout()
         url_row.setSpacing(6)
         self._url_input = QLineEdit()
-        self._url_input.setPlaceholderText("Вставьте ссылку Yandex Disk или Google Drive")
+        self._url_input.setPlaceholderText("Paste Yandex Disk or Google Drive link")
         self._url_input.returnPressed.connect(self._fetch)
         url_row.addWidget(self._url_input)
-        self._fetch_btn = QPushButton("Загрузить")
+        self._fetch_btn = QPushButton("Fetch")
         self._fetch_btn.clicked.connect(self._fetch)
         url_row.addWidget(self._fetch_btn)
         root.addLayout(url_row)
@@ -147,13 +147,13 @@ class UrlDialog(QDialog):
         # Select all / deselect all
         sel_row = QHBoxLayout()
         sel_row.setSpacing(6)
-        self._sel_all_btn = QPushButton("Выбрать все")
+        self._sel_all_btn = QPushButton("Select all")
         self._sel_all_btn.clicked.connect(self._select_all)
         sel_row.addWidget(self._sel_all_btn)
-        self._sel_none_btn = QPushButton("Снять все")
+        self._sel_none_btn = QPushButton("Deselect all")
         self._sel_none_btn.clicked.connect(self._select_none)
         sel_row.addWidget(self._sel_none_btn)
-        self._preview_cb = QCheckBox("Превью")
+        self._preview_cb = QCheckBox("Preview")
         self._preview_cb.setChecked(False)
         self._preview_cb.toggled.connect(self._toggle_previews)
         sel_row.addWidget(self._preview_cb)
@@ -168,7 +168,7 @@ class UrlDialog(QDialog):
         root.addWidget(self._progress)
 
         # Add button
-        self._add_btn = QPushButton("Добавить")
+        self._add_btn = QPushButton("Add")
         self._add_btn.clicked.connect(self._download_selected)
         self._add_btn.setEnabled(False)
         root.addWidget(self._add_btn)
@@ -221,10 +221,10 @@ class UrlDialog(QDialog):
 
         self._provider = detect_provider(url)
         if not self._provider:
-            self._status.setText("Неизвестный сервис. Поддерживаются Yandex Disk и Google Drive")
+            self._status.setText("Unknown service. Yandex Disk and Google Drive supported")
             return
 
-        self._status.setText("Загрузка списка файлов...")
+        self._status.setText("Loading file list...")
         self._fetch_btn.setEnabled(False)
         self._file_list.clear()
 
@@ -239,7 +239,7 @@ class UrlDialog(QDialog):
         self._fetch_btn.setEnabled(True)
 
         if not files:
-            self._status.setText("Изображений не найдено")
+            self._status.setText("No images found")
             return
 
         for cf in files:
@@ -249,7 +249,7 @@ class UrlDialog(QDialog):
             item.setData(Qt.ItemDataRole.UserRole, cf)
             self._file_list.addItem(item)
 
-        self._status.setText(f"Найдено изображений: {len(files)}")
+        self._status.setText(f"Images found: {len(files)}")
         self._file_list.setVisible(True)
         self._sel_all_btn.setVisible(True)
         self._sel_none_btn.setVisible(True)
@@ -294,9 +294,9 @@ class UrlDialog(QDialog):
     def _on_fetch_error(self, msg):
         self._fetch_btn.setEnabled(True)
         if "404" in msg or "403" in msg:
-            self._status.setText("Нет доступа. Убедитесь что ссылка публичная")
+            self._status.setText("Access denied. Make sure the link is public")
         else:
-            self._status.setText("Ошибка сети. Проверьте подключение к интернету")
+            self._status.setText("Network error. Check your internet connection")
 
     def _select_all(self):
         for i in range(self._file_list.count()):
@@ -331,7 +331,7 @@ class UrlDialog(QDialog):
         self._progress.setVisible(True)
         self._progress.setMaximum(len(files))
         self._progress.setValue(0)
-        self._status.setText("Скачивание...")
+        self._status.setText("Downloading...")
 
         self._results = []
         url = self._url_input.text().strip()
@@ -343,7 +343,7 @@ class UrlDialog(QDialog):
 
     def _on_dl_progress(self, current, total):
         self._progress.setValue(current)
-        self._status.setText(f"Скачивание... {current}/{total}")
+        self._status.setText(f"Downloading... {current}/{total}")
 
     def _on_file_done(self, cf, local_path):
         url_text = self._url_input.text().strip()
@@ -357,6 +357,6 @@ class UrlDialog(QDialog):
             self.accept()
             return
         else:
-            self._status.setText("Не удалось скачать файлы")
+            self._status.setText("Failed to download files")
         self._add_btn.setEnabled(True)
         self._fetch_btn.setEnabled(True)
