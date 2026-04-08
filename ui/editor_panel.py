@@ -73,9 +73,20 @@ class ClickableLabel(QLabel):
         self._selected = False
 
     def mousePressEvent(self, event):
-        editor = self.window()
-        if not hasattr(editor, "_on_tile_click"):
+        # Walk up the parent chain to find EditorPanel (self.window() returns
+        # the top-level window, which may be SettingsWindow, not EditorPanel).
+        editor = self.parent()
+        while editor is not None:
+            if hasattr(editor, "_on_tile_click"):
+                break
+            editor = editor.parent()
+        if editor is None:
             return
+
+        if event.button() == Qt.MouseButton.RightButton:
+            editor._show_tile_context_menu(self, event.globalPosition().toPoint())
+            return
+
         mods = event.modifiers()
         ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
         shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
@@ -493,6 +504,11 @@ class EditorPanel(QWidget):
 
             lw.setFixedHeight(len(items) * 30 + 4)
 
+            # Context menu for pin / move-to-group
+            lw.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            lw.customContextMenuRequested.connect(
+                lambda pos, w=lw: self._show_context_menu(pos, w))
+
             # Reserve starts collapsed
             if is_reserve:
                 lw.setVisible(False)
@@ -803,6 +819,96 @@ class EditorPanel(QWidget):
                 self._deselect_tile(old)
             self._select_tile(lbl)
         self._last_clicked_tile = lbl
+
+    # ------------------------------------------------------------------
+    # Context menus (pin / move to group)
+    # ------------------------------------------------------------------
+
+    def _show_context_menu(self, pos, list_widget):
+        from PyQt6.QtWidgets import QMenu
+        item = list_widget.itemAt(pos)
+        if item is None:
+            return
+        idx = item.data(Qt.ItemDataRole.UserRole)
+        if idx is None or idx >= len(self.images):
+            return
+        img = self.images[idx]
+        t = self.theme
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            f"QMenu {{ background-color: {t.bg_button}; color: {t.text_primary}; "
+            f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; }}"
+            f"QMenu::item:selected {{ background-color: {t.bg_active}; }}"
+        )
+
+        pinned = getattr(img, "pinned", False)
+        pin_action = menu.addAction("Unpin" if pinned else "Pin to group")
+
+        # "Move to..." submenu — show all groups except the current one
+        move_menu = menu.addMenu("Move to...")
+        groups = self._group_by_timer()
+        for timer_val in groups.keys():
+            if timer_val == img.timer:
+                continue
+            label = "Reserve" if timer_val == 0 else format_time(timer_val)
+            act = move_menu.addAction(label)
+            act.setData(timer_val)
+        # Always offer Reserve target even if that group doesn't exist yet
+        if 0 not in groups and img.timer != 0:
+            act = move_menu.addAction("Reserve")
+            act.setData(0)
+
+        action = menu.exec(list_widget.mapToGlobal(pos))
+        if action == pin_action:
+            img.pinned = not pinned
+            self._rebuild()
+            self._emit()
+        elif action is not None and action.data() is not None:
+            img.timer = action.data()
+            img.pinned = True   # auto-pin when manually moved
+            self._rebuild()
+            self._emit()
+
+    def _show_tile_context_menu(self, tile, global_pos):
+        from PyQt6.QtWidgets import QMenu
+        idx = tile.property("img_idx")
+        if idx is None or idx >= len(self.images):
+            return
+        img = self.images[idx]
+        t = self.theme
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            f"QMenu {{ background-color: {t.bg_button}; color: {t.text_primary}; "
+            f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; }}"
+            f"QMenu::item:selected {{ background-color: {t.bg_active}; }}"
+        )
+
+        pinned = getattr(img, "pinned", False)
+        pin_action = menu.addAction("Unpin" if pinned else "Pin to group")
+
+        # "Move to..." submenu
+        move_menu = menu.addMenu("Move to...")
+        groups = self._group_by_timer()
+        for timer_val in groups.keys():
+            if timer_val == img.timer:
+                continue
+            label = "Reserve" if timer_val == 0 else format_time(timer_val)
+            act = move_menu.addAction(label)
+            act.setData(timer_val)
+        if 0 not in groups and img.timer != 0:
+            act = move_menu.addAction("Reserve")
+            act.setData(0)
+
+        action = menu.exec(global_pos)
+        if action == pin_action:
+            img.pinned = not pinned
+            self._rebuild()
+            self._emit()
+        elif action is not None and action.data() is not None:
+            img.timer = action.data()
+            img.pinned = True
+            self._rebuild()
+            self._emit()
 
     # ------------------------------------------------------------------
     # Reorder
