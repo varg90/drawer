@@ -4,48 +4,38 @@ from PyQt6.QtCore import Qt, QPoint
 
 
 SNAP_DISTANCE = 15
+DETACH_DISTANCE = 40
 
 # Global registry of all snap-capable windows
 _snap_windows = []
 
 
 class SnapMixin:
-    """Mixin for QWidget that adds magnetic snap behavior.
-
-    Add to a frameless QWidget class via multiple inheritance:
-        class MyWindow(QWidget, SnapMixin):
-            def __init__(self):
-                QWidget.__init__(self)
-                SnapMixin.__init__(self)
-    """
+    """Mixin for QWidget that adds magnetic snap behavior."""
 
     def __init__(self):
         self.snap_init()
 
     def snap_init(self):
-        """Call this in __init__ after QWidget.__init__."""
         self._drag_pos = None
         self._snapped_to = None  # (other_window, side)
         self._snapped_children = []  # [(window, side), ...]
-        _snap_windows.append(self)
+        if self not in _snap_windows:
+            _snap_windows.append(self)
 
     def snap_cleanup(self):
-        """Call this in closeEvent."""
         if self in _snap_windows:
             _snap_windows.remove(self)
-        # Detach from parent
         if self._snapped_to is not None:
             other, _ = self._snapped_to
             other._snapped_children = [
                 (w, s) for w, s in other._snapped_children if w is not self]
             self._snapped_to = None
-        # Detach children
         for child, _ in list(self._snapped_children):
             child._snapped_to = None
         self._snapped_children.clear()
 
     def snap_mouse_press(self, event):
-        """Call from mousePressEvent."""
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             event.accept()
@@ -53,33 +43,45 @@ class SnapMixin:
         return False
 
     def snap_mouse_move(self, event):
-        """Call from mouseMoveEvent. Returns True if handled."""
         if not (event.buttons() & Qt.MouseButton.LeftButton) or self._drag_pos is None:
             return False
 
         new_pos = event.globalPosition().toPoint() - self._drag_pos
 
-        # If snapped, check if dragged far enough to detach
+        # If we have children snapped to us — just move, no snap detection
+        if self._snapped_children:
+            self.move(new_pos)
+            self._move_children()
+            event.accept()
+            return True
+
+        # If snapped to another window, check detach threshold
         if self._snapped_to is not None:
             other, side = self._snapped_to
             snapped_pos = self._calc_snap_pos(other, side)
             if snapped_pos is not None:
                 delta = new_pos - snapped_pos
-                if abs(delta.x()) > SNAP_DISTANCE * 2 or abs(delta.y()) > SNAP_DISTANCE * 2:
-                    # Detach
+                if abs(delta.x()) > DETACH_DISTANCE or abs(delta.y()) > DETACH_DISTANCE:
                     other._snapped_children = [
                         (w, s) for w, s in other._snapped_children if w is not self]
                     self._snapped_to = None
+                    self.move(new_pos)
+                    event.accept()
+                    return True
                 else:
+                    # Still snapped, don't move
                     event.accept()
                     return True
 
-        # Try snap to another window
+        # Free window — try snap to another
         best_snap = None
         best_dist = SNAP_DISTANCE
 
         for other in _snap_windows:
             if other is self or not other.isVisible():
+                continue
+            # Skip windows already snapped to us
+            if any(w is other for w, _ in self._snapped_children):
                 continue
             snap = self._find_snap(new_pos, other)
             if snap is not None:
@@ -91,24 +93,16 @@ class SnapMixin:
         if best_snap is not None:
             other, side, snap_pos = best_snap
             self.move(snap_pos)
-            if self._snapped_to is None or self._snapped_to[0] is not other:
-                if self._snapped_to is not None:
-                    old_other, _ = self._snapped_to
-                    old_other._snapped_children = [
-                        (w, s) for w, s in old_other._snapped_children if w is not self]
-                self._snapped_to = (other, side)
-                # Avoid duplicates
-                if not any(w is self for w, _ in other._snapped_children):
-                    other._snapped_children.append((self, side))
+            self._snapped_to = (other, side)
+            if not any(w is self for w, _ in other._snapped_children):
+                other._snapped_children.append((self, side))
         else:
             self.move(new_pos)
 
-        self._move_children()
         event.accept()
         return True
 
     def snap_mouse_release(self, event):
-        """Call from mouseReleaseEvent."""
         self._drag_pos = None
 
     def _move_children(self, _visited=None):
