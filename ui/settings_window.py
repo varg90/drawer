@@ -48,6 +48,7 @@ class SettingsWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("RefBot")
         self.setFixedSize(S.MAIN_W, S.MAIN_H)
 
@@ -131,10 +132,18 @@ class SettingsWindow(QMainWindow):
             self.theme.text_hint, size=S.ICON_HEADER)
         self._theme_btn.clicked.connect(self._toggle_theme)
 
+        self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint,
+                                      size=S.ICON_HEADER, tooltip="Minimize")
+        self._min_btn.clicked.connect(self.showMinimized)
+
+        self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint,
+                                        size=S.ICON_HEADER, tooltip="Close")
+        self._close_btn.clicked.connect(self.close)
+
         header_layout, self._title = make_centered_header(
             "REFBOT",
             [self._help_btn, self._topmost_btn],
-            [self._accent_btn, self._theme_btn],
+            [self._accent_btn, self._theme_btn, self._min_btn, self._close_btn],
             self.theme,
         )
         root.addLayout(header_layout)
@@ -312,6 +321,12 @@ class SettingsWindow(QMainWindow):
         self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
         self._theme_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
+        self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
+        self._min_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
+
+        self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
+        self._close_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
+
         self._accent_btn.setStyleSheet(
             f"background-color: {t.accent}; border: 1px solid {t.border}; "
             f"border-radius: {S.ACCENT_DOT // 2}px;")
@@ -358,6 +373,22 @@ class SettingsWindow(QMainWindow):
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
             f"border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
+
+    # ------------------------------------------------------------------ Window dragging
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton and hasattr(self, '_drag_pos'):
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        if hasattr(self, '_drag_pos'):
+            del self._drag_pos
 
     # ------------------------------------------------------------------ Help / Theme / Accent
 

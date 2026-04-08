@@ -30,6 +30,7 @@ class Icons:
     ADD_URL = "ph.link-bold"
     ERASER = "ph.eraser-bold"
     CLOSE = "ph.x-bold"
+    MINIMIZE = "ph.minus-bold"
     DETACH = "ph.arrow-square-out-bold"
     DOCK = "ph.arrows-in-bold"
     TRASH = "ph.trash-bold"
