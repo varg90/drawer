@@ -3,6 +3,7 @@ SUPPORTED_FORMATS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
 TIMER_PRESETS = [
     (30, "30с"),
     (60, "1м"),
+    (120, "2м"),
     (300, "5м"),
     (600, "10м"),
     (900, "15м"),
