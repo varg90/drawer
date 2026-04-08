@@ -126,7 +126,6 @@ class EditorPanel(QWidget):
 
     images_updated = pyqtSignal(list)
     close_requested = pyqtSignal()
-    detach_requested = pyqtSignal()
 
     def __init__(self, images, theme, parent=None, view_mode="list"):
         super().__init__(parent)
@@ -185,12 +184,11 @@ class EditorPanel(QWidget):
             Icons.DETACH, self.theme.text_secondary,
             size=S.EDITOR_BTN, tooltip="Detach to window",
         )
-        self._detach_btn.clicked.connect(self.detach_requested.emit)
+        self._detach_btn.setVisible(False)
 
         toolbar.addWidget(self._add_files_btn)
         toolbar.addWidget(self._add_folder_btn)
         toolbar.addWidget(self._url_btn)
-        toolbar.addWidget(self._detach_btn)
         toolbar.addStretch()
 
         self._clear_btn = make_icon_btn(
