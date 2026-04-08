@@ -646,20 +646,36 @@ class EditorPanel(QWidget):
 
     def _update_total_label(self):
         t = self.theme
-        total_s = sum(img.timer for img in self.images)
+        # Sum only active (timer > 0) images
+        total_s = sum(img.timer for img in self.images if img.timer > 0)
+
+        # Get session duration from parent if available
+        session_secs = 0
+        if self._parent and hasattr(self._parent, '_get_session_seconds'):
+            session_secs = self._parent._get_session_seconds()
+
         if total_s == 0:
             self._total_label.setText("")
             return
-        mins, secs = divmod(total_s, 60)
-        hrs, mins = divmod(mins, 60)
-        if hrs:
-            text = f"{hrs}h {mins}m total"
+
+        # Format total time
+        total_text = format_time(total_s)
+
+        # Check if over budget
+        is_over_budget = session_secs > 0 and total_s > session_secs
+
+        if is_over_budget:
+            # Show "total / session" with warning color
+            session_text = format_time(session_secs)
+            text = f"{total_text} / {session_text}"
+            color = t.warning
         else:
-            text = f"{mins}m {secs:02d}s total"
-        # Warn color if defined session limit exceeded (placeholder: 60 min default)
+            text = f"{total_text} total"
+            color = t.text_secondary
+
         self._total_label.setText(text)
         self._total_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px;")
+            f"color: {color}; font-size: {S.FONT_LABEL}px;")
 
     # ------------------------------------------------------------------
     # Cache

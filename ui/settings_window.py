@@ -582,6 +582,9 @@ class SettingsWindow(QMainWindow):
         if self._class_groups:
             timers = groups_to_timers(self._class_groups)
             for i, img in enumerate(self.images):
+                # Skip pinned files during auto-distribution
+                if getattr(img, "pinned", False):
+                    continue
                 img.timer = timers[i] if i < len(timers) else 0
         if self.editor and self.editor.isVisible():
             self.editor.refresh(self.images)
