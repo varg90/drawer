@@ -770,6 +770,16 @@ class SettingsWindow(QMainWindow):
         self.editor.images_updated.connect(self._on_editor_update)
         self.editor.show()
 
+    def _dock_editor_from_detached(self, images, view_mode):
+        """Re-dock the editor after the user snaps the floating window back."""
+        self.images = images
+        self._last_editor_view = view_mode
+        # Force a fresh panel so it picks up the restored images
+        self._editor_panel = None
+        self._dock_mode = "compact"
+        self._on_images_changed()
+        self._open_editor()
+
     def _on_editor_update(self, images):
         self.images = images
         self._update_img_count()

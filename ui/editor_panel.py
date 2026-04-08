@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QFileDialog, QSlider,
     QScrollArea, QStackedWidget, QMessageBox, QSizePolicy,
 )
-from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer, QThread
 
 from core.constants import SUPPORTED_FORMATS
@@ -118,6 +118,60 @@ def _flow_position(labels, container_width, sz, gap=1):
 
 
 # ---------------------------------------------------------------------------
+# DragHandle
+# ---------------------------------------------------------------------------
+
+class DragHandle(QWidget):
+    """Thin draggable strip on the left edge of the editor panel.
+
+    Emits detach_requested when the user drags more than 30 px away from the
+    starting position so SettingsWindow can float the panel out.
+    """
+    detach_requested = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(6)
+        self.setCursor(Qt.CursorShape.SizeHorCursor)
+        self._dragging = False
+        self._start_pos = None
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setPen(Qt.PenStyle.NoPen)
+        # Pick colour from parent theme if available, fall back to a safe grey
+        parent = self.parent()
+        raw = "#888888"
+        if parent is not None and hasattr(parent, "theme"):
+            raw = parent.theme.text_hint
+        color = QColor(raw)
+        p.setBrush(color)
+        mid_x = self.width() // 2
+        for y in range(self.height() // 2 - 15, self.height() // 2 + 15, 6):
+            p.drawEllipse(mid_x - 1, y, 2, 2)
+        p.end()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._start_pos = event.globalPosition().toPoint()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if self._dragging and self._start_pos is not None:
+            delta = event.globalPosition().toPoint() - self._start_pos
+            if delta.manhattanLength() > 30:
+                self._dragging = False
+                self._start_pos = None
+                self.detach_requested.emit()
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self._dragging = False
+        self._start_pos = None
+
+
+# ---------------------------------------------------------------------------
 # EditorPanel
 # ---------------------------------------------------------------------------
 
@@ -154,7 +208,19 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _build_ui(self):
-        root = QVBoxLayout(self)
+        # Outer layout: drag handle on the left, content fills the rest
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        self._drag_handle = DragHandle(self)
+        self._drag_handle.detach_requested.connect(self.detach_requested.emit)
+        outer.addWidget(self._drag_handle)
+
+        content = QWidget()
+        outer.addWidget(content, 1)
+
+        root = QVBoxLayout(content)
         root.setContentsMargins(10, 8, 10, 8)
         root.setSpacing(6)
 
@@ -312,6 +378,7 @@ class EditorPanel(QWidget):
     def _apply_theme(self):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
+        self._drag_handle.update()  # repaint grip dots with new theme colour
 
         self._count_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: {S.FONT_BUTTON}px; "
