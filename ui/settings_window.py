@@ -142,8 +142,8 @@ class SettingsWindow(QMainWindow):
 
         header_layout, self._title = make_centered_header(
             "REFBOT",
-            [self._help_btn, self._topmost_btn],
-            [self._accent_btn, self._theme_btn, self._min_btn, self._close_btn],
+            [self._help_btn, self._accent_btn, self._theme_btn],
+            [self._topmost_btn, self._min_btn, self._close_btn],
             self.theme,
         )
         root.addLayout(header_layout)
