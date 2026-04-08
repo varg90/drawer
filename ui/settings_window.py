@@ -752,6 +752,15 @@ class SettingsWindow(QMainWindow):
         if self.editor:
             self._last_editor_view = self.editor._view_mode
 
+    def _dock_editor_from_detached(self, images, view_mode):
+        """Called when user clicks dock-back in the detached ImageEditorWindow."""
+        self.images = images
+        self._on_images_changed()
+        self._last_editor_view = view_mode
+        self.editor = None
+        self._dock_mode = "compact"
+        self._open_editor()  # opens docked
+
     def _on_editor_update(self, images):
         self.images = images
         self._update_img_count()
