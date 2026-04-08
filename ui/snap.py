@@ -62,8 +62,9 @@ class SnapMixin:
             if snapped_pos is not None:
                 delta = new_pos - snapped_pos
                 if abs(delta.x()) > DETACH_DISTANCE or abs(delta.y()) > DETACH_DISTANCE:
-                    other._snapped_children = [
-                        (w, s) for w, s in other._snapped_children if w is not self]
+                    if hasattr(other, '_snapped_children'):
+                        other._snapped_children = [
+                            (w, s) for w, s in other._snapped_children if w is not self]
                     self._snapped_to = None
                     self.move(new_pos)
                     event.accept()
@@ -94,8 +95,9 @@ class SnapMixin:
             other, side, snap_pos = best_snap
             self.move(snap_pos)
             self._snapped_to = (other, side)
-            if not any(w is self for w, _ in other._snapped_children):
-                other._snapped_children.append((self, side))
+            children = getattr(other, '_snapped_children', None)
+            if children is not None and not any(w is self for w, _ in children):
+                children.append((self, side))
         else:
             self.move(new_pos)
 
