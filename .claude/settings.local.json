@@ -7,7 +7,17 @@
       "Bash(git commit:*)",
       "Bash(mv:*)",
       "Bash(rm:*)",
-      "WebFetch(domain:line-of-action.com)"
+      "WebFetch(domain:line-of-action.com)",
+      "Bash(ls:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(cp mockup_final3.py mockup_075.py)",
+      "Bash(sed -i 's/ICON_RATIO = 0.80/ICON_RATIO = 0.75/' mockup_075.py)",
+      "Bash(sed -i \"s/mockup_final3.png/mockup_075.png/g\" mockup_075.py)",
+      "Bash(grep:*)"
     ]
   }
 }

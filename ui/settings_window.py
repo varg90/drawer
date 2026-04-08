@@ -1,9 +1,10 @@
 import os
+import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                              QPushButton, QLabel, QCheckBox, QFileDialog,
-                              QSizePolicy, QApplication, QStackedWidget)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPainter, QColor, QPen
+                              QPushButton, QLabel, QFileDialog,
+                              QSizePolicy, QApplication, QFrame)
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QColor
 from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_PRESETS
 from core.timer_logic import format_time
 from core.class_mode import auto_distribute, groups_to_timers, total_duration, format_group
@@ -11,50 +12,21 @@ from core.file_utils import filter_image_files, scan_folder
 from core.session import save_session, load_session
 from core.models import ImageItem
 from ui.theme import Theme
+from ui.scales import S
+from ui.icons import Icons
+from ui.widgets import (make_icon_btn, make_start_btn, make_icon_toggle,
+                         make_centered_header, make_timer_btn)
+from ui.snap import SnapMixin
 
 
-ALL_TIERS = [(30, "30с"), (60, "1м"), (180, "3м"),
-             (300, "5м"), (600, "10м"), (900, "15м"),
-             (1800, "30м"), (3600, "1ч")]
+ALL_TIERS = [(30, "30s"), (60, "1m"), (180, "3m"),
+             (300, "5m"), (600, "10m"), (900, "15m"),
+             (1800, "30m"), (3600, "1h")]
 
 
-class ThemeToggleButton(QPushButton):
-    """Small circle split dark/light halves."""
-
-    def __init__(self, theme, parent=None):
-        super().__init__(parent)
-        self.theme = theme
-        self.setFixedSize(16, 16)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet("background: transparent; border: none;")
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = self.rect().adjusted(1, 1, -1, -1)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#333"))
-        p.drawChord(r, 90 * 16, 180 * 16)
-        p.setBrush(QColor("#ccc"))
-        p.drawChord(r, 270 * 16, 180 * 16)
-        p.setPen(QPen(QColor(self.theme.border_active), 1))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawEllipse(r)
-        p.end()
-
-
-class SegmentButton(QPushButton):
-    """One segment of a two-segment toggle."""
-    pass
-
-
-class PresetButton(QPushButton):
-    """Small timer preset button."""
-    pass
-
-
+# DEPRECATED — kept for backward compatibility only
 class TierToggle(QPushButton):
-    """Toggleable tier button for session mode."""
+    """Deprecated: toggleable tier button. Use make_timer_btn instead."""
 
     def __init__(self, text, seconds, parent=None):
         super().__init__(text, parent)
@@ -72,34 +44,40 @@ class TierToggle(QPushButton):
         return self._active
 
 
-class SettingsWindow(QMainWindow):
+class SettingsWindow(QMainWindow, SnapMixin):
     images_changed = pyqtSignal()
 
     def __init__(self):
-        super().__init__()
+        QMainWindow.__init__(self)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("RefBot")
-        self.setFixedWidth(360)
+        self.setFixedSize(S.MAIN_W, S.MAIN_H)
+
         self.images = []
         self.viewer = None
         self.editor = None
         self.theme = Theme("dark")
 
-        self._timer_mode = "standard"
-        self._preset_index = 2  # default 5min
+        # "quick" replaces old "standard", "class" replaces old "session"
+        self._timer_mode = "quick"
+        self._preset_index = 3   # default 5min
         self._session_index = 5  # default 1h
         self._manual_groups = []
         self._class_groups = []
 
+        # Toggle states (replace checkboxes)
+        self._random = False
+        self._topmost = False
+
         self._build_ui()
         self._apply_theme()
+        SnapMixin.__init__(self)
         self._restore_session()
         self.setAcceptDrops(True)
 
-        # Fix window size — QStackedWidget uses largest child height
-        self._mode_stack.setCurrentWidget(self._session_widget)
-        self.adjustSize()
-        self.setFixedSize(self.size())
-        self._set_timer_mode(self._timer_mode)
+    @property
+    def _editor_visible(self):
+        return self.editor is not None and self.editor.isVisible()
 
     # ------------------------------------------------------------------ UI
 
@@ -107,190 +85,194 @@ class SettingsWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
-        root.setContentsMargins(16, 12, 16, 12)
-        root.setSpacing(10)
+        root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
+        root.setSpacing(0)
 
-        # 1. Header row: ? + REFBOT (centered) + theme toggle
-        header_row = QHBoxLayout()
-        self._help_btn = QPushButton("?")
-        self._help_btn.setFixedSize(16, 16)
-        self._help_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._help_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        # ── 1. Header ──────────────────────────────────────────────────────
+        self._help_btn = make_icon_btn(Icons.INFO, self.theme.text_hint,
+                                       size=S.ICON_HEADER, tooltip="Help")
         self._help_btn.clicked.connect(self._show_help)
-        header_row.addWidget(self._help_btn)
-        self._theme_btn = ThemeToggleButton(self.theme)
+
+        self._topmost_btn = make_icon_toggle(
+            Icons.TOPMOST_ON, Icons.TOPMOST_OFF, self._topmost, self.theme,
+            size=S.ICON_HEADER)
+        self._topmost_btn.setToolTip("Always on top")
+        self._topmost_btn.clicked.connect(self._toggle_topmost)
+
+        self._accent_btn = QPushButton()
+        self._accent_btn.setFixedSize(S.ACCENT_DOT, S.ACCENT_DOT)
+        self._accent_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._accent_btn.setToolTip("Accent color")
+        self._accent_btn.clicked.connect(self._pick_accent)
+
+        self._theme_btn = make_icon_btn(
+            Icons.THEME_DARK if self.theme.name == "dark" else Icons.THEME_LIGHT,
+            self.theme.text_hint, size=S.ICON_HEADER)
         self._theme_btn.clicked.connect(self._toggle_theme)
-        self._title = QLabel("REFBOT")
-        self._title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        header_row.addWidget(self._title, 1)
-        header_row.addWidget(self._theme_btn)
-        root.addLayout(header_row)
 
-        # 2. Drop zone
-        self._drop_zone = QLabel("Перетащите изображения сюда\nили нажмите для выбора")
-        self._drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._drop_zone.setFixedHeight(70)
-        self._drop_zone.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._drop_zone.mousePressEvent = lambda e: self._add_files()
-        root.addWidget(self._drop_zone)
+        self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint,
+                                      size=S.ICON_HEADER, tooltip="Minimize")
+        self._min_btn.clicked.connect(self.showMinimized)
 
-        # 3. Thumbnail strip + Edit button
-        thumb_row = QHBoxLayout()
-        thumb_row.setSpacing(2)
-        self._thumb_labels = []
-        for i in range(9):
-            lbl = QLabel()
-            lbl.setFixedSize(36, 36)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl.hide()
-            self._thumb_labels.append(lbl)
-            thumb_row.addWidget(lbl)
-        self._overflow_label = QLabel()
-        self._overflow_label.setFixedSize(36, 36)
-        self._overflow_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._overflow_label.hide()
-        thumb_row.addWidget(self._overflow_label)
-        thumb_row.addStretch()
-        self._edit_btn = QPushButton("Edit")
-        self._edit_btn.setFixedHeight(24)
-        self._edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._edit_btn.clicked.connect(self._open_editor)
-        thumb_row.addWidget(self._edit_btn)
-        root.addLayout(thumb_row)
+        self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint,
+                                        size=S.ICON_HEADER, tooltip="Close")
+        self._close_btn.clicked.connect(self.close)
 
-        # 4. Timer mode switch
+        header_layout, self._title = make_centered_header(
+            "REFBOT",
+            [self._help_btn, self._accent_btn, self._theme_btn],
+            [self._topmost_btn, self._min_btn, self._close_btn],
+            self.theme,
+        )
+        root.addLayout(header_layout)
+        root.addSpacing(S.SPACING_HEADER)
+
+        # ── 2. Mode row + image count ──────────────────────────────────────
         mode_row = QHBoxLayout()
         mode_row.setSpacing(0)
-        self._standard_btn = SegmentButton("Быстрый")
-        self._session_btn = SegmentButton("Сеанс")
-        self._standard_btn.clicked.connect(lambda: self._set_timer_mode("standard"))
-        self._session_btn.clicked.connect(lambda: self._set_timer_mode("session"))
-        mode_row.addWidget(self._standard_btn)
-        mode_row.addWidget(self._session_btn)
+        mode_row.setContentsMargins(0, 0, 0, 0)
+
+        self._class_btn = QPushButton("Class")
+        self._class_btn.setFixedHeight(22)
+        self._class_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._class_btn.clicked.connect(lambda: self._set_timer_mode("class"))
+
+        self._quick_btn = QPushButton("Quick")
+        self._quick_btn.setFixedHeight(22)
+        self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._quick_btn.clicked.connect(lambda: self._set_timer_mode("quick"))
+
+        self._img_count_label = QLabel("0 img")
+        self._img_count_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+
+        self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
+                                      size=S.ICON_HEADER, tooltip="Add files")
+        self._add_btn.clicked.connect(self._open_editor)
+
+        mode_row.addWidget(self._class_btn)
+        mode_row.addWidget(self._quick_btn)
+        mode_row.addStretch()
+        mode_row.addWidget(self._img_count_label)
+        mode_row.addSpacing(4)
+        mode_row.addWidget(self._add_btn)
         root.addLayout(mode_row)
+        root.addSpacing(S.SPACING_MODE)
 
-        # 5a. Standard mode content — preset buttons only
-        self._standard_widget = QWidget()
-        std_layout = QVBoxLayout(self._standard_widget)
-        std_layout.setContentsMargins(0, 4, 0, 0)
-        std_layout.setSpacing(2)
+        # ── 3. Duration picker ─────────────────────────────────────────────
+        dur_row = QHBoxLayout()
+        dur_row.setSpacing(0)
+        dur_row.setContentsMargins(0, 0, 0, 0)
+        dur_row.addStretch()
 
-        preset_row1 = QHBoxLayout()
-        preset_row1.addStretch()
-        preset_row2 = QHBoxLayout()
-        preset_row2.addStretch()
-        self._preset_buttons = []
-        row1_secs = {30, 60, 300, 600}  # 30с, 1м, 5м, 10м
-        for secs, label in TIMER_PRESETS:
-            btn = PresetButton(label.replace(" ", ""))
-            btn.setCheckable(True)
-            btn._secs = secs
-            btn.clicked.connect(lambda checked, s=secs: self._select_preset_by_secs(s))
-            self._preset_buttons.append(btn)
-            if secs in row1_secs:
-                preset_row1.addWidget(btn)
-            else:
-                preset_row2.addWidget(btn)
-        preset_row1.addStretch()
-        preset_row2.addStretch()
-        std_layout.addLayout(preset_row1)
-        std_layout.addLayout(preset_row2)
-
-        # 5b. Session mode content
-        self._session_widget = QWidget()
-        ses_layout = QVBoxLayout(self._session_widget)
-        ses_layout.setContentsMargins(0, 4, 0, 0)
-        ses_layout.setSpacing(8)
-
-        self._session_dur_label = QLabel("ДЛИТЕЛЬНОСТЬ СЕАНСА")
-        self._session_dur_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ses_layout.addWidget(self._session_dur_label)
-
-        sdur_row = QHBoxLayout()
-        sdur_row.addStretch()
-        self._ses_left = QPushButton("<")
-        self._ses_left.setFixedSize(28, 28)
+        self._ses_left = make_icon_btn(Icons.CARET_LEFT, self.theme.text_secondary,
+                                       size=S.DURATION_ARROW)
+        self._ses_left.setFixedSize(S.DURATION_ARROW_BTN, S.DURATION_ARROW_BTN)
         self._ses_left.clicked.connect(self._prev_session)
-        sdur_row.addWidget(self._ses_left)
+
         self._ses_display = QLabel("1:00:00")
         self._ses_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sdur_row.addWidget(self._ses_display)
-        self._ses_right = QPushButton(">")
-        self._ses_right.setFixedSize(28, 28)
+
+        self._ses_right = make_icon_btn(Icons.CARET_RIGHT, self.theme.text_secondary,
+                                        size=S.DURATION_ARROW)
+        self._ses_right.setFixedSize(S.DURATION_ARROW_BTN, S.DURATION_ARROW_BTN)
         self._ses_right.clicked.connect(self._next_session)
-        sdur_row.addWidget(self._ses_right)
-        sdur_row.addStretch()
-        ses_layout.addLayout(sdur_row)
 
-        self._use_label = QLabel("ИСПОЛЬЗОВАТЬ")
-        self._use_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ses_layout.addWidget(self._use_label)
+        dur_row.addWidget(self._ses_left)
+        dur_row.addWidget(self._ses_display)
+        dur_row.addWidget(self._ses_right)
+        dur_row.addStretch()
+        root.addLayout(dur_row)
+        root.addSpacing(S.SPACING_DURATION)
 
-        tier_row = QHBoxLayout()
-        tier_row.addStretch()
-        self._tier_toggles = []
-        for secs, label in ALL_TIERS:
-            btn = TierToggle(label, secs)
-            btn.clicked.connect(self._update_tier_styles)
-            self._tier_toggles.append(btn)
-            tier_row.addWidget(btn)
-        tier_row.addStretch()
-        ses_layout.addLayout(tier_row)
+        # ── 4. Timer buttons (2 rows × 4) ──────────────────────────────────
+        self._timer_buttons = []  # list of (btn, secs)
 
-        ses_layout.addSpacing(6)
-        auto_row = QHBoxLayout()
-        auto_row.addStretch()
-        self._auto_btn = QPushButton("Авто-распределение")
-        self._auto_btn.clicked.connect(self._auto_distribute)
-        auto_row.addWidget(self._auto_btn)
-        self._reset_btn = QPushButton("x")
-        self._reset_btn.clicked.connect(self._reset_groups)
-        auto_row.addWidget(self._reset_btn)
-        auto_row.addStretch()
-        ses_layout.addLayout(auto_row)
+        # Quick mode uses TIMER_PRESETS, Class mode uses ALL_TIERS.
+        # We build both sets and swap visibility on mode change.
+        # Both use identical grid positions — only labels/behavior differ.
+        # We build ONE set of 8 buttons per mode and show the right set.
 
+        self._quick_btns = []   # [(btn, secs), ...]
+        self._class_btns = []   # [(btn, secs), ...]
+
+        timer_grid = QVBoxLayout()
+        timer_grid.setSpacing(S.SPACING_TIERS)
+        timer_grid.setContentsMargins(0, 0, 0, 0)
+
+        for row_idx in range(2):
+            row_layout = QHBoxLayout()
+            row_layout.setSpacing(S.SPACING_TIERS)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            for col_idx in range(4):
+                global_idx = row_idx * 4 + col_idx
+                q_secs, q_label = TIMER_PRESETS[global_idx]
+                c_secs, c_label = ALL_TIERS[global_idx]
+
+                q_active = (global_idx == self._preset_index)
+                q_btn = make_timer_btn(q_label, q_active, self.theme)
+                q_btn.clicked.connect(lambda checked, s=q_secs: self._select_preset_by_secs(s))
+
+                c_btn = make_timer_btn(c_label, False, self.theme)
+                c_btn.setCheckable(True)
+                c_btn.clicked.connect(lambda checked, s=c_secs: self._on_tier_clicked(s))
+
+                self._quick_btns.append((q_btn, q_secs))
+                self._class_btns.append((c_btn, c_secs))
+
+                # Stack them in a stacked container widget
+                cell = QWidget()
+                cell_layout = QHBoxLayout(cell)
+                cell_layout.setContentsMargins(0, 0, 0, 0)
+                cell_layout.addWidget(q_btn)
+                cell_layout.addWidget(c_btn)
+                c_btn.hide()  # class buttons hidden by default (quick is default mode)
+
+                row_layout.addWidget(cell)
+
+            timer_grid.addLayout(row_layout)
+
+        root.addLayout(timer_grid)
+        root.addSpacing(S.SPACING_SUMMARY)
+
+        # ── 5. Summary line (groups + total) ──────────────────────────────
         self._groups_label = QLabel("")
-        self._groups_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ses_layout.addWidget(self._groups_label)
+        self._groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        self._mode_stack = QStackedWidget()
-        self._mode_stack.addWidget(self._standard_widget)
-        self._mode_stack.addWidget(self._session_widget)
-        self._mode_stack.setCurrentWidget(self._standard_widget)
-        root.addWidget(self._mode_stack)
+        self._total_label = QLabel("")
+        self._total_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        # 6. Random order checkbox
-        root.addSpacing(2)
-        random_row = QHBoxLayout()
-        random_row.addStretch()
-        self._random_cb = QCheckBox("Случайный порядок")
-        random_row.addWidget(self._random_cb)
-        random_row.addStretch()
-        root.addLayout(random_row)
+        root.addWidget(self._groups_label)
+        root.addWidget(self._total_label)
 
-        # 7. Summary line
-        self._summary = QLabel("")
-        self._summary.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._summary.setContentsMargins(0, 0, 0, 0)
-        root.addWidget(self._summary)
-
-        # 8. Always-on-top checkbox
-        root.addSpacing(8)
-        self._topmost_cb = QCheckBox("Поверх всех окон")
-        root.addWidget(self._topmost_cb)
-
-        # 9. Start button
-        self._start_btn = QPushButton("СТАРТ")
-        self._start_btn.setFixedHeight(40)
-        self._start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._start_btn.clicked.connect(self._start_slideshow)
-        root.addWidget(self._start_btn)
-
+        # ── 6. Stretch ─────────────────────────────────────────────────────
         root.addStretch()
 
+        # ── 7. Bottom bar: [dice]  ... [start] ────────────────────────────
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(0)
+        bottom_row.setContentsMargins(0, 0, 0, 0)
+
+        self._dice_btn = make_icon_toggle(
+            Icons.RANDOM_ON, Icons.RANDOM_OFF, self._random, self.theme,
+            size=S.ICON_DICE)
+        self._dice_btn.setToolTip("Random order")
+        self._dice_btn.clicked.connect(self._toggle_random)
+
+        self._start_btn = make_start_btn(self.theme)
+        self._start_btn.clicked.connect(self._start_slideshow)
+
+        bottom_row.addWidget(self._dice_btn)
+        bottom_row.addStretch()
+        bottom_row.addWidget(self._start_btn)
+
+        root.addLayout(bottom_row)
+
+        # ── Initialize display ─────────────────────────────────────────────
+        self._update_mode_buttons()
         self._update_preset_styles()
         self._update_session_display()
-        self._update_mode_buttons()
+        self._update_summary()
+        self._update_img_count()
 
     # ------------------------------------------------------------------ Theme
 
@@ -298,89 +280,112 @@ class SettingsWindow(QMainWindow):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
 
+        # Header title (may already exist from make_centered_header, refresh it)
         self._title.setStyleSheet(
-            f"color: {t.text_header}; font-size: 12px; font-weight: 500; "
-            f"letter-spacing: 3px;")
+            f"color: {t.text_header}; font-size: {S.FONT_TITLE}px; "
+            f"font-weight: 500; letter-spacing: 3px;")
 
-        self._help_btn.setStyleSheet(
-            f"background-color: transparent; color: {t.text_hint}; "
-            f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500;")
+        # Header icon buttons
+        self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
+        self._help_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
-        self._drop_zone.setStyleSheet(
-            f"background-color: {t.bg_secondary}; border: 1px dashed {t.border_active}; "
-            f"color: {t.text_secondary}; font-size: 12px; font-weight: 500;")
+        _topmost_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
+        _topmost_color = t.accent if self._topmost else t.text_hint
+        self._topmost_btn.setIcon(qta.icon(_topmost_icon, color=_topmost_color))
+        self._topmost_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
-        for lbl in self._thumb_labels:
-            lbl.setStyleSheet(f"background-color: {t.bg_row_even};")
-        self._overflow_label.setStyleSheet(
-            f"background-color: {t.bg_row_even}; color: {t.text_secondary}; "
-            f"font-size: 11px; font-weight: 500;")
+        _theme_icon = Icons.THEME_DARK if t.name == "dark" else Icons.THEME_LIGHT
+        self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
+        self._theme_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
-        edit_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
-                  f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
-                  f"padding: 3px 6px;")
-        self._edit_btn.setStyleSheet(edit_s)
+        self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
+        self._min_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
+        self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
+        self._close_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
+
+        self._accent_btn.setStyleSheet(
+            f"background-color: {t.accent}; border: 1px solid {t.border}; "
+            f"border-radius: {S.ACCENT_DOT // 2}px;")
+
+        # Mode buttons
         self._update_mode_buttons()
 
-        arrow_s = (f"background-color: transparent; color: {t.text_secondary}; "
-                   f"border: none; font-size: 16px; font-weight: bold;")
-        self._ses_left.setStyleSheet(arrow_s)
-        self._ses_right.setStyleSheet(arrow_s)
+        # Image count
+        self._img_count_label.setStyleSheet(
+            f"color: {t.text_hint}; font-size: {S.FONT_HINT}px; font-weight: 500;")
 
+        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
+        self._add_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
+
+        # Duration picker
+        _dur_color = t.text_secondary if self._timer_mode == "class" else t.text_hint
+        self._ses_left.setIcon(qta.icon(Icons.CARET_LEFT, color=_dur_color))
+        self._ses_right.setIcon(qta.icon(Icons.CARET_RIGHT, color=_dur_color))
+        self._ses_left.setStyleSheet("background: transparent; border: none; padding: 0px;")
+        self._ses_right.setStyleSheet("background: transparent; border: none; padding: 0px;")
+
+        _dur_text = t.text_primary if self._timer_mode == "class" else t.text_hint
         self._ses_display.setStyleSheet(
-            f"color: {t.text_primary}; font-size: 30px; font-weight: 400;")
+            f"color: {_dur_text}; font-size: {S.FONT_DURATION}px; font-weight: 400;")
 
-        label_s = (f"color: {t.text_secondary}; font-size: 10px; font-weight: 500; "
-                   f"letter-spacing: 2px;")
-        self._session_dur_label.setStyleSheet(label_s)
-        self._use_label.setStyleSheet(label_s)
-
+        # Timer buttons
         self._update_preset_styles()
         self._update_tier_styles()
 
-        auto_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
-                  f"border: 1px solid {t.border}; font-size: 11px; font-weight: 500; "
-                  f"padding: 5px 14px;")
-        self._auto_btn.setStyleSheet(auto_s)
-        self._reset_btn.setStyleSheet(auto_s)
-
+        # Summary
         self._groups_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 11px; font-weight: 500;")
+            f"color: {t.text_secondary}; font-size: {S.FONT_HINT}px; font-weight: 500;")
+        self._total_label.setStyleSheet(
+            f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500;")
 
-        cb_s = f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;"
-        self._random_cb.setStyleSheet(cb_s)
-        self._topmost_cb.setStyleSheet(cb_s)
+        # Bottom bar
+        _dice_icon = Icons.RANDOM_ON if self._random else Icons.RANDOM_OFF
+        _dice_color = t.accent if self._random else t.text_hint
+        self._dice_btn.setIcon(qta.icon(_dice_icon, color=_dice_color))
+        self._dice_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
-        self._summary.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 12px; font-weight: 500;")
-
+        # Refresh start button
+        self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
-            f"background-color: {t.start_bg}; color: {t.start_text}; "
-            f"font-size: 14px; font-weight: 600; letter-spacing: 1px; border: none;")
+            f"background-color: {t.start_bg}; border: none; "
+            f"border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
+
+    # ------------------------------------------------------------------ Window dragging
+
+    def mousePressEvent(self, event):
+        self.snap_mouse_press(event)
+
+    def mouseMoveEvent(self, event):
+        self.snap_mouse_move(event)
+
+    def mouseReleaseEvent(self, event):
+        self.snap_mouse_release(event)
+
+    # ------------------------------------------------------------------ Help / Theme / Accent
 
     def _show_help(self):
         from PyQt6.QtWidgets import QDialog, QVBoxLayout
         dlg = QDialog(self)
-        dlg.setWindowTitle("Справка")
+        dlg.setWindowTitle("Help")
         t = self.theme
         dlg.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
         layout = QVBoxLayout(dlg)
         layout.setContentsMargins(16, 12, 16, 12)
         lbl = QLabel(
-            "<b>Настройки</b><br><br>"
-            "Перетащите изображения или папки в окно<br>"
-            "для добавления файлов<br><br>"
-            "<b>Слайдшоу</b><br><br>"
+            "<b>Settings</b><br><br>"
+            "Press + or drag images/folders into the window<br>"
+            "to add files<br><br>"
+            "<b>Slideshow</b><br><br>"
             "<table>"
-            "<tr><td>Пробел&nbsp;&nbsp;</td><td>пауза / продолжить</td></tr>"
-            "<tr><td>\u2190 \u2192&nbsp;&nbsp;</td><td>предыдущее / следующее</td></tr>"
-            "<tr><td>F11&nbsp;&nbsp;</td><td>полный экран</td></tr>"
-            "<tr><td>Esc&nbsp;&nbsp;</td><td>выйти из полного экрана</td></tr>"
-            "<tr><td>? или H&nbsp;&nbsp;</td><td>справка</td></tr>"
+            "<tr><td>Space&nbsp;&nbsp;</td><td>pause / resume</td></tr>"
+            "<tr><td>\u2190 \u2192&nbsp;&nbsp;</td><td>previous / next</td></tr>"
+            "<tr><td>F11&nbsp;&nbsp;</td><td>fullscreen</td></tr>"
+            "<tr><td>Esc&nbsp;&nbsp;</td><td>exit fullscreen</td></tr>"
+            "<tr><td>? or H&nbsp;&nbsp;</td><td>help</td></tr>"
             "</table><br>"
-            "ПКМ + перетаскивание — переместить окно<br>"
-            "Края окна — изменить размер"
+            "RMB + drag — move window<br>"
+            "Window edges — resize"
         )
         lbl.setStyleSheet(f"color: {t.text_primary}; font-size: 11px;")
         lbl.setWordWrap(True)
@@ -391,38 +396,92 @@ class SettingsWindow(QMainWindow):
     def _toggle_theme(self):
         self.theme.toggle()
         self._apply_theme()
-        self._theme_btn.update()
+        self._refresh_editor_theme()
+
+    def _pick_accent(self):
+        from PyQt6.QtWidgets import QColorDialog
+        color = QColorDialog.getColor(
+            QColor(self.theme.accent), self, "Accent color")
+        if color.isValid():
+            self.theme.accent = color.name()
+            self._apply_theme()
+            self._refresh_editor_theme()
+
+    def _refresh_editor_theme(self):
+        if self._editor_visible:
+            self.editor.theme = self.theme
+            self.editor._apply_theme()
+            self.editor._panel.theme = self.theme
+            self.editor._panel._apply_theme()
+            self.editor._panel._rebuild()
+
+    # ------------------------------------------------------------------ Toggle methods
+
+    def _toggle_topmost(self):
+        self._topmost = not self._topmost
+        t = self.theme
+        _icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
+        _color = t.accent if self._topmost else t.text_hint
+        self._topmost_btn.setIcon(qta.icon(_icon, color=_color))
+        # Apply always-on-top flag to this window
+        flags = self.windowFlags()
+        if self._topmost:
+            self.setWindowFlags(flags | Qt.WindowType.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(flags & ~Qt.WindowType.WindowStaysOnTopHint)
+        self.show()
+
+    def _toggle_random(self):
+        self._random = not self._random
+        t = self.theme
+        _icon = Icons.RANDOM_ON if self._random else Icons.RANDOM_OFF
+        _color = t.accent if self._random else t.text_hint
+        self._dice_btn.setIcon(qta.icon(_icon, color=_color))
 
     # ------------------------------------------------------------------ Mode
 
     def _set_timer_mode(self, mode):
         self._timer_mode = mode
-        if mode == "standard":
-            self._mode_stack.setCurrentWidget(self._standard_widget)
+        if mode == "quick":
+            # Show quick buttons, hide class buttons
+            for btn, _ in self._quick_btns:
+                btn.show()
+            for btn, _ in self._class_btns:
+                btn.hide()
+            # Apply uniform timer to all images
             timer = self.get_timer_seconds()
             for img in self.images:
                 img.timer = timer
         else:
-            self._mode_stack.setCurrentWidget(self._session_widget)
+            # Show class buttons, hide quick buttons
+            for btn, _ in self._quick_btns:
+                btn.hide()
+            for btn, _ in self._class_btns:
+                btn.show()
         self._update_mode_buttons()
         self._update_summary()
-        if self.editor and self.editor.isVisible():
+        self._apply_theme()  # refreshes duration picker color
+        if self._editor_visible:
             self.editor.refresh(self.images)
 
     def _update_mode_buttons(self):
         t = self.theme
-        active_s = (f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border}; font-size: 12px; font-weight: 500; padding: 6px;")
-        inactive_s = (f"background-color: {t.bg}; color: {t.text_secondary}; "
-                      f"border: 1px solid {t.border}; font-size: 12px; font-weight: 500; padding: 6px;")
-        if self._timer_mode == "standard":
-            self._standard_btn.setStyleSheet(active_s)
-            self._session_btn.setStyleSheet(inactive_s)
+        active_s = (
+            f"background-color: {t.bg_active}; color: {t.text_primary}; "
+            f"border: 1px solid {t.border_active}; "
+            f"font-size: {S.FONT_BUTTON}px; font-weight: 500; padding: 2px 8px;")
+        inactive_s = (
+            f"background-color: {t.bg}; color: {t.text_secondary}; "
+            f"border: 1px solid {t.border}; "
+            f"font-size: {S.FONT_BUTTON}px; font-weight: 500; padding: 2px 8px;")
+        if self._timer_mode == "class":
+            self._class_btn.setStyleSheet(active_s)
+            self._quick_btn.setStyleSheet(inactive_s)
         else:
-            self._standard_btn.setStyleSheet(inactive_s)
-            self._session_btn.setStyleSheet(active_s)
+            self._class_btn.setStyleSheet(inactive_s)
+            self._quick_btn.setStyleSheet(active_s)
 
-    # ------------------------------------------------------------------ Standard timer
+    # ------------------------------------------------------------------ Quick timer (presets)
 
     def _select_preset_by_secs(self, secs):
         for i, (s, _) in enumerate(TIMER_PRESETS):
@@ -432,29 +491,32 @@ class SettingsWindow(QMainWindow):
                     img.timer = s
                 self._update_preset_styles()
                 self._update_summary()
-                if self.editor and self.editor.isVisible():
+                if self._editor_visible:
                     self.editor.refresh(self.images)
                 return
 
     def _update_preset_styles(self):
         t = self.theme
         current_secs = TIMER_PRESETS[self._preset_index][0]
-        for btn in self._preset_buttons:
-            is_active = btn._secs == current_secs
-            btn.setChecked(is_active)
+        for btn, secs in self._quick_btns:
+            is_active = secs == current_secs
             if is_active:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 12px; font-weight: 500; padding: 7px 14px;")
+                    f"border: 1px solid {t.border_active}; "
+                    f"font-size: {S.FONT_BUTTON}px; "
+                    f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
             else:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; font-size: 12px; font-weight: 500; padding: 7px 14px;")
+                    f"border: 1px solid {t.border}; "
+                    f"font-size: {S.FONT_BUTTON}px; "
+                    f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
 
     def get_timer_seconds(self):
         return TIMER_PRESETS[self._preset_index][0]
 
-    # ------------------------------------------------------------------ Session timer
+    # ------------------------------------------------------------------ Class timer (session duration)
 
     def _prev_session(self):
         if self._session_index > 0:
@@ -477,26 +539,45 @@ class SettingsWindow(QMainWindow):
     def _get_session_seconds(self):
         return SESSION_PRESETS[self._session_index][0]
 
-    # ------------------------------------------------------------------ Tiers
+    # ------------------------------------------------------------------ Tiers (class mode)
+
+    def _on_tier_clicked(self, secs):
+        """Handle tier button click — update active state and trigger auto-distribute."""
+        # Find the button and sync its internal checked state
+        for btn, s in self._class_btns:
+            if s == secs:
+                # isChecked() already toggled by Qt (button is checkable)
+                break
+        self._update_tier_styles()
+        if self.images:
+            self._auto_distribute()
 
     def _get_selected_tiers(self):
         tiers = []
-        for btn in self._tier_toggles:
-            if btn.active:
-                tiers.append((btn.seconds, btn.text()))
+        for btn, secs in self._class_btns:
+            if btn.isChecked():
+                # find label from ALL_TIERS
+                for s, label in ALL_TIERS:
+                    if s == secs:
+                        tiers.append((secs, label))
+                        break
         return tiers if tiers else None
 
     def _update_tier_styles(self):
         t = self.theme
-        for btn in self._tier_toggles:
+        for btn, secs in self._class_btns:
             if btn.isChecked():
                 btn.setStyleSheet(
                     f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
+                    f"border: 1px solid {t.border_active}; "
+                    f"font-size: {S.FONT_BUTTON}px; "
+                    f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
             else:
                 btn.setStyleSheet(
                     f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; padding: 3px 7px;")
+                    f"border: 1px solid {t.border}; "
+                    f"font-size: {S.FONT_BUTTON}px; "
+                    f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
 
     # ------------------------------------------------------------------ Auto-distribute
 
@@ -510,8 +591,11 @@ class SettingsWindow(QMainWindow):
         if self._class_groups:
             timers = groups_to_timers(self._class_groups)
             for i, img in enumerate(self.images):
+                # Skip pinned files during auto-distribution
+                if getattr(img, "pinned", False):
+                    continue
                 img.timer = timers[i] if i < len(timers) else 0
-        if self.editor and self.editor.isVisible():
+        if self._editor_visible:
             self.editor.refresh(self.images)
 
     def _auto_distribute(self):
@@ -539,77 +623,56 @@ class SettingsWindow(QMainWindow):
     def _update_groups_display(self):
         if not self._class_groups:
             self._groups_label.setText("")
+            self._total_label.setText("")
             return
         parts = []
         for count, timer in self._class_groups:
             if timer >= 3600:
-                t = f"{timer // 3600}ч"
+                t = f"{timer // 3600}h"
             elif timer >= 60:
-                t = f"{timer // 60}м"
+                t = f"{timer // 60}m"
             else:
-                t = f"{timer}с"
+                t = f"{timer}s"
             parts.append(f"{count}x{t}")
         self._groups_label.setText("  ".join(parts))
+        dur = total_duration(self._class_groups)
+        self._total_label.setText(format_time(dur))
+
+    # ------------------------------------------------------------------ Image count
+
+    def _update_img_count(self):
+        n = len(self.images)
+        self._img_count_label.setText(f"{n} img")
 
     # ------------------------------------------------------------------ Summary
 
     def _update_summary(self):
         n = len(self.images)
-        if self._timer_mode == "standard":
+        if self._timer_mode == "quick":
             if n == 0:
-                self._summary.setText("")
+                self._groups_label.setText("")
+                self._total_label.setText("")
             else:
                 total = n * self.get_timer_seconds()
-                self._summary.setText(f"{n} изображений / {format_time(total)}")
+                self._groups_label.setText(f"{n} images")
+                self._total_label.setText(format_time(total))
         else:
             if n == 0:
-                self._summary.setText("")
+                self._groups_label.setText("")
+                self._total_label.setText("")
             elif self._class_groups:
-                used = sum(c for c, _ in self._class_groups)
-                dur = total_duration(self._class_groups)
-                ses = self._get_session_seconds()
-                self._summary.setText(
-                    f"{used} из {n} изображений / {format_time(dur)} из {format_time(ses)}")
+                self._update_groups_display()
             else:
-                self._summary.setText(f"{n} изображений")
-
-    # ------------------------------------------------------------------ Thumbnails
-
-    def _update_thumbnails(self):
-        from PyQt6.QtGui import QPixmap
-        max_thumbs = len(self._thumb_labels)
-        n = len(self.images)
-        show = min(n, max_thumbs)
-        overflow = n - show
-
-        for i in range(max_thumbs):
-            if i < show:
-                pix = QPixmap(self.images[i].path)
-                if not pix.isNull():
-                    pix = pix.scaled(36, 36,
-                                     Qt.AspectRatioMode.KeepAspectRatio,
-                                     Qt.TransformationMode.SmoothTransformation)
-                    self._thumb_labels[i].setPixmap(pix)
-                else:
-                    self._thumb_labels[i].setText("?")
-                self._thumb_labels[i].show()
-            else:
-                self._thumb_labels[i].hide()
-                self._thumb_labels[i].clear()
-
-        if overflow > 0:
-            self._overflow_label.setText(f"+{overflow}")
-            self._overflow_label.show()
-        else:
-            self._overflow_label.hide()
+                self._groups_label.setText(f"{n} images")
+                self._total_label.setText("")
 
     # ------------------------------------------------------------------ Image management
 
     def _add_files(self):
         exts = " ".join(f"*{e}" for e in SUPPORTED_FORMATS)
         paths, _ = QFileDialog.getOpenFileNames(
-            self, "Выберите файлы", "",
-            f"Изображения ({exts});;Все файлы (*)"
+            self, "Select files", "",
+            f"Images ({exts});;All files (*)"
         )
         if paths:
             timer = self.get_timer_seconds()
@@ -624,27 +687,39 @@ class SettingsWindow(QMainWindow):
         self._on_images_changed()
 
     def _on_images_changed(self):
-        self._update_thumbnails()
+        self._update_img_count()
         self._update_summary()
         self.images_changed.emit()
-        if self.editor and self.editor.isVisible():
+        if self._editor_visible:
             self.editor.refresh(self.images)
 
     def _open_editor(self):
+        """Open the editor as a separate window, snapped to the right."""
+        if self._editor_visible:
+            self.editor.raise_()
+            return
         from ui.image_editor_window import ImageEditorWindow
-        if self.editor is None or not self.editor.isVisible():
-            view = getattr(self, "_last_editor_view", "list")
-            self.editor = ImageEditorWindow(self.images, self.theme, parent=self, view_mode=view)
-            self.editor.images_updated.connect(self._on_editor_update)
-            self.editor.show()
+        view = getattr(self, "_last_editor_view", "list")
+        self.editor = ImageEditorWindow(self.images, self.theme, parent=self, view_mode=view)
+        self.editor.images_updated.connect(self._on_editor_update)
+        # Position to the right and auto-snap
+        pos = self.geometry()
+        self.editor.move(pos.right() + 1, pos.top())
+        self.editor.resize(S.EDITOR_W, S.MAIN_H)
+        self.editor.show()
+        # Establish snap relationship
+        self.editor._snapped_to = (self, "right")
+        self._snapped_children.append((self.editor, "right"))
 
     def _on_editor_close(self):
-        if self.editor:
+        """Called when the editor window is closed."""
+        if self.editor is not None:
             self._last_editor_view = self.editor._view_mode
+        self.editor = None
 
     def _on_editor_update(self, images):
-        self.images = images
-        self._update_thumbnails()
+        self.images = list(images)
+        self._update_img_count()
         self._update_summary()
 
     # ------------------------------------------------------------------ Drag and drop
@@ -677,22 +752,27 @@ class SettingsWindow(QMainWindow):
             return
 
         show_images = self.images
-        if self._timer_mode == "session" and self._class_groups:
+        if self._timer_mode == "class" and self._class_groups:
             timers = groups_to_timers(self._class_groups)
             show_images = []
             for i, img in enumerate(self.images):
                 if i < len(timers):
                     img.timer = timers[i]
                     show_images.append(img)
+            # Sort by timer so slideshow goes from short to long poses
+            show_images.sort(key=lambda img: img.timer)
 
         settings = {
-            "order": "random" if self._random_cb.isChecked() else "sequential",
-            "topmost": self._topmost_cb.isChecked(),
+            "order": "random" if self._random else "sequential",
+            "topmost": self._topmost,
             "viewer_size": getattr(self, "_last_viewer_size", None),
         }
         from ui.viewer_window import ViewerWindow
         self.viewer = ViewerWindow(show_images, settings, on_close=self._on_viewer_closed)
         self.viewer.show()
+        # Hide editor window too
+        if self._editor_visible:
+            self.editor.hide()
         self.hide()
 
     def _on_viewer_closed(self, return_only=False):
@@ -703,6 +783,9 @@ class SettingsWindow(QMainWindow):
         else:
             self.viewer = None
             self.show()
+        # Restore editor if it was hidden
+        if self.editor is not None and not self._editor_visible:
+            self.editor.show()
 
     # ------------------------------------------------------------------ Session save/restore
 
@@ -720,8 +803,9 @@ class SettingsWindow(QMainWindow):
                 self._preset_index = i
                 break
 
-        if data.get("timer_mode") == "class":
-            self._timer_mode = "session"
+        # Map old session file mode names to new names
+        _MODE_MAP = {"standard": "quick", "session": "class", "class": "class"}
+        self._timer_mode = _MODE_MAP.get(data.get("timer_mode", "quick"), "quick")
 
         session_secs = data.get("session_seconds")
         if session_secs:
@@ -730,43 +814,57 @@ class SettingsWindow(QMainWindow):
                     self._session_index = i
                     break
 
-        self._random_cb.setChecked(data.get("random_order", False))
-        self._topmost_cb.setChecked(data.get("topmost", False))
+        self._random = data.get("random_order", False)
+        self._topmost = data.get("topmost", False)
 
         saved_tiers = data.get("tiers")
         if saved_tiers is not None:
-            for btn in self._tier_toggles:
-                active = btn.seconds in saved_tiers
+            for btn, secs in self._class_btns:
+                active = secs in saved_tiers
                 btn.setChecked(active)
-                btn._active = active
             self._update_tier_styles()
 
         self._last_editor_view = data.get("editor_view", "list")
         self._last_viewer_size = data.get("viewer_size")
 
         theme_name = data.get("theme", "dark")
+        accent = data.get("accent")
+        if accent:
+            self.theme.accent = accent
         if theme_name != self.theme.name:
             self.theme.toggle()
-            self._apply_theme()
 
+        self._apply_theme()
         self._update_preset_styles()
         self._update_session_display()
         self._set_timer_mode(self._timer_mode)
-        self._update_thumbnails()
+        self._update_img_count()
         self._update_summary()
 
     def _save_session(self):
+        # Map new mode names back to the canonical storage keys
+        if self._timer_mode == "class":
+            saved_mode = "class"
+        else:
+            saved_mode = "standard"
+
         data = {
             "images": [img.to_dict() for img in self.images],
             "timer_seconds": self.get_timer_seconds(),
-            "timer_mode": "class" if self._timer_mode == "session" else "standard",
+            "timer_mode": saved_mode,
             "session_seconds": self._get_session_seconds(),
-            "random_order": self._random_cb.isChecked(),
-            "topmost": self._topmost_cb.isChecked(),
+            "random_order": self._random,
+            "topmost": self._topmost,
             "theme": self.theme.name,
-            "tiers": [btn.seconds for btn in self._tier_toggles if btn.isChecked()],
-            "editor_view": self.editor._view_mode if self.editor and self.editor.isVisible() else getattr(self, "_last_editor_view", "list"),
+            "accent": self.theme.accent,
+            "tiers": [secs for btn, secs in self._class_btns if btn.isChecked()],
+            "editor_view": (
+                self.editor._view_mode if self._editor_visible
+                else getattr(self, "_last_editor_view", "list")
+            ),
             "viewer_size": getattr(self, "_last_viewer_size", None),
+            "editor_pos": [self.editor.x(), self.editor.y()] if self.editor and self.editor.isVisible() else None,
+            "editor_size": [self.editor.width(), self.editor.height()] if self.editor and self.editor.isVisible() else None,
         }
         save_session(data)
 
@@ -779,4 +877,5 @@ class SettingsWindow(QMainWindow):
             self.viewer.show()
         else:
             self._save_session()
+            self.snap_cleanup()
             event.accept()
