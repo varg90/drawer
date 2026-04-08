@@ -673,10 +673,14 @@ class EditorPanel(QWidget):
         # Sum only active (timer > 0) images
         total_s = sum(img.timer for img in self.images if img.timer > 0)
 
-        # Get session duration from parent if available
+        # Get session duration — walk parent chain to find SettingsWindow
         session_secs = 0
-        if self._parent and hasattr(self._parent, '_get_session_seconds'):
-            session_secs = self._parent._get_session_seconds()
+        p = self._parent
+        while p is not None:
+            if hasattr(p, '_get_session_seconds'):
+                session_secs = p._get_session_seconds()
+                break
+            p = getattr(p, '_parent', None)
 
         if total_s == 0:
             self._total_label.setText("")
