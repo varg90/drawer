@@ -19,6 +19,9 @@ class SnapMixin:
                 SnapMixin.__init__(self)
     """
 
+    def __init__(self):
+        self.snap_init()
+
     def snap_init(self):
         """Call this in __init__ after QWidget.__init__."""
         self._drag_pos = None
