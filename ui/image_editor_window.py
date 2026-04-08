@@ -5,6 +5,7 @@ import qtawesome as qta
 from ui.editor_panel import EditorPanel
 from ui.icons import Icons
 from ui.scales import S
+from ui.widgets import make_icon_btn
 
 
 class ImageEditorWindow(QWidget):
@@ -13,11 +14,11 @@ class ImageEditorWindow(QWidget):
 
     def __init__(self, images, theme, parent=None, view_mode="list"):
         super().__init__()
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.images = list(images)
         self.theme = theme
         self._parent = parent
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
-        self.setWindowTitle("Images")
         self._build_ui()
         self._apply_theme()
 
@@ -53,6 +54,12 @@ class ImageEditorWindow(QWidget):
             f"border: 1px solid {self.theme.border};")
         self._dock_btn.clicked.connect(self._on_dock_back)
         title_bar.addWidget(self._dock_btn)
+        self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint)
+        self._min_btn.clicked.connect(self.showMinimized)
+        title_bar.addWidget(self._min_btn)
+        self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint)
+        self._close_btn.clicked.connect(self.close)
+        title_bar.addWidget(self._close_btn)
         root.addLayout(title_bar)
 
         # Editor panel
@@ -90,6 +97,20 @@ class ImageEditorWindow(QWidget):
     @_view_mode.setter
     def _view_mode(self, val):
         self.__dict__['_view_mode_init'] = val
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton and hasattr(self, '_drag_pos'):
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        if hasattr(self, '_drag_pos'):
+            del self._drag_pos
 
     def closeEvent(self, event):
         if self._parent and hasattr(self._parent, '_on_editor_close'):
