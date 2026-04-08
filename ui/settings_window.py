@@ -18,9 +18,9 @@ from ui.widgets import (make_icon_btn, make_start_btn, make_icon_toggle,
                          make_centered_header, make_timer_btn)
 
 
-ALL_TIERS = [(30, "30с"), (60, "1м"), (180, "3м"),
-             (300, "5м"), (600, "10м"), (900, "15м"),
-             (1800, "30м"), (3600, "1ч")]
+ALL_TIERS = [(30, "30s"), (60, "1m"), (180, "3m"),
+             (300, "5m"), (600, "10m"), (900, "15m"),
+             (1800, "30m"), (3600, "1h")]
 
 
 # DEPRECATED — kept for backward compatibility only
@@ -83,19 +83,19 @@ class SettingsWindow(QMainWindow):
 
         # ── 1. Header ──────────────────────────────────────────────────────
         self._help_btn = make_icon_btn(Icons.INFO, self.theme.text_hint,
-                                       size=S.ICON_HEADER, tooltip="Справка")
+                                       size=S.ICON_HEADER, tooltip="Help")
         self._help_btn.clicked.connect(self._show_help)
 
         self._topmost_btn = make_icon_toggle(
             Icons.TOPMOST_ON, Icons.TOPMOST_OFF, self._topmost, self.theme,
             size=S.ICON_HEADER)
-        self._topmost_btn.setToolTip("Поверх всех окон")
+        self._topmost_btn.setToolTip("Always on top")
         self._topmost_btn.clicked.connect(self._toggle_topmost)
 
         self._accent_btn = QPushButton()
         self._accent_btn.setFixedSize(S.ACCENT_DOT, S.ACCENT_DOT)
         self._accent_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._accent_btn.setToolTip("Цвет акцента")
+        self._accent_btn.setToolTip("Accent color")
         self._accent_btn.clicked.connect(self._pick_accent)
 
         self._theme_btn = make_icon_btn(
@@ -117,12 +117,12 @@ class SettingsWindow(QMainWindow):
         mode_row.setSpacing(0)
         mode_row.setContentsMargins(0, 0, 0, 0)
 
-        self._class_btn = QPushButton("Сеанс")
+        self._class_btn = QPushButton("Class")
         self._class_btn.setFixedHeight(22)
         self._class_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._class_btn.clicked.connect(lambda: self._set_timer_mode("class"))
 
-        self._quick_btn = QPushButton("Быстрый")
+        self._quick_btn = QPushButton("Quick")
         self._quick_btn.setFixedHeight(22)
         self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._quick_btn.clicked.connect(lambda: self._set_timer_mode("quick"))
@@ -131,7 +131,7 @@ class SettingsWindow(QMainWindow):
         self._img_count_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
 
         self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
-                                      size=S.ICON_HEADER, tooltip="Добавить файлы")
+                                      size=S.ICON_HEADER, tooltip="Add files")
         self._add_btn.clicked.connect(self._add_files)
 
         mode_row.addWidget(self._class_btn)
@@ -240,7 +240,7 @@ class SettingsWindow(QMainWindow):
         self._dice_btn = make_icon_toggle(
             Icons.RANDOM_ON, Icons.RANDOM_OFF, self._random, self.theme,
             size=S.ICON_DICE)
-        self._dice_btn.setToolTip("Случайный порядок")
+        self._dice_btn.setToolTip("Random order")
         self._dice_btn.clicked.connect(self._toggle_random)
 
         self._start_btn = make_start_btn(self.theme)
@@ -335,25 +335,25 @@ class SettingsWindow(QMainWindow):
     def _show_help(self):
         from PyQt6.QtWidgets import QDialog, QVBoxLayout
         dlg = QDialog(self)
-        dlg.setWindowTitle("Справка")
+        dlg.setWindowTitle("Help")
         t = self.theme
         dlg.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
         layout = QVBoxLayout(dlg)
         layout.setContentsMargins(16, 12, 16, 12)
         lbl = QLabel(
-            "<b>Настройки</b><br><br>"
-            "Нажмите + или перетащите изображения/папки в окно<br>"
-            "для добавления файлов<br><br>"
-            "<b>Слайдшоу</b><br><br>"
+            "<b>Settings</b><br><br>"
+            "Press + or drag images/folders into the window<br>"
+            "to add files<br><br>"
+            "<b>Slideshow</b><br><br>"
             "<table>"
-            "<tr><td>Пробел&nbsp;&nbsp;</td><td>пауза / продолжить</td></tr>"
-            "<tr><td>\u2190 \u2192&nbsp;&nbsp;</td><td>предыдущее / следующее</td></tr>"
-            "<tr><td>F11&nbsp;&nbsp;</td><td>полный экран</td></tr>"
-            "<tr><td>Esc&nbsp;&nbsp;</td><td>выйти из полного экрана</td></tr>"
-            "<tr><td>? или H&nbsp;&nbsp;</td><td>справка</td></tr>"
+            "<tr><td>Space&nbsp;&nbsp;</td><td>pause / resume</td></tr>"
+            "<tr><td>\u2190 \u2192&nbsp;&nbsp;</td><td>previous / next</td></tr>"
+            "<tr><td>F11&nbsp;&nbsp;</td><td>fullscreen</td></tr>"
+            "<tr><td>Esc&nbsp;&nbsp;</td><td>exit fullscreen</td></tr>"
+            "<tr><td>? or H&nbsp;&nbsp;</td><td>help</td></tr>"
             "</table><br>"
-            "ПКМ + перетаскивание — переместить окно<br>"
-            "Края окна — изменить размер"
+            "RMB + drag — move window<br>"
+            "Window edges — resize"
         )
         lbl.setStyleSheet(f"color: {t.text_primary}; font-size: 11px;")
         lbl.setWordWrap(True)
@@ -368,7 +368,7 @@ class SettingsWindow(QMainWindow):
     def _pick_accent(self):
         from PyQt6.QtWidgets import QColorDialog
         color = QColorDialog.getColor(
-            QColor(self.theme.accent), self, "Цвет акцента")
+            QColor(self.theme.accent), self, "Accent color")
         if color.isValid():
             self.theme.accent = color.name()
             self._apply_theme()
@@ -583,11 +583,11 @@ class SettingsWindow(QMainWindow):
         parts = []
         for count, timer in self._class_groups:
             if timer >= 3600:
-                t = f"{timer // 3600}ч"
+                t = f"{timer // 3600}h"
             elif timer >= 60:
-                t = f"{timer // 60}м"
+                t = f"{timer // 60}m"
             else:
-                t = f"{timer}с"
+                t = f"{timer}s"
             parts.append(f"{count}x{t}")
         self._groups_label.setText("  ".join(parts))
         dur = total_duration(self._class_groups)
@@ -609,7 +609,7 @@ class SettingsWindow(QMainWindow):
                 self._total_label.setText("")
             else:
                 total = n * self.get_timer_seconds()
-                self._groups_label.setText(f"{n} изображений")
+                self._groups_label.setText(f"{n} images")
                 self._total_label.setText(format_time(total))
         else:
             if n == 0:
@@ -618,7 +618,7 @@ class SettingsWindow(QMainWindow):
             elif self._class_groups:
                 self._update_groups_display()
             else:
-                self._groups_label.setText(f"{n} изображений")
+                self._groups_label.setText(f"{n} images")
                 self._total_label.setText("")
 
     # ------------------------------------------------------------------ Image management
@@ -626,8 +626,8 @@ class SettingsWindow(QMainWindow):
     def _add_files(self):
         exts = " ".join(f"*{e}" for e in SUPPORTED_FORMATS)
         paths, _ = QFileDialog.getOpenFileNames(
-            self, "Выберите файлы", "",
-            f"Изображения ({exts});;Все файлы (*)"
+            self, "Select files", "",
+            f"Images ({exts});;All files (*)"
         )
         if paths:
             timer = self.get_timer_seconds()

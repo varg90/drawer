@@ -1,7 +1,8 @@
 import os
+import qtawesome as qta
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                               QLabel, QListWidget, QListWidgetItem, QFileDialog,
-                              QSlider, QStackedWidget, QScrollArea, QStyle)
+                              QSlider, QStackedWidget, QScrollArea)
 from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer, QThread
 from core.constants import SUPPORTED_FORMATS
@@ -51,8 +52,10 @@ class ClickableLabel(QLabel):
         editor = self.window()
         if not hasattr(editor, "_on_tile_click"):
             return
-        ctrl = event.modifiers() & Qt.KeyboardModifier.ControlModifier
-        editor._on_tile_click(self, ctrl)
+        mods = event.modifiers()
+        ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
+        shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
+        editor._on_tile_click(self, ctrl, shift)
 
 
 def _flow_position(labels, container_width, sz, gap=1):
@@ -87,8 +90,9 @@ class ImageEditorWindow(QWidget):
         self._pix_cache = {}  # path -> QPixmap (original size, max ~GRID_MAX)
         self._loader = None  # PixmapLoader thread
         self._selected_tiles = set()  # set of ClickableLabel
+        self._last_clicked_tile = None  # for Shift range select
         self._list_groups = []  # list of (header_btn, list_widget)
-        self.setWindowTitle("Изображения")
+        self.setWindowTitle("Images")
         self._build_ui()
         self._apply_theme()
         self._set_view_mode(self._view_mode)
@@ -110,29 +114,33 @@ class ImageEditorWindow(QWidget):
         # Toolbar
         toolbar = QHBoxLayout()
         toolbar.setSpacing(6)
-        style = self.style()
         self._add_files_btn = QPushButton()
-        self._add_files_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_FileIcon))
-        self._add_files_btn.setToolTip("Добавить файлы")
+        self._add_files_btn.setIcon(qta.icon("ph.file-plus-bold", color=self.theme.text_button))
+        self._add_files_btn.setIconSize(QSize(14, 14))
+        self._add_files_btn.setToolTip("Add files")
         self._add_files_btn.setFixedSize(26, 22)
         self._add_files_btn.clicked.connect(self._add_files)
         toolbar.addWidget(self._add_files_btn)
         self._add_folder_btn = QPushButton()
-        self._add_folder_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DirIcon))
-        self._add_folder_btn.setToolTip("Добавить папку")
+        self._add_folder_btn.setIcon(qta.icon("ph.folder-plus-bold", color=self.theme.text_button))
+        self._add_folder_btn.setIconSize(QSize(14, 14))
+        self._add_folder_btn.setToolTip("Add folder")
         self._add_folder_btn.setFixedSize(26, 22)
         self._add_folder_btn.clicked.connect(self._add_folder)
         toolbar.addWidget(self._add_folder_btn)
-        self._url_btn = QPushButton("URL")
-        self._url_btn.setToolTip("Загрузить по URL")
+        self._url_btn = QPushButton()
+        self._url_btn.setIcon(qta.icon("ph.link-bold", color=self.theme.text_button))
+        self._url_btn.setIconSize(QSize(14, 14))
+        self._url_btn.setToolTip("Load from URL")
+        self._url_btn.setFixedSize(26, 22)
         self._url_btn.clicked.connect(self._add_from_url)
         toolbar.addWidget(self._url_btn)
         toolbar.addStretch()
-        self._del_btn = QPushButton("x")
-        self._del_btn.setFixedSize(22, 22)
-        self._del_btn.clicked.connect(self._delete_selected)
-        toolbar.addWidget(self._del_btn)
-        self._clear_btn = QPushButton("Очистить")
+        self._clear_btn = QPushButton()
+        self._clear_btn.setIcon(qta.icon("ph.eraser-bold", color=self.theme.text_button))
+        self._clear_btn.setIconSize(QSize(14, 14))
+        self._clear_btn.setToolTip("Clear all")
+        self._clear_btn.setFixedSize(26, 22)
         self._clear_btn.clicked.connect(self._clear)
         toolbar.addWidget(self._clear_btn)
         root.addLayout(toolbar)
@@ -177,17 +185,23 @@ class ImageEditorWindow(QWidget):
         bottom.setSpacing(6)
 
         # Up/down (list mode)
-        self._up_btn = QPushButton("^")
+        self._up_btn = QPushButton()
+        self._up_btn.setIcon(qta.icon("ph.arrow-up-bold", color=self.theme.text_button))
+        self._up_btn.setIconSize(QSize(14, 14))
+        self._up_btn.setToolTip("Up")
         self._up_btn.setFixedSize(26, 22)
         self._up_btn.clicked.connect(self._move_up)
         bottom.addWidget(self._up_btn)
-        self._down_btn = QPushButton("v")
+        self._down_btn = QPushButton()
+        self._down_btn.setIcon(qta.icon("ph.arrow-down-bold", color=self.theme.text_button))
+        self._down_btn.setIconSize(QSize(14, 14))
+        self._down_btn.setToolTip("Down")
         self._down_btn.setFixedSize(26, 22)
         self._down_btn.clicked.connect(self._move_down)
         bottom.addWidget(self._down_btn)
 
         # Zoom slider (grid mode)
-        self._zoom_label = QLabel("Размер:")
+        self._zoom_label = QLabel("Size:")
         bottom.addWidget(self._zoom_label)
         self._zoom_slider = QSlider(Qt.Orientation.Horizontal)
         self._zoom_slider.setRange(GRID_MIN, GRID_MAX)
@@ -197,7 +211,10 @@ class ImageEditorWindow(QWidget):
         bottom.addWidget(self._zoom_slider)
 
         # Cache clear
-        self._cache_btn = QPushButton("Очистить кеш")
+        self._cache_btn = QPushButton()
+        self._cache_btn.setIcon(qta.icon("ph.trash-bold", color=self.theme.text_button))
+        self._cache_btn.setIconSize(QSize(14, 14))
+        self._cache_btn.setToolTip("Clear cache")
         self._cache_btn.clicked.connect(self._clear_cache)
         bottom.addWidget(self._cache_btn)
         self._cache_size_label = QLabel("")
@@ -206,14 +223,18 @@ class ImageEditorWindow(QWidget):
         bottom.addStretch()
 
         # View mode toggle (always visible)
-        self._list_btn = QPushButton("=")
+        self._list_btn = QPushButton()
+        self._list_btn.setIcon(qta.icon("ph.list-bullets-bold", color=self.theme.text_button))
+        self._list_btn.setIconSize(QSize(14, 14))
         self._list_btn.setFixedSize(22, 22)
-        self._list_btn.setToolTip("Список")
+        self._list_btn.setToolTip("List")
         self._list_btn.clicked.connect(lambda: self._set_view_mode("list"))
         bottom.addWidget(self._list_btn)
-        self._grid_btn = QPushButton("#")
+        self._grid_btn = QPushButton()
+        self._grid_btn.setIcon(qta.icon("ph.squares-four-bold", color=self.theme.text_button))
+        self._grid_btn.setIconSize(QSize(14, 14))
         self._grid_btn.setFixedSize(22, 22)
-        self._grid_btn.setToolTip("Плитка")
+        self._grid_btn.setToolTip("Grid")
         self._grid_btn.clicked.connect(lambda: self._set_view_mode("grid"))
         bottom.addWidget(self._grid_btn)
 
@@ -228,11 +249,17 @@ class ImageEditorWindow(QWidget):
             f"color: {t.text_secondary}; font-size: 10px; font-weight: 500; "
             f"letter-spacing: 2px;")
 
-        btn_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
-                 f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
-                 f"padding: 3px 6px;")
+        btn_s = (f"background-color: {t.bg_button}; "
+                 f"border: 1px solid {t.border}; padding: 3px 6px;")
+        self._add_files_btn.setIcon(qta.icon("ph.file-plus-bold", color=t.text_button))
+        self._add_folder_btn.setIcon(qta.icon("ph.folder-plus-bold", color=t.text_button))
+        self._url_btn.setIcon(qta.icon("ph.link-bold", color=t.text_button))
+        self._clear_btn.setIcon(qta.icon("ph.eraser-bold", color=t.text_button))
+        self._up_btn.setIcon(qta.icon("ph.arrow-up-bold", color=t.text_button))
+        self._down_btn.setIcon(qta.icon("ph.arrow-down-bold", color=t.text_button))
+        self._cache_btn.setIcon(qta.icon("ph.trash-bold", color=t.text_button))
         for btn in [self._add_files_btn, self._add_folder_btn, self._url_btn,
-                    self._clear_btn, self._del_btn, self._up_btn, self._down_btn,
+                    self._clear_btn, self._up_btn, self._down_btn,
                     self._cache_btn]:
             btn.setStyleSheet(btn_s)
 
@@ -285,12 +312,14 @@ class ImageEditorWindow(QWidget):
 
     def _update_view_buttons(self):
         t = self.theme
-        active_s = (f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; font-size: 10px; "
-                    f"font-weight: bold; padding: 3px 6px;")
-        inactive_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
-                      f"border: 1px solid {t.border}; font-size: 10px; "
-                      f"font-weight: 500; padding: 3px 6px;")
+        active_s = (f"background-color: {t.bg_active}; "
+                    f"border: 1px solid {t.border_active}; padding: 3px 6px;")
+        inactive_s = (f"background-color: {t.bg_button}; "
+                      f"border: 1px solid {t.border}; padding: 3px 6px;")
+        list_color = t.text_primary if self._view_mode == "list" else t.text_button
+        grid_color = t.text_primary if self._view_mode == "grid" else t.text_button
+        self._list_btn.setIcon(qta.icon("ph.list-bullets-bold", color=list_color))
+        self._grid_btn.setIcon(qta.icon("ph.squares-four-bold", color=grid_color))
         self._list_btn.setStyleSheet(active_s if self._view_mode == "list" else inactive_s)
         self._grid_btn.setStyleSheet(active_s if self._view_mode == "grid" else inactive_s)
 
@@ -345,7 +374,7 @@ class ImageEditorWindow(QWidget):
             self._rebuild_list()
         else:
             self._rebuild_grid()
-        self._count_label.setText(f"Изображения — {len(self.images)}")
+        self._count_label.setText(f"Images — {len(self.images)}")
 
         # Start background loading for uncached images
         uncached = [img.path for img in self.images if img.path not in self._pix_cache]
@@ -427,7 +456,7 @@ class ImageEditorWindow(QWidget):
                 old_keys = [(h.text().split(" — ")[0]) for h, _ in self._list_groups]
                 new_keys = []
                 for tv, items in cur_groups.items():
-                    new_keys.append(format_time(tv) if tv else "Не в сеансе")
+                    new_keys.append(format_time(tv) if tv else "Not assigned")
                 if old_keys == new_keys:
                     gi = 0
                     for tv, items in cur_groups.items():
@@ -452,7 +481,7 @@ class ImageEditorWindow(QWidget):
 
         for timer_val, items in groups.items():
             if timer_val == 0:
-                label = f"Не в сеансе — {len(items)}"
+                label = f"Not assigned — {len(items)}"
                 style = self._grid_header_inactive_style
             else:
                 label = f"{format_time(timer_val)} — {len(items)}"
@@ -518,7 +547,7 @@ class ImageEditorWindow(QWidget):
         for timer_val, items in groups.items():
             # Header
             if timer_val == 0:
-                label = f"Не в сеансе — {len(items)}"
+                label = f"Not assigned — {len(items)}"
                 style = self._grid_header_inactive_style
             else:
                 label = f"{format_time(timer_val)} — {len(items)}"
@@ -573,8 +602,8 @@ class ImageEditorWindow(QWidget):
     def _add_files(self):
         exts = " ".join(f"*{e}" for e in SUPPORTED_FORMATS)
         paths, _ = QFileDialog.getOpenFileNames(
-            self, "Выберите файлы", "",
-            f"Изображения ({exts});;Все файлы (*)")
+            self, "Select files", "",
+            f"Images ({exts});;All files (*)")
         if paths:
             for p in filter_image_files(paths):
                 self.images.append(ImageItem(path=p, timer=300))
@@ -582,7 +611,7 @@ class ImageEditorWindow(QWidget):
             self._emit()
 
     def _add_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Выберите папку")
+        folder = QFileDialog.getExistingDirectory(self, "Select folder")
         if folder:
             for p in scan_folder(folder):
                 self.images.append(ImageItem(path=p, timer=300))
@@ -607,6 +636,18 @@ class ImageEditorWindow(QWidget):
         self._update_cache_size()
 
     def _clear(self):
+        if not self.images:
+            return
+        from PyQt6.QtWidgets import QMessageBox
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Clear")
+        msg.setText(f"Remove all {len(self.images)} files from list?")
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        t = self.theme
+        msg.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary}; font-size: 12px;")
+        if msg.exec() != QMessageBox.StandardButton.Yes:
+            return
         self.images = []
         self._rebuild()
         self._emit()
@@ -668,25 +709,52 @@ class ImageEditorWindow(QWidget):
             self._rebuild()
             self._emit()
 
-    def _on_tile_click(self, lbl, ctrl):
+    def _get_all_tile_labels(self):
+        """Return all tile labels in order across all grid groups."""
+        all_labels = []
+        for _, grid in self._grid_groups:
+            all_labels.extend(getattr(grid, "_labels", []))
+        return all_labels
+
+    def _select_tile(self, lbl):
         t = self.theme
+        self._selected_tiles.add(lbl)
+        lbl._selected = True
+        lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
+
+    def _deselect_tile(self, lbl):
+        self._selected_tiles.discard(lbl)
+        lbl._selected = False
+        lbl.setStyleSheet("")
+
+    def _on_tile_click(self, lbl, ctrl, shift=False):
+        if shift and self._last_clicked_tile is not None:
+            all_labels = self._get_all_tile_labels()
+            try:
+                idx_a = all_labels.index(self._last_clicked_tile)
+                idx_b = all_labels.index(lbl)
+            except ValueError:
+                idx_a, idx_b = None, None
+            if idx_a is not None and idx_b is not None:
+                lo, hi = min(idx_a, idx_b), max(idx_a, idx_b)
+                if not ctrl:
+                    for old in list(self._selected_tiles):
+                        self._deselect_tile(old)
+                for i in range(lo, hi + 1):
+                    self._select_tile(all_labels[i])
+                self._last_clicked_tile = lbl
+                return
+
         if ctrl:
             if lbl in self._selected_tiles:
-                self._selected_tiles.discard(lbl)
-                lbl._selected = False
-                lbl.setStyleSheet("")
+                self._deselect_tile(lbl)
             else:
-                self._selected_tiles.add(lbl)
-                lbl._selected = True
-                lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
+                self._select_tile(lbl)
         else:
-            for old in self._selected_tiles:
-                old._selected = False
-                old.setStyleSheet("")
-            self._selected_tiles.clear()
-            self._selected_tiles.add(lbl)
-            lbl._selected = True
-            lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
+            for old in list(self._selected_tiles):
+                self._deselect_tile(old)
+            self._select_tile(lbl)
+        self._last_clicked_tile = lbl
 
     def _reflow_grid(self):
         if self._view_mode != "grid" or not self._grid_groups:
