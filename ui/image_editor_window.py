@@ -1,84 +1,14 @@
 import os
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 import qtawesome as qta
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-                              QLabel, QListWidget, QListWidgetItem, QFileDialog,
-                              QSlider, QStackedWidget, QScrollArea)
-from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer, QThread
-from core.constants import SUPPORTED_FORMATS
-from core.file_utils import filter_image_files, scan_folder
-from core.models import ImageItem
-from core.timer_logic import format_time
-from core.cloud.cache import CacheManager
-
-GRID_MIN = 48
-GRID_MAX = 256
-GRID_DEFAULT = 80
-
-
-class PixmapLoader(QThread):
-    """Load images from disk in background thread."""
-    loaded = pyqtSignal(str, QImage)  # path, image
-
-    def __init__(self, paths, max_size=GRID_MAX):
-        super().__init__()
-        self._paths = paths
-        self._max = max_size
-        self._cancel = False
-
-    def cancel(self):
-        self._cancel = True
-
-    def run(self):
-        for path in self._paths:
-            if self._cancel:
-                return
-            img = QImage(path)
-            if not img.isNull():
-                img = img.scaled(self._max, self._max,
-                                 Qt.AspectRatioMode.KeepAspectRatio,
-                                 Qt.TransformationMode.SmoothTransformation)
-                self.loaded.emit(path, img)
-
-
-class ClickableLabel(QLabel):
-    """QLabel with click-to-select support."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._selected = False
-
-    def mousePressEvent(self, event):
-        editor = self.window()
-        if not hasattr(editor, "_on_tile_click"):
-            return
-        mods = event.modifiers()
-        ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
-        shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
-        editor._on_tile_click(self, ctrl, shift)
-
-
-def _flow_position(labels, container_width, sz, gap=1):
-    """Position labels in a flow layout manually. Returns total height."""
-    x, y, row_h = 0, 0, 0
-    for lbl in labels:
-        pix = lbl.pixmap()
-        if pix and not pix.isNull():
-            w, h = pix.width(), pix.height()
-        else:
-            w, h = sz, sz
-        if x + w > container_width and x > 0:
-            x = 0
-            y += row_h + gap
-            row_h = 0
-        lbl.setFixedSize(w, h)
-        lbl.move(x, y)
-        x += w + gap
-        row_h = max(row_h, h)
-    return y + row_h if labels else 0
+from ui.editor_panel import EditorPanel
+from ui.icons import Icons
+from ui.scales import S
 
 
 class ImageEditorWindow(QWidget):
+    """Detached editor window — thin wrapper around EditorPanel."""
     images_updated = pyqtSignal(list)
 
     def __init__(self, images, theme, parent=None, view_mode="list"):
@@ -86,19 +16,11 @@ class ImageEditorWindow(QWidget):
         self.images = list(images)
         self.theme = theme
         self._parent = parent
-        self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
-        self._pix_cache = {}  # path -> QPixmap (original size, max ~GRID_MAX)
-        self._loader = None  # PixmapLoader thread
-        self._selected_tiles = set()  # set of ClickableLabel
-        self._last_clicked_tile = None  # for Shift range select
-        self._list_groups = []  # list of (header_btn, list_widget)
+        self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
         self.setWindowTitle("Images")
         self._build_ui()
         self._apply_theme()
-        self._set_view_mode(self._view_mode)
-        self._needs_initial_rebuild = True
 
-        # Open at minimum size, centered over parent
         self.adjustSize()
         if parent is not None:
             pg = parent.geometry()
@@ -108,684 +30,74 @@ class ImageEditorWindow(QWidget):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 12, 16, 12)
-        root.setSpacing(8)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        # Toolbar
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(6)
-        self._add_files_btn = QPushButton()
-        self._add_files_btn.setIcon(qta.icon("ph.file-plus-bold", color=self.theme.text_button))
-        self._add_files_btn.setIconSize(QSize(14, 14))
-        self._add_files_btn.setToolTip("Add files")
-        self._add_files_btn.setFixedSize(26, 22)
-        self._add_files_btn.clicked.connect(self._add_files)
-        toolbar.addWidget(self._add_files_btn)
-        self._add_folder_btn = QPushButton()
-        self._add_folder_btn.setIcon(qta.icon("ph.folder-plus-bold", color=self.theme.text_button))
-        self._add_folder_btn.setIconSize(QSize(14, 14))
-        self._add_folder_btn.setToolTip("Add folder")
-        self._add_folder_btn.setFixedSize(26, 22)
-        self._add_folder_btn.clicked.connect(self._add_folder)
-        toolbar.addWidget(self._add_folder_btn)
-        self._url_btn = QPushButton()
-        self._url_btn.setIcon(qta.icon("ph.link-bold", color=self.theme.text_button))
-        self._url_btn.setIconSize(QSize(14, 14))
-        self._url_btn.setToolTip("Load from URL")
-        self._url_btn.setFixedSize(26, 22)
-        self._url_btn.clicked.connect(self._add_from_url)
-        toolbar.addWidget(self._url_btn)
-        toolbar.addStretch()
-        self._clear_btn = QPushButton()
-        self._clear_btn.setIcon(qta.icon("ph.eraser-bold", color=self.theme.text_button))
-        self._clear_btn.setIconSize(QSize(14, 14))
-        self._clear_btn.setToolTip("Clear all")
-        self._clear_btn.setFixedSize(26, 22)
-        self._clear_btn.clicked.connect(self._clear)
-        toolbar.addWidget(self._clear_btn)
-        root.addLayout(toolbar)
+        # Title bar with dock-back button
+        title_bar = QHBoxLayout()
+        title_bar.setContentsMargins(8, 5, 8, 3)
+        title_bar.setSpacing(4)
+        title = QLabel("Images")
+        title.setStyleSheet(
+            f"color: {self.theme.text_secondary}; "
+            f"font-size: {S.FONT_BUTTON}px; font-weight: 500;")
+        title_bar.addWidget(title)
+        title_bar.addStretch()
+        self._dock_btn = QPushButton()
+        self._dock_btn.setIcon(qta.icon(Icons.DOCK, color=self.theme.text_button))
+        self._dock_btn.setIconSize(QSize(12, 12))
+        self._dock_btn.setFixedSize(22, 20)
+        self._dock_btn.setToolTip("Dock to main window")
+        self._dock_btn.setStyleSheet(
+            f"background-color: {self.theme.bg_button}; "
+            f"border: 1px solid {self.theme.border};")
+        self._dock_btn.clicked.connect(self._on_dock_back)
+        title_bar.addWidget(self._dock_btn)
+        root.addLayout(title_bar)
 
-        # Count label — separate row
-        self._count_label = QLabel("")
-        root.addWidget(self._count_label)
-
-        # Stacked widget: list view and grid view
-        self._stack = QStackedWidget()
-
-        # --- List view (grouped) ---
-        self._list_scroll = QScrollArea()
-        self._list_scroll.setWidgetResizable(True)
-        self._list_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._list_container = QWidget()
-        self._list_layout = QVBoxLayout(self._list_container)
-        self._list_layout.setContentsMargins(0, 0, 0, 0)
-        self._list_layout.setSpacing(4)
-        self._list_layout.addStretch()
-        self._list_scroll.setWidget(self._list_container)
-        self._list_groups = []  # list of (header_btn, list_widget)
-        self._stack.addWidget(self._list_scroll)
-
-        # --- Grid view (grouped) ---
-        self._grid_scroll = QScrollArea()
-        self._grid_scroll.setWidgetResizable(True)
-        self._grid_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._grid_container = QWidget()
-        self._grid_layout = QVBoxLayout(self._grid_container)
-        self._grid_layout.setContentsMargins(0, 0, 0, 0)
-        self._grid_layout.setSpacing(4)
-        self._grid_layout.addStretch()
-        self._grid_scroll.setWidget(self._grid_container)
-        self._grid_groups = []  # list of (header_btn, list_widget)
-        self._stack.addWidget(self._grid_scroll)
-
-        root.addWidget(self._stack)
-
-        # Bottom controls
-        bottom = QHBoxLayout()
-        bottom.setSpacing(6)
-
-        # Up/down (list mode)
-        self._up_btn = QPushButton()
-        self._up_btn.setIcon(qta.icon("ph.arrow-up-bold", color=self.theme.text_button))
-        self._up_btn.setIconSize(QSize(14, 14))
-        self._up_btn.setToolTip("Up")
-        self._up_btn.setFixedSize(26, 22)
-        self._up_btn.clicked.connect(self._move_up)
-        bottom.addWidget(self._up_btn)
-        self._down_btn = QPushButton()
-        self._down_btn.setIcon(qta.icon("ph.arrow-down-bold", color=self.theme.text_button))
-        self._down_btn.setIconSize(QSize(14, 14))
-        self._down_btn.setToolTip("Down")
-        self._down_btn.setFixedSize(26, 22)
-        self._down_btn.clicked.connect(self._move_down)
-        bottom.addWidget(self._down_btn)
-
-        # Zoom slider (grid mode)
-        self._zoom_label = QLabel("Size:")
-        bottom.addWidget(self._zoom_label)
-        self._zoom_slider = QSlider(Qt.Orientation.Horizontal)
-        self._zoom_slider.setRange(GRID_MIN, GRID_MAX)
-        self._zoom_slider.setValue(GRID_DEFAULT)
-        self._zoom_slider.setFixedWidth(100)
-        self._zoom_slider.valueChanged.connect(self._on_zoom)
-        bottom.addWidget(self._zoom_slider)
-
-        # Cache clear
-        self._cache_btn = QPushButton()
-        self._cache_btn.setIcon(qta.icon("ph.trash-bold", color=self.theme.text_button))
-        self._cache_btn.setIconSize(QSize(14, 14))
-        self._cache_btn.setToolTip("Clear cache")
-        self._cache_btn.clicked.connect(self._clear_cache)
-        bottom.addWidget(self._cache_btn)
-        self._cache_size_label = QLabel("")
-        bottom.addWidget(self._cache_size_label)
-
-        bottom.addStretch()
-
-        # View mode toggle (always visible)
-        self._list_btn = QPushButton()
-        self._list_btn.setIcon(qta.icon("ph.list-bullets-bold", color=self.theme.text_button))
-        self._list_btn.setIconSize(QSize(14, 14))
-        self._list_btn.setFixedSize(22, 22)
-        self._list_btn.setToolTip("List")
-        self._list_btn.clicked.connect(lambda: self._set_view_mode("list"))
-        bottom.addWidget(self._list_btn)
-        self._grid_btn = QPushButton()
-        self._grid_btn.setIcon(qta.icon("ph.squares-four-bold", color=self.theme.text_button))
-        self._grid_btn.setIconSize(QSize(14, 14))
-        self._grid_btn.setFixedSize(22, 22)
-        self._grid_btn.setToolTip("Grid")
-        self._grid_btn.clicked.connect(lambda: self._set_view_mode("grid"))
-        bottom.addWidget(self._grid_btn)
-
-        root.addLayout(bottom)
-        self._update_bottom_controls()
+        # Editor panel
+        init_view = self.__dict__.get('_view_mode_init', 'list')
+        self._panel = EditorPanel(
+            self.images, self.theme, parent=self, view_mode=init_view)
+        self._panel.images_updated.connect(self._on_panel_update)
+        self._panel.close_requested.connect(self.close)
+        # Hide the detach button — already detached
+        self._panel._detach_btn.setVisible(False)
+        root.addWidget(self._panel)
 
     def _apply_theme(self):
-        t = self.theme
-        self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
+        self.setStyleSheet(f"background-color: {self.theme.bg};")
 
-        self._count_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500; "
-            f"letter-spacing: 2px;")
+    def _on_panel_update(self, images):
+        self.images = images
+        self.images_updated.emit(images)
 
-        btn_s = (f"background-color: {t.bg_button}; "
-                 f"border: 1px solid {t.border}; padding: 3px 6px;")
-        self._add_files_btn.setIcon(qta.icon("ph.file-plus-bold", color=t.text_button))
-        self._add_folder_btn.setIcon(qta.icon("ph.folder-plus-bold", color=t.text_button))
-        self._url_btn.setIcon(qta.icon("ph.link-bold", color=t.text_button))
-        self._clear_btn.setIcon(qta.icon("ph.eraser-bold", color=t.text_button))
-        self._up_btn.setIcon(qta.icon("ph.arrow-up-bold", color=t.text_button))
-        self._down_btn.setIcon(qta.icon("ph.arrow-down-bold", color=t.text_button))
-        self._cache_btn.setIcon(qta.icon("ph.trash-bold", color=t.text_button))
-        for btn in [self._add_files_btn, self._add_folder_btn, self._url_btn,
-                    self._clear_btn, self._up_btn, self._down_btn,
-                    self._cache_btn]:
-            btn.setStyleSheet(btn_s)
-
-        list_s = (f"QListWidget {{ background-color: {t.bg_secondary}; border: none; "
-                  f"font-size: 11px; color: {t.text_primary}; }}"
-                  f"QListWidget::item {{ padding: 3px; }}"
-                  f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}")
-        self._list_style = list_s
-        scroll_s = (f"QScrollArea {{ background-color: {t.bg_secondary}; border: none; }}"
-                    f"QWidget {{ background-color: {t.bg_secondary}; }}")
-        self._list_scroll.setStyleSheet(scroll_s)
-        self._grid_scroll.setStyleSheet(
-            f"QScrollArea {{ background-color: {t.bg_secondary}; border: none; }}"
-            f"QWidget {{ background-color: {t.bg_secondary}; }}")
-        self._grid_header_style = (
-            f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-            f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
-            f"padding: 2px 8px; text-align: left;")
-        self._grid_header_inactive_style = (
-            f"background-color: {t.bg_button}; color: {t.text_hint}; "
-            f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
-            f"padding: 2px 8px; text-align: left;")
-
-        self._zoom_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
-        self._zoom_slider.setStyleSheet(
-            f"QSlider::groove:horizontal {{ background: {t.border}; height: 4px; }}"
-            f"QSlider::handle:horizontal {{ background: {t.text_secondary}; "
-            f"width: 12px; margin: -4px 0; }}")
-
-        self._cache_size_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
-
-        self._update_view_buttons()
-        self._update_cache_size()
-
-    def _update_cache_size(self):
-        size = CacheManager().size()
-        if size > 0:
-            self._cache_btn.setVisible(True)
-            self._cache_size_label.setText(CacheManager.format_size(size))
-            self._cache_size_label.setVisible(True)
-        else:
-            self._cache_btn.setVisible(False)
-            self._cache_size_label.setVisible(False)
-
-    def _clear_cache(self):
-        CacheManager().clear()
-        self._update_cache_size()
-
-    def _update_view_buttons(self):
-        t = self.theme
-        active_s = (f"background-color: {t.bg_active}; "
-                    f"border: 1px solid {t.border_active}; padding: 3px 6px;")
-        inactive_s = (f"background-color: {t.bg_button}; "
-                      f"border: 1px solid {t.border}; padding: 3px 6px;")
-        list_color = t.text_primary if self._view_mode == "list" else t.text_button
-        grid_color = t.text_primary if self._view_mode == "grid" else t.text_button
-        self._list_btn.setIcon(qta.icon("ph.list-bullets-bold", color=list_color))
-        self._grid_btn.setIcon(qta.icon("ph.squares-four-bold", color=grid_color))
-        self._list_btn.setStyleSheet(active_s if self._view_mode == "list" else inactive_s)
-        self._grid_btn.setStyleSheet(active_s if self._view_mode == "grid" else inactive_s)
-
-    # ------------------------------------------------------------------ View mode
-
-    def _set_view_mode(self, mode):
-        self._view_mode = mode
-        if mode == "list":
-            self._stack.setCurrentWidget(self._list_scroll)
-        else:
-            self._stack.setCurrentWidget(self._grid_scroll)
-        self._update_view_buttons()
-        self._update_bottom_controls()
-        self._rebuild()
-
-    def _update_bottom_controls(self):
-        is_list = self._view_mode == "list"
-        self._up_btn.setVisible(is_list)
-        self._down_btn.setVisible(is_list)
-        self._zoom_label.setVisible(not is_list)
-        self._zoom_slider.setVisible(not is_list)
-        self._list_btn.setVisible(True)
-        self._grid_btn.setVisible(True)
-
-    def _on_zoom(self, value):
-        if not self._grid_groups:
-            return
-        w = max(self._grid_scroll.viewport().width(), 200)
-        for header, grid in self._grid_groups:
-            labels = getattr(grid, "_labels", [])
-            for lbl in labels:
-                idx = lbl.property("img_idx")
-                if idx is not None and idx < len(self.images):
-                    pix = self._get_pixmap(self.images[idx].path)
-                    if not pix.isNull():
-                        scaled = pix.scaled(value, value,
-                                            Qt.AspectRatioMode.KeepAspectRatio,
-                                            Qt.TransformationMode.SmoothTransformation)
-                        lbl.setPixmap(scaled)
-            h = _flow_position(labels, w, value)
-            grid.setFixedHeight(h)
-
-    # ------------------------------------------------------------------ Rebuild
-
-    def _rebuild(self):
-        # Cancel any running loader
-        if self._loader and self._loader.isRunning():
-            self._loader.cancel()
-            self._loader.wait()
-
-        if self._view_mode == "list":
-            self._rebuild_list()
-        else:
-            self._rebuild_grid()
-        self._count_label.setText(f"Images — {len(self.images)}")
-
-        # Start background loading for uncached images
-        uncached = [img.path for img in self.images if img.path not in self._pix_cache]
-        if uncached:
-            self._loader = PixmapLoader(uncached)
-            self._loader.loaded.connect(self._on_pixmap_loaded)
-            self._loader.start()
-
-    def _on_pixmap_loaded(self, path, image):
-        pix = QPixmap.fromImage(image)
-        self._pix_cache[path] = pix
-        # Update visible widgets that use this path
-        if self._view_mode == "list":
-            for _, lw in self._list_groups:
-                for j in range(lw.count()):
-                    item = lw.item(j)
-                    idx = item.data(Qt.ItemDataRole.UserRole)
-                    if idx is not None and idx < len(self.images) and self.images[idx].path == path:
-                        item.setIcon(QIcon(pix))
-        else:
-            sz = self._zoom_slider.value()
-            for _, grid in self._grid_groups:
-                for lbl in getattr(grid, "_labels", []):
-                    idx = lbl.property("img_idx")
-                    if idx is not None and idx < len(self.images) and self.images[idx].path == path:
-                        scaled = pix.scaled(sz, sz,
-                                            Qt.AspectRatioMode.KeepAspectRatio,
-                                            Qt.TransformationMode.SmoothTransformation)
-                        lbl.setPixmap(scaled)
-            self._reflow_grid()
-
-    @staticmethod
-    def _short_name(path, max_len=20):
-        name = os.path.basename(path)
-        if len(name) <= max_len:
-            return name
-        stem, ext = os.path.splitext(name)
-        keep = max_len - len(ext) - 1  # 1 for ellipsis char
-        if keep < 2:
-            return name[:max_len]
-        left = (keep + 1) // 2
-        right = keep - left
-        return stem[:left] + "\u2026" + stem[-right:] + ext
-
-    def _get_pixmap(self, path):
-        pix = self._pix_cache.get(path)
-        if pix is None:
-            pix = QPixmap(path)
-            if not pix.isNull():
-                pix = pix.scaled(GRID_MAX, GRID_MAX,
-                                 Qt.AspectRatioMode.KeepAspectRatio,
-                                 Qt.TransformationMode.SmoothTransformation)
-            self._pix_cache[path] = pix
-        return pix
-
-    def _style_item(self, item, img):
-        t = self.theme
-        if img.timer == 0:
-            item.setForeground(QBrush(QColor(t.text_hint)))
-        else:
-            item.setForeground(QBrush(QColor(t.text_primary)))
-
-    def _format_item_text(self, i, img):
-        name = self._short_name(img.path)
-        if img.timer == 0:
-            return f"{i + 1}.  {name}    —"
-        return f"{i + 1}.  {name}    {format_time(img.timer)}"
-
-    def _rebuild_list(self):
-        # Fast path: update text only if groups match
-        if self._list_groups:
-            old_indices = []
-            for _, lw in self._list_groups:
-                for j in range(lw.count()):
-                    old_indices.append(lw.item(j).data(Qt.ItemDataRole.UserRole))
-            if old_indices == list(range(len(self.images))):
-                # Same images, just update text and regroup if timers changed
-                cur_groups = self._group_by_timer()
-                old_keys = [(h.text().split(" — ")[0]) for h, _ in self._list_groups]
-                new_keys = []
-                for tv, items in cur_groups.items():
-                    new_keys.append(format_time(tv) if tv else "Not assigned")
-                if old_keys == new_keys:
-                    gi = 0
-                    for tv, items in cur_groups.items():
-                        _, lw = self._list_groups[gi]
-                        for j, (idx, img) in enumerate(items):
-                            item = lw.item(j)
-                            item.setText(self._format_item_text(idx, img))
-                            self._style_item(item, img)
-                        gi += 1
-                    return
-
-        # Full rebuild
-        for header, lw in self._list_groups:
-            header.setParent(None)
-            lw.setParent(None)
-            header.deleteLater()
-            lw.deleteLater()
-        self._list_groups = []
-
-        groups = self._group_by_timer()
-        insert_pos = 0
-
-        for timer_val, items in groups.items():
-            if timer_val == 0:
-                label = f"Not assigned — {len(items)}"
-                style = self._grid_header_inactive_style
-            else:
-                label = f"{format_time(timer_val)} — {len(items)}"
-                style = self._grid_header_style
-            header = QPushButton(label)
-            header.setStyleSheet(style)
-            header.setCursor(Qt.CursorShape.PointingHandCursor)
-
-            lw = QListWidget()
-            lw.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-            lw.setDefaultDropAction(Qt.DropAction.MoveAction)
-            lw.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-            lw.setIconSize(QSize(24, 24))
-            lw.setStyleSheet(self._list_style)
-            lw.model().rowsMoved.connect(self._on_reorder)
-
-            for idx, img in items:
-                text = self._format_item_text(idx, img)
-                item = QListWidgetItem(text)
-                pix = self._get_pixmap(img.path)
-                if not pix.isNull():
-                    item.setIcon(QIcon(pix))
-                item.setData(Qt.ItemDataRole.UserRole, idx)
-                self._style_item(item, img)
-                lw.addItem(item)
-
-            lw.setFixedHeight(len(items) * 30 + 4)
-
-            if timer_val == 0:
-                lw.setVisible(False)
-
-            header.clicked.connect(lambda checked, w=lw: w.setVisible(not w.isVisible()))
-
-            self._list_layout.insertWidget(insert_pos, header)
-            self._list_layout.insertWidget(insert_pos + 1, lw)
-            self._list_groups.append((header, lw))
-            insert_pos += 2
-
-    def _group_by_timer(self):
-        from collections import OrderedDict
-        groups = OrderedDict()
-        for i, img in enumerate(self.images):
-            key = img.timer
-            if key not in groups:
-                groups[key] = []
-            groups[key].append((i, img))
-        return groups
-
-    def _rebuild_grid(self):
-        self._selected_tiles.clear()
-        # Clear old groups
-        for header, grid in self._grid_groups:
-            header.setParent(None)
-            grid.setParent(None)
-            header.deleteLater()
-            grid.deleteLater()
-        self._grid_groups = []
-
-        groups = self._group_by_timer()
-        sz = self._zoom_slider.value()
-        insert_pos = 0
-
-        for timer_val, items in groups.items():
-            # Header
-            if timer_val == 0:
-                label = f"Not assigned — {len(items)}"
-                style = self._grid_header_inactive_style
-            else:
-                label = f"{format_time(timer_val)} — {len(items)}"
-                style = self._grid_header_style
-            header = QPushButton(label)
-            header.setStyleSheet(style)
-            header.setCursor(Qt.CursorShape.PointingHandCursor)
-
-            # Flow container for this group
-            grid = QWidget()
-            labels = []
-            for idx, img in items:
-                lbl = ClickableLabel(grid)
-                lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                pix = self._get_pixmap(img.path)
-                if not pix.isNull():
-                    scaled = pix.scaled(sz, sz,
-                                        Qt.AspectRatioMode.KeepAspectRatio,
-                                        Qt.TransformationMode.SmoothTransformation)
-                    lbl.setPixmap(scaled)
-                lbl.setProperty("img_idx", idx)
-                labels.append(lbl)
-
-            w = max(self._grid_scroll.viewport().width(), 200)
-            h = _flow_position(labels, w, sz)
-            grid.setFixedHeight(h)
-            grid._labels = labels
-
-            if timer_val == 0:
-                grid.setVisible(False)
-
-            header.clicked.connect(lambda checked, g=grid: g.setVisible(not g.isVisible()))
-
-            self._grid_layout.insertWidget(insert_pos, header)
-            self._grid_layout.insertWidget(insert_pos + 1, grid)
-            self._grid_groups.append((header, grid))
-            insert_pos += 2
+    def _on_dock_back(self):
+        if self._parent and hasattr(self._parent, '_dock_editor_from_detached'):
+            self._parent._dock_editor_from_detached(self.images, self._panel._view_mode)
+        self.close()
 
     def refresh(self, images):
-        old_paths = {img.path for img in self.images}
         self.images = list(images)
-        new_paths = {img.path for img in self.images}
-        if old_paths != new_paths:
-            self._pix_cache.clear()
-        self._rebuild()
+        self._panel.refresh(images)
 
-    def _emit(self):
-        self.images_updated.emit(self.images)
+    @property
+    def _view_mode(self):
+        if hasattr(self, '_panel'):
+            return self._panel._view_mode
+        return self.__dict__.get('_view_mode_init', 'list')
 
-    # ------------------------------------------------------------------ Actions
-
-    def _add_files(self):
-        exts = " ".join(f"*{e}" for e in SUPPORTED_FORMATS)
-        paths, _ = QFileDialog.getOpenFileNames(
-            self, "Select files", "",
-            f"Images ({exts});;All files (*)")
-        if paths:
-            for p in filter_image_files(paths):
-                self.images.append(ImageItem(path=p, timer=300))
-            self._rebuild()
-            self._emit()
-
-    def _add_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select folder")
-        if folder:
-            for p in scan_folder(folder):
-                self.images.append(ImageItem(path=p, timer=300))
-            self._rebuild()
-            self._emit()
-
-    def _add_from_url(self):
-        from ui.url_dialog import UrlDialog
-        timer = 300
-        if self._parent and hasattr(self._parent, "get_timer_seconds"):
-            timer = self._parent.get_timer_seconds()
-        dlg = UrlDialog(self.theme, timer=timer, parent=self)
-        dlg.images_loaded.connect(self._on_url_images)
-        dlg.exec()
-
-    def _on_url_images(self, images):
-        for img in images:
-            self.images.append(img)
-        self._pix_cache.clear()
-        self._rebuild()
-        self._emit()
-        self._update_cache_size()
-
-    def _clear(self):
-        if not self.images:
-            return
-        from PyQt6.QtWidgets import QMessageBox
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Clear")
-        msg.setText(f"Remove all {len(self.images)} files from list?")
-        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        msg.setDefaultButton(QMessageBox.StandardButton.No)
-        t = self.theme
-        msg.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary}; font-size: 12px;")
-        if msg.exec() != QMessageBox.StandardButton.Yes:
-            return
-        self.images = []
-        self._rebuild()
-        self._emit()
-
-    def _move_up(self):
-        for _, lw in self._list_groups:
-            row = lw.currentRow()
-            if row > 0:
-                idx_a = lw.item(row).data(Qt.ItemDataRole.UserRole)
-                idx_b = lw.item(row - 1).data(Qt.ItemDataRole.UserRole)
-                self.images[idx_a], self.images[idx_b] = self.images[idx_b], self.images[idx_a]
-                self._rebuild()
-                self._emit()
-                return
-
-    def _move_down(self):
-        for _, lw in self._list_groups:
-            row = lw.currentRow()
-            if 0 <= row < lw.count() - 1:
-                idx_a = lw.item(row).data(Qt.ItemDataRole.UserRole)
-                idx_b = lw.item(row + 1).data(Qt.ItemDataRole.UserRole)
-                self.images[idx_a], self.images[idx_b] = self.images[idx_b], self.images[idx_a]
-                self._rebuild()
-                self._emit()
-                return
-
-    def _on_reorder(self):
-        new_order = []
-        for _, lw in self._list_groups:
-            for i in range(lw.count()):
-                item = lw.item(i)
-                orig_idx = item.data(Qt.ItemDataRole.UserRole)
-                if orig_idx is not None and orig_idx < len(self.images):
-                    new_order.append(self.images[orig_idx])
-        if new_order:
-            self.images = new_order
-            self._rebuild()
-            self._emit()
-
-    def _delete_selected(self):
-        indices_to_remove = set()
-        if self._view_mode == "list":
-            for _, lw in self._list_groups:
-                for idx in lw.selectedIndexes():
-                    item = lw.item(idx.row())
-                    orig = item.data(Qt.ItemDataRole.UserRole)
-                    if orig is not None:
-                        indices_to_remove.add(orig)
-        else:
-            for lbl in self._selected_tiles:
-                idx = lbl.property("img_idx")
-                if idx is not None:
-                    indices_to_remove.add(idx)
-            self._selected_tiles.clear()
-        for i in sorted(indices_to_remove, reverse=True):
-            if 0 <= i < len(self.images):
-                self.images.pop(i)
-        if indices_to_remove:
-            self._rebuild()
-            self._emit()
-
-    def _get_all_tile_labels(self):
-        """Return all tile labels in order across all grid groups."""
-        all_labels = []
-        for _, grid in self._grid_groups:
-            all_labels.extend(getattr(grid, "_labels", []))
-        return all_labels
-
-    def _select_tile(self, lbl):
-        t = self.theme
-        self._selected_tiles.add(lbl)
-        lbl._selected = True
-        lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
-
-    def _deselect_tile(self, lbl):
-        self._selected_tiles.discard(lbl)
-        lbl._selected = False
-        lbl.setStyleSheet("")
-
-    def _on_tile_click(self, lbl, ctrl, shift=False):
-        if shift and self._last_clicked_tile is not None:
-            all_labels = self._get_all_tile_labels()
-            try:
-                idx_a = all_labels.index(self._last_clicked_tile)
-                idx_b = all_labels.index(lbl)
-            except ValueError:
-                idx_a, idx_b = None, None
-            if idx_a is not None and idx_b is not None:
-                lo, hi = min(idx_a, idx_b), max(idx_a, idx_b)
-                if not ctrl:
-                    for old in list(self._selected_tiles):
-                        self._deselect_tile(old)
-                for i in range(lo, hi + 1):
-                    self._select_tile(all_labels[i])
-                self._last_clicked_tile = lbl
-                return
-
-        if ctrl:
-            if lbl in self._selected_tiles:
-                self._deselect_tile(lbl)
-            else:
-                self._select_tile(lbl)
-        else:
-            for old in list(self._selected_tiles):
-                self._deselect_tile(old)
-            self._select_tile(lbl)
-        self._last_clicked_tile = lbl
-
-    def _reflow_grid(self):
-        if self._view_mode != "grid" or not self._grid_groups:
-            return
-        sz = self._zoom_slider.value()
-        w = max(self._grid_scroll.viewport().width(), 200)
-        for _, grid in self._grid_groups:
-            labels = getattr(grid, "_labels", [])
-            if labels and grid.isVisible():
-                h = _flow_position(labels, w, sz)
-                grid.setFixedHeight(h)
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        if self._needs_initial_rebuild:
-            self._needs_initial_rebuild = False
-            QTimer.singleShot(10, self._rebuild)
-        else:
-            self._reflow_grid()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._reflow_grid()
+    @_view_mode.setter
+    def _view_mode(self, val):
+        self.__dict__['_view_mode_init'] = val
 
     def closeEvent(self, event):
-        if self._parent and hasattr(self._parent, "_on_editor_close"):
+        if self._parent and hasattr(self._parent, '_on_editor_close'):
             self._parent._on_editor_close()
         super().closeEvent(event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Delete:
-            self._delete_selected()
+            self._panel._delete_selected()
         else:
             super().keyPressEvent(event)
