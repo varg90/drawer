@@ -25,6 +25,9 @@ class ImageEditorWindow(QWidget, SnapMixin):
         self.setMinimumSize(200, 200)
         self._resizing = False
         self._resize_edge = None
+        self._resize_start = None
+        self._resize_geo = None
+        self._last_edge = None
         self._build_ui()
         self._apply_theme()
         SnapMixin.__init__(self)
@@ -132,20 +135,20 @@ class ImageEditorWindow(QWidget, SnapMixin):
         self.snap_mouse_press(event)
 
     def mouseMoveEvent(self, event):
-        # Update cursor on hover
+        # Update cursor on hover — only call setCursor when edge changes
         if not event.buttons():
             edge = self._edge_at(event.pos())
-            if edge:
-                self.setCursor(self._cursor_for_edge(edge))
-            else:
-                self.setCursor(Qt.CursorShape.ArrowCursor)
+            if edge != self._last_edge:
+                self._last_edge = edge
+                self.setCursor(self._cursor_for_edge(edge) if edge else Qt.CursorShape.ArrowCursor)
             return
 
         # Resize
         if self._resizing and self._resize_edge:
             delta = event.globalPosition().toPoint() - self._resize_start
             geo = self._resize_geo
-            new_geo = geo.__class__(geo)
+            from PyQt6.QtCore import QRect
+            new_geo = QRect(geo)
             e = self._resize_edge
             if "r" in e:
                 new_geo.setRight(geo.right() + delta.x())
