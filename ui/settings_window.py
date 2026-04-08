@@ -3,7 +3,7 @@ import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QPushButton, QLabel, QFileDialog,
                               QSizePolicy, QApplication, QFrame)
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QColor
 from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_PRESETS
 from core.timer_logic import format_time
@@ -872,6 +872,10 @@ class SettingsWindow(QMainWindow):
 
         self._last_editor_view = data.get("editor_view", "list")
         self._last_viewer_size = data.get("viewer_size")
+        saved_dock = data.get("dock_mode", "compact")
+        # Only restore compact or right; detached requires user action
+        if saved_dock == "right" and self.images:
+            QTimer.singleShot(100, self._open_editor)
 
         theme_name = data.get("theme", "dark")
         accent = data.get("accent")
@@ -910,6 +914,7 @@ class SettingsWindow(QMainWindow):
                 else getattr(self, "_last_editor_view", "list")
             ),
             "viewer_size": getattr(self, "_last_viewer_size", None),
+            "dock_mode": self._dock_mode,
         }
         save_session(data)
 
