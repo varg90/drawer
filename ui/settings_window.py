@@ -759,6 +759,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
                 if i < len(timers):
                     img.timer = timers[i]
                     show_images.append(img)
+            # Sort by timer so slideshow goes from short to long poses
+            show_images.sort(key=lambda img: img.timer)
 
         settings = {
             "order": "random" if self._random else "sequential",
