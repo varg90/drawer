@@ -16,6 +16,7 @@ from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import (make_icon_btn, make_start_btn, make_icon_toggle,
                          make_centered_header, make_timer_btn)
+from ui.snap import SnapMixin
 
 
 ALL_TIERS = [(30, "30s"), (60, "1m"), (180, "3m"),
@@ -43,22 +44,19 @@ class TierToggle(QPushButton):
         return self._active
 
 
-class SettingsWindow(QMainWindow):
+class SettingsWindow(QMainWindow, SnapMixin):
     images_changed = pyqtSignal()
 
     def __init__(self):
-        super().__init__()
+        QMainWindow.__init__(self)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("RefBot")
         self.setFixedSize(S.MAIN_W, S.MAIN_H)
 
         self.images = []
         self.viewer = None
+        self.editor = None
         self.theme = Theme("dark")
-
-        # Dock state for editor panel
-        self._dock_mode = "compact"   # "compact", "right", "detached"
-        self._editor_panel = None
 
         # "quick" replaces old "standard", "class" replaces old "session"
         self._timer_mode = "quick"
@@ -73,40 +71,16 @@ class SettingsWindow(QMainWindow):
 
         self._build_ui()
         self._apply_theme()
+        SnapMixin.__init__(self)
         self._restore_session()
         self.setAcceptDrops(True)
 
     # ------------------------------------------------------------------ UI
 
     def _build_ui(self):
-        # Central widget with horizontal layout for settings + optional docked editor
         central = QWidget()
         self.setCentralWidget(central)
-        main_hbox = QHBoxLayout(central)
-        main_hbox.setContentsMargins(0, 0, 0, 0)
-        main_hbox.setSpacing(0)
-
-        settings_container = QWidget()
-        settings_container.setFixedWidth(S.MAIN_W)
-        main_hbox.addWidget(settings_container)
-
-        # Vertical divider (hidden until editor docked)
-        self._dock_divider = QFrame()
-        self._dock_divider.setFrameShape(QFrame.Shape.VLine)
-        self._dock_divider.setFixedWidth(1)
-        self._dock_divider.hide()
-        main_hbox.addWidget(self._dock_divider)
-
-        # Editor container (hidden until editor docked)
-        self._editor_container = QWidget()
-        self._editor_container.setFixedWidth(S.EDITOR_W)
-        self._editor_container.hide()
-        main_hbox.addWidget(self._editor_container)
-
-        self.setFixedSize(S.MAIN_W, S.MAIN_H)
-
-        # All settings content goes inside settings_container
-        root = QVBoxLayout(settings_container)
+        root = QVBoxLayout(central)
         root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
 
@@ -301,7 +275,6 @@ class SettingsWindow(QMainWindow):
     def _apply_theme(self):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
-        self._dock_divider.setStyleSheet(f"color: {t.border};")
 
         # Header title (may already exist from make_centered_header, refresh it)
         self._title.setStyleSheet(
@@ -377,18 +350,13 @@ class SettingsWindow(QMainWindow):
     # ------------------------------------------------------------------ Window dragging
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
+        self.snap_mouse_press(event)
 
     def mouseMoveEvent(self, event):
-        if event.buttons() & Qt.MouseButton.LeftButton and hasattr(self, '_drag_pos'):
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
+        self.snap_mouse_move(event)
 
     def mouseReleaseEvent(self, event):
-        if hasattr(self, '_drag_pos'):
-            del self._drag_pos
+        self.snap_mouse_release(event)
 
     # ------------------------------------------------------------------ Help / Theme / Accent
 
@@ -424,10 +392,10 @@ class SettingsWindow(QMainWindow):
     def _toggle_theme(self):
         self.theme.toggle()
         self._apply_theme()
-        if self._editor_panel is not None:
-            self._editor_panel.theme = self.theme
-            self._editor_panel._apply_theme()
-            self._editor_panel._rebuild()
+        if self.editor is not None and self.editor.isVisible():
+            self.editor._panel.theme = self.theme
+            self.editor._panel._apply_theme()
+            self.editor._panel._rebuild()
 
     def _pick_accent(self):
         from PyQt6.QtWidgets import QColorDialog
@@ -436,9 +404,9 @@ class SettingsWindow(QMainWindow):
         if color.isValid():
             self.theme.accent = color.name()
             self._apply_theme()
-            if self._editor_panel is not None:
-                self._editor_panel._apply_theme()
-                self._editor_panel._rebuild()
+            if self.editor is not None and self.editor.isVisible():
+                self.editor._panel._apply_theme()
+                self.editor._panel._rebuild()
 
     # ------------------------------------------------------------------ Toggle methods
 
@@ -486,8 +454,8 @@ class SettingsWindow(QMainWindow):
         self._update_mode_buttons()
         self._update_summary()
         self._apply_theme()  # refreshes duration picker color
-        if self._editor_panel is not None and self._dock_mode == "right":
-            self._editor_panel.refresh(self.images)
+        if self.editor is not None and self.editor.isVisible():
+            self.editor.refresh(self.images)
 
     def _update_mode_buttons(self):
         t = self.theme
@@ -516,8 +484,8 @@ class SettingsWindow(QMainWindow):
                     img.timer = s
                 self._update_preset_styles()
                 self._update_summary()
-                if self._editor_panel is not None and self._dock_mode == "right":
-                    self._editor_panel.refresh(self.images)
+                if self.editor is not None and self.editor.isVisible():
+                    self.editor.refresh(self.images)
                 return
 
     def _update_preset_styles(self):
@@ -620,8 +588,8 @@ class SettingsWindow(QMainWindow):
                 if getattr(img, "pinned", False):
                     continue
                 img.timer = timers[i] if i < len(timers) else 0
-        if self._editor_panel is not None and self._dock_mode == "right":
-            self._editor_panel.refresh(self.images)
+        if self.editor is not None and self.editor.isVisible():
+            self.editor.refresh(self.images)
 
     def _auto_distribute(self):
         if not self.images:
@@ -715,63 +683,35 @@ class SettingsWindow(QMainWindow):
         self._update_img_count()
         self._update_summary()
         self.images_changed.emit()
-        if self._editor_panel is not None and self._dock_mode == "right":
-            self._editor_panel.refresh(self.images)
+        if self.editor is not None and self.editor.isVisible():
+            self.editor.refresh(self.images)
 
     def _open_editor(self):
-        """Open the editor panel docked to the right of the settings window."""
-        if self._dock_mode == "right":
+        """Open the editor as a separate window, snapped to the right."""
+        if self.editor is not None and self.editor.isVisible():
+            self.editor.raise_()
             return
-        if self._dock_mode == "detached":
-            if self.editor and self.editor.isVisible():
-                self.editor.raise_()
-                return
-
-        if self._editor_panel is None:
-            from ui.editor_panel import EditorPanel
-            view = getattr(self, "_last_editor_view", "list")
-            self._editor_panel = EditorPanel(
-                self.images, self.theme, parent=self, view_mode=view)
-            self._editor_panel.images_updated.connect(self._on_editor_update)
-            self._editor_panel.close_requested.connect(self._close_editor)
-            self._editor_panel.detach_requested.connect(self._detach_editor)
-            layout = QVBoxLayout(self._editor_container)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.setSpacing(0)
-            layout.addWidget(self._editor_panel)
-        else:
-            self._editor_panel.refresh(self.images)
-
-        self._dock_divider.show()
-        self._editor_container.show()
-        self.setFixedSize(S.MAIN_W + 1 + S.EDITOR_W, S.MAIN_H)
-        self._dock_mode = "right"
-
-    def _close_editor(self):
-        """Collapse the docked editor and restore original window size."""
-        if self._editor_panel is not None:
-            self._last_editor_view = self._editor_panel._view_mode
-        self._dock_divider.hide()
-        self._editor_container.hide()
-        self.setFixedSize(S.MAIN_W, S.MAIN_H)
-        self._dock_mode = "compact"
-
-    def _detach_editor(self):
-        """Detach the editor into a standalone floating window."""
-        if self._editor_panel is not None:
-            self._last_editor_view = self._editor_panel._view_mode
-        self._dock_divider.hide()
-        self._editor_container.hide()
-        self.setFixedSize(S.MAIN_W, S.MAIN_H)
-        self._dock_mode = "detached"
         from ui.image_editor_window import ImageEditorWindow
         view = getattr(self, "_last_editor_view", "list")
         self.editor = ImageEditorWindow(self.images, self.theme, parent=self, view_mode=view)
         self.editor.images_updated.connect(self._on_editor_update)
+        # Position to the right and auto-snap
+        pos = self.geometry()
+        self.editor.move(pos.right() + 1, pos.top())
+        self.editor.resize(S.EDITOR_W, S.MAIN_H)
         self.editor.show()
+        # Establish snap relationship
+        self.editor._snapped_to = (self, "right")
+        self._snapped_children.append((self.editor, "right"))
+
+    def _on_editor_close(self):
+        """Called when the editor window is closed."""
+        if self.editor is not None:
+            self._last_editor_view = self.editor._view_mode
+        self.editor = None
 
     def _on_editor_update(self, images):
-        self.images = images
+        self.images = list(images)
         self._update_img_count()
         self._update_summary()
 
@@ -878,10 +818,6 @@ class SettingsWindow(QMainWindow):
 
         self._last_editor_view = data.get("editor_view", "list")
         self._last_viewer_size = data.get("viewer_size")
-        saved_dock = data.get("dock_mode", "compact")
-        # Only restore compact or right; detached requires user action
-        if saved_dock == "right" and self.images:
-            QTimer.singleShot(100, self._open_editor)
 
         theme_name = data.get("theme", "dark")
         accent = data.get("accent")
@@ -915,11 +851,12 @@ class SettingsWindow(QMainWindow):
             "accent": self.theme.accent,
             "tiers": [secs for btn, secs in self._class_btns if btn.isChecked()],
             "editor_view": (
-                self._editor_panel._view_mode if self._editor_panel is not None and self._dock_mode == "right"
+                self.editor._view_mode if self.editor is not None and self.editor.isVisible()
                 else getattr(self, "_last_editor_view", "list")
             ),
             "viewer_size": getattr(self, "_last_viewer_size", None),
-            "dock_mode": self._dock_mode,
+            "editor_pos": [self.editor.x(), self.editor.y()] if self.editor and self.editor.isVisible() else None,
+            "editor_size": [self.editor.width(), self.editor.height()] if self.editor and self.editor.isVisible() else None,
         }
         save_session(data)
 
@@ -932,4 +869,5 @@ class SettingsWindow(QMainWindow):
             self.viewer.show()
         else:
             self._save_session()
+            self.snap_cleanup()
             event.accept()

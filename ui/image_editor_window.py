@@ -6,14 +6,15 @@ from ui.editor_panel import EditorPanel
 from ui.icons import Icons
 from ui.scales import S
 from ui.widgets import make_icon_btn
+from ui.snap import SnapMixin
 
 
-class ImageEditorWindow(QWidget):
-    """Detached editor window — thin wrapper around EditorPanel."""
+class ImageEditorWindow(QWidget, SnapMixin):
+    """Editor window — always a separate window with magnetic snap."""
     images_updated = pyqtSignal(list)
 
     def __init__(self, images, theme, parent=None, view_mode="list"):
-        super().__init__()
+        QWidget.__init__(self)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.images = list(images)
         self.theme = theme
@@ -21,13 +22,7 @@ class ImageEditorWindow(QWidget):
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
         self._build_ui()
         self._apply_theme()
-
-        self.adjustSize()
-        if parent is not None:
-            pg = parent.geometry()
-            x = pg.x() + (pg.width() - self.width()) // 2
-            y = pg.y() + (pg.height() - self.height()) // 2
-            self.move(x, y)
+        SnapMixin.__init__(self)
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -44,16 +39,6 @@ class ImageEditorWindow(QWidget):
             f"font-size: {S.FONT_BUTTON}px; font-weight: 500;")
         title_bar.addWidget(title)
         title_bar.addStretch()
-        self._dock_btn = QPushButton()
-        self._dock_btn.setIcon(qta.icon(Icons.DOCK, color=self.theme.text_button))
-        self._dock_btn.setIconSize(QSize(12, 12))
-        self._dock_btn.setFixedSize(22, 20)
-        self._dock_btn.setToolTip("Dock to main window")
-        self._dock_btn.setStyleSheet(
-            f"background-color: {self.theme.bg_button}; "
-            f"border: 1px solid {self.theme.border};")
-        self._dock_btn.clicked.connect(self._on_dock_back)
-        title_bar.addWidget(self._dock_btn)
         self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint)
         self._min_btn.clicked.connect(self.showMinimized)
         title_bar.addWidget(self._min_btn)
@@ -79,11 +64,6 @@ class ImageEditorWindow(QWidget):
         self.images = images
         self.images_updated.emit(images)
 
-    def _on_dock_back(self):
-        if self._parent and hasattr(self._parent, '_dock_editor_from_detached'):
-            self._parent._dock_editor_from_detached(self.images, self._panel._view_mode)
-        self.close()
-
     def refresh(self, images):
         self.images = list(images)
         self._panel.refresh(images)
@@ -99,20 +79,16 @@ class ImageEditorWindow(QWidget):
         self.__dict__['_view_mode_init'] = val
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
+        self.snap_mouse_press(event)
 
     def mouseMoveEvent(self, event):
-        if event.buttons() & Qt.MouseButton.LeftButton and hasattr(self, '_drag_pos'):
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
+        self.snap_mouse_move(event)
 
     def mouseReleaseEvent(self, event):
-        if hasattr(self, '_drag_pos'):
-            del self._drag_pos
+        self.snap_mouse_release(event)
 
     def closeEvent(self, event):
+        self.snap_cleanup()
         if self._parent and hasattr(self._parent, '_on_editor_close'):
             self._parent._on_editor_close()
         super().closeEvent(event)
