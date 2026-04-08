@@ -1,9 +1,10 @@
 import os
+import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QPushButton, QLabel, QCheckBox, QFileDialog,
                               QSizePolicy, QApplication, QStackedWidget)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPainter, QColor, QPen
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QColor
 from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_PRESETS
 from core.timer_logic import format_time
 from core.class_mode import auto_distribute, groups_to_timers, total_duration, format_group
@@ -19,28 +20,22 @@ ALL_TIERS = [(30, "30с"), (60, "1м"), (180, "3м"),
 
 
 class ThemeToggleButton(QPushButton):
-    """Small circle split dark/light halves."""
+    """Theme toggle using Phosphor Bold icons."""
 
     def __init__(self, theme, parent=None):
         super().__init__(parent)
         self.theme = theme
-        self.setFixedSize(16, 16)
+        self.setFixedSize(20, 20)
+        self.setIconSize(QSize(14, 14))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("background: transparent; border: none;")
+        self.update_icon()
 
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = self.rect().adjusted(1, 1, -1, -1)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#333"))
-        p.drawChord(r, 90 * 16, 180 * 16)
-        p.setBrush(QColor("#ccc"))
-        p.drawChord(r, 270 * 16, 180 * 16)
-        p.setPen(QPen(QColor(self.theme.border_active), 1))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawEllipse(r)
-        p.end()
+    def update_icon(self):
+        if self.theme.name == "dark":
+            self.setIcon(qta.icon("ph.moon-bold", color=self.theme.text_hint))
+        else:
+            self.setIcon(qta.icon("ph.sun-bold", color=self.theme.text_hint))
 
 
 class SegmentButton(QPushButton):
@@ -85,7 +80,7 @@ class SettingsWindow(QMainWindow):
         self.theme = Theme("dark")
 
         self._timer_mode = "standard"
-        self._preset_index = 2  # default 5min
+        self._preset_index = 3  # default 5min
         self._session_index = 5  # default 1h
         self._manual_groups = []
         self._class_groups = []
@@ -110,20 +105,47 @@ class SettingsWindow(QMainWindow):
         root.setContentsMargins(16, 12, 16, 12)
         root.setSpacing(10)
 
-        # 1. Header row: ? + REFBOT (centered) + theme toggle
+        # 1. Header row: [info, spacer] + REFBOT (centered) + [accent, theme]
         header_row = QHBoxLayout()
-        self._help_btn = QPushButton("?")
-        self._help_btn.setFixedSize(16, 16)
+        header_row.setSpacing(4)
+
+        left_box = QHBoxLayout()
+        left_box.setSpacing(4)
+        self._help_btn = QPushButton()
+        self._help_btn.setIcon(qta.icon("ph.info-bold", color=self.theme.text_hint))
+        self._help_btn.setIconSize(QSize(14, 14))
+        self._help_btn.setFixedSize(20, 20)
         self._help_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._help_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._help_btn.clicked.connect(self._show_help)
-        header_row.addWidget(self._help_btn)
+        left_box.addWidget(self._help_btn)
+        left_box.addStretch()
+        left_w = QWidget()
+        left_w.setLayout(left_box)
+        left_w.setStyleSheet("background: transparent;")
+
+        right_box = QHBoxLayout()
+        right_box.setSpacing(4)
         self._theme_btn = ThemeToggleButton(self.theme)
         self._theme_btn.clicked.connect(self._toggle_theme)
+        self._accent_btn = QPushButton()
+        self._accent_btn.setFixedSize(14, 14)
+        self._accent_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._accent_btn.setToolTip("Цвет акцента")
+        self._accent_btn.clicked.connect(self._pick_accent)
+        right_box.addStretch()
+        right_box.addWidget(self._accent_btn)
+        right_box.addWidget(self._theme_btn)
+        right_w = QWidget()
+        right_w.setLayout(right_box)
+        right_w.setStyleSheet("background: transparent;")
+
         self._title = QLabel("REFBOT")
         self._title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        header_row.addWidget(self._title, 1)
-        header_row.addWidget(self._theme_btn)
+
+        header_row.addWidget(left_w, 1)
+        header_row.addWidget(self._title)
+        header_row.addWidget(right_w, 1)
         root.addLayout(header_row)
 
         # 2. Drop zone
@@ -151,9 +173,12 @@ class SettingsWindow(QMainWindow):
         self._overflow_label.hide()
         thumb_row.addWidget(self._overflow_label)
         thumb_row.addStretch()
-        self._edit_btn = QPushButton("Edit")
-        self._edit_btn.setFixedHeight(24)
+        self._edit_btn = QPushButton()
+        self._edit_btn.setIcon(qta.icon("ph.pencil-simple-bold", color=self.theme.text_button))
+        self._edit_btn.setIconSize(QSize(14, 14))
+        self._edit_btn.setFixedSize(26, 24)
         self._edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._edit_btn.setToolTip("Редактировать")
         self._edit_btn.clicked.connect(self._open_editor)
         thumb_row.addWidget(self._edit_btn)
         root.addLayout(thumb_row)
@@ -208,14 +233,18 @@ class SettingsWindow(QMainWindow):
 
         sdur_row = QHBoxLayout()
         sdur_row.addStretch()
-        self._ses_left = QPushButton("<")
+        self._ses_left = QPushButton()
+        self._ses_left.setIcon(qta.icon("ph.caret-left-bold", color=self.theme.text_secondary))
+        self._ses_left.setIconSize(QSize(16, 16))
         self._ses_left.setFixedSize(28, 28)
         self._ses_left.clicked.connect(self._prev_session)
         sdur_row.addWidget(self._ses_left)
         self._ses_display = QLabel("1:00:00")
         self._ses_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sdur_row.addWidget(self._ses_display)
-        self._ses_right = QPushButton(">")
+        self._ses_right = QPushButton()
+        self._ses_right.setIcon(qta.icon("ph.caret-right-bold", color=self.theme.text_secondary))
+        self._ses_right.setIconSize(QSize(16, 16))
         self._ses_right.setFixedSize(28, 28)
         self._ses_right.clicked.connect(self._next_session)
         sdur_row.addWidget(self._ses_right)
@@ -243,7 +272,9 @@ class SettingsWindow(QMainWindow):
         self._auto_btn = QPushButton("Авто-распределение")
         self._auto_btn.clicked.connect(self._auto_distribute)
         auto_row.addWidget(self._auto_btn)
-        self._reset_btn = QPushButton("x")
+        self._reset_btn = QPushButton()
+        self._reset_btn.setIcon(qta.icon("ph.x-bold", color=self.theme.text_secondary))
+        self._reset_btn.setIconSize(QSize(12, 12))
         self._reset_btn.clicked.connect(self._reset_groups)
         auto_row.addWidget(self._reset_btn)
         auto_row.addStretch()
@@ -302,9 +333,8 @@ class SettingsWindow(QMainWindow):
             f"color: {t.text_header}; font-size: 12px; font-weight: 500; "
             f"letter-spacing: 3px;")
 
-        self._help_btn.setStyleSheet(
-            f"background-color: transparent; color: {t.text_hint}; "
-            f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500;")
+        self._help_btn.setIcon(qta.icon("ph.info-bold", color=t.text_hint))
+        self._help_btn.setStyleSheet("background: transparent; border: none;")
 
         self._drop_zone.setStyleSheet(
             f"background-color: {t.bg_secondary}; border: 1px dashed {t.border_active}; "
@@ -316,16 +346,17 @@ class SettingsWindow(QMainWindow):
             f"background-color: {t.bg_row_even}; color: {t.text_secondary}; "
             f"font-size: 11px; font-weight: 500;")
 
-        edit_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
-                  f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
-                  f"padding: 3px 6px;")
+        self._edit_btn.setIcon(qta.icon("ph.pencil-simple-bold", color=t.text_button))
+        edit_s = (f"background-color: {t.bg_button}; "
+                  f"border: 1px solid {t.border}; padding: 3px 6px;")
         self._edit_btn.setStyleSheet(edit_s)
 
         self._update_mode_buttons()
 
-        arrow_s = (f"background-color: transparent; color: {t.text_secondary}; "
-                   f"border: none; font-size: 16px; font-weight: bold;")
+        arrow_s = "background-color: transparent; border: none;"
+        self._ses_left.setIcon(qta.icon("ph.caret-left-bold", color=t.text_secondary))
         self._ses_left.setStyleSheet(arrow_s)
+        self._ses_right.setIcon(qta.icon("ph.caret-right-bold", color=t.text_secondary))
         self._ses_right.setStyleSheet(arrow_s)
 
         self._ses_display.setStyleSheet(
@@ -339,10 +370,11 @@ class SettingsWindow(QMainWindow):
         self._update_preset_styles()
         self._update_tier_styles()
 
-        auto_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
+        auto_s = (f"background-color: {t.bg_button}; color: {t.text_secondary}; "
                   f"border: 1px solid {t.border}; font-size: 11px; font-weight: 500; "
                   f"padding: 5px 14px;")
         self._auto_btn.setStyleSheet(auto_s)
+        self._reset_btn.setIcon(qta.icon("ph.x-bold", color=t.text_secondary))
         self._reset_btn.setStyleSheet(auto_s)
 
         self._groups_label.setStyleSheet(
@@ -358,6 +390,10 @@ class SettingsWindow(QMainWindow):
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; color: {t.start_text}; "
             f"font-size: 14px; font-weight: 600; letter-spacing: 1px; border: none;")
+
+        self._accent_btn.setStyleSheet(
+            f"background-color: {t.accent}; border: 1px solid {t.border}; "
+            f"border-radius: 7px;")
 
     def _show_help(self):
         from PyQt6.QtWidgets import QDialog, QVBoxLayout
@@ -391,7 +427,16 @@ class SettingsWindow(QMainWindow):
     def _toggle_theme(self):
         self.theme.toggle()
         self._apply_theme()
-        self._theme_btn.update()
+        self._theme_btn.update_icon()
+
+    def _pick_accent(self):
+        from PyQt6.QtWidgets import QColorDialog
+        color = QColorDialog.getColor(
+            QColor(self.theme.accent), self, "Цвет акцента")
+        if color.isValid():
+            self.theme.accent = color.name()
+            self._apply_theme()
+            self._theme_btn.update_icon()
 
     # ------------------------------------------------------------------ Mode
 
@@ -745,9 +790,12 @@ class SettingsWindow(QMainWindow):
         self._last_viewer_size = data.get("viewer_size")
 
         theme_name = data.get("theme", "dark")
+        accent = data.get("accent")
+        if accent:
+            self.theme.accent = accent
         if theme_name != self.theme.name:
             self.theme.toggle()
-            self._apply_theme()
+        self._apply_theme()
 
         self._update_preset_styles()
         self._update_session_display()
@@ -764,6 +812,7 @@ class SettingsWindow(QMainWindow):
             "random_order": self._random_cb.isChecked(),
             "topmost": self._topmost_cb.isChecked(),
             "theme": self.theme.name,
+            "accent": self.theme.accent,
             "tiers": [btn.seconds for btn in self._tier_toggles if btn.isChecked()],
             "editor_view": self.editor._view_mode if self.editor and self.editor.isVisible() else getattr(self, "_last_editor_view", "list"),
             "viewer_size": getattr(self, "_last_viewer_size", None),
