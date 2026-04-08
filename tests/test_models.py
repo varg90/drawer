@@ -54,3 +54,23 @@ def test_image_item_roundtrip_with_source_url():
     original = ImageItem(path="C:/a.jpg", timer=42, source_url="https://ya.ru/d/x")
     restored = ImageItem.from_dict(original.to_dict())
     assert original == restored
+
+
+def test_image_item_pinned_default():
+    img = ImageItem(path="test.jpg")
+    assert img.pinned is False
+
+
+def test_image_item_pinned_true():
+    img = ImageItem(path="test.jpg", timer=300, pinned=True)
+    assert img.pinned is True
+    d = img.to_dict()
+    assert d["pinned"] is True
+    restored = ImageItem.from_dict(d)
+    assert restored.pinned is True
+
+
+def test_image_item_pinned_not_in_dict_when_false():
+    img = ImageItem(path="test.jpg")
+    d = img.to_dict()
+    assert "pinned" not in d
