@@ -13,6 +13,8 @@ class ImageEditorWindow(QWidget, SnapMixin):
     """Editor window — always a separate window with magnetic snap."""
     images_updated = pyqtSignal(list)
 
+    EDGE = 6  # resize grip width in pixels
+
     def __init__(self, images, theme, parent=None, view_mode="list"):
         QWidget.__init__(self)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -20,9 +22,13 @@ class ImageEditorWindow(QWidget, SnapMixin):
         self.theme = theme
         self._parent = parent
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
+        self.setMinimumSize(200, 200)
+        self._resizing = False
+        self._resize_edge = None
         self._build_ui()
         self._apply_theme()
         SnapMixin.__init__(self)
+        self.setMouseTracking(True)
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -53,8 +59,11 @@ class ImageEditorWindow(QWidget, SnapMixin):
             self.images, self.theme, parent=self, view_mode=init_view)
         self._panel.images_updated.connect(self._on_panel_update)
         self._panel.close_requested.connect(self.close)
-        # Hide the detach button — already detached
-        self._panel._detach_btn.setVisible(False)
+        # Hide detach and close in panel — window title bar has them
+        if hasattr(self._panel, '_detach_btn'):
+            self._panel._detach_btn.setVisible(False)
+        if hasattr(self._panel, '_close_btn'):
+            self._panel._close_btn.setVisible(False)
         root.addWidget(self._panel)
 
     def _apply_theme(self):
@@ -78,13 +87,79 @@ class ImageEditorWindow(QWidget, SnapMixin):
     def _view_mode(self, val):
         self.__dict__['_view_mode_init'] = val
 
+    def _edge_at(self, pos):
+        """Return which edge(s) the cursor is near, or None."""
+        r = self.rect()
+        e = self.EDGE
+        edges = ""
+        if pos.y() < e:
+            edges += "t"
+        elif pos.y() > r.height() - e:
+            edges += "b"
+        if pos.x() < e:
+            edges += "l"
+        elif pos.x() > r.width() - e:
+            edges += "r"
+        return edges or None
+
+    def _cursor_for_edge(self, edge):
+        if edge in ("t", "b"):
+            return Qt.CursorShape.SizeVerCursor
+        if edge in ("l", "r"):
+            return Qt.CursorShape.SizeHorCursor
+        if edge in ("tl", "br"):
+            return Qt.CursorShape.SizeFDiagCursor
+        if edge in ("tr", "bl"):
+            return Qt.CursorShape.SizeBDiagCursor
+        return Qt.CursorShape.ArrowCursor
+
     def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            edge = self._edge_at(event.pos())
+            if edge:
+                self._resizing = True
+                self._resize_edge = edge
+                self._resize_start = event.globalPosition().toPoint()
+                self._resize_geo = self.geometry()
+                event.accept()
+                return
+        self._resizing = False
         self.snap_mouse_press(event)
 
     def mouseMoveEvent(self, event):
+        # Update cursor on hover
+        if not event.buttons():
+            edge = self._edge_at(event.pos())
+            if edge:
+                self.setCursor(self._cursor_for_edge(edge))
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+            return
+
+        # Resize
+        if self._resizing and self._resize_edge:
+            delta = event.globalPosition().toPoint() - self._resize_start
+            geo = self._resize_geo
+            new_geo = geo.__class__(geo)
+            e = self._resize_edge
+            if "r" in e:
+                new_geo.setRight(geo.right() + delta.x())
+            if "b" in e:
+                new_geo.setBottom(geo.bottom() + delta.y())
+            if "l" in e:
+                new_geo.setLeft(geo.left() + delta.x())
+            if "t" in e:
+                new_geo.setTop(geo.top() + delta.y())
+            if new_geo.width() >= self.minimumWidth() and new_geo.height() >= self.minimumHeight():
+                self.setGeometry(new_geo)
+            event.accept()
+            return
+
         self.snap_mouse_move(event)
 
     def mouseReleaseEvent(self, event):
+        self._resizing = False
+        self._resize_edge = None
         self.snap_mouse_release(event)
 
     def closeEvent(self, event):
