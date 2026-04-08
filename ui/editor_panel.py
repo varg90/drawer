@@ -122,39 +122,38 @@ def _flow_position(labels, container_width, sz, gap=1):
 # ---------------------------------------------------------------------------
 
 class DragHandle(QWidget):
-    """Thin draggable strip on the left edge of the editor panel.
+    """Horizontal drag bar at the top of the editor panel (like Photoshop panels).
 
-    Emits detach_requested when the user drags more than 30 px away from the
-    starting position so SettingsWindow can float the panel out.
+    Emits detach_requested when the user drags more than 30 px away.
     """
     detach_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedWidth(6)
-        self.setCursor(Qt.CursorShape.SizeHorCursor)
+        self.setFixedHeight(10)
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
         self._dragging = False
         self._start_pos = None
 
     def paintEvent(self, event):
         p = QPainter(self)
         p.setPen(Qt.PenStyle.NoPen)
-        # Pick colour from parent theme if available, fall back to a safe grey
         parent = self.parent()
         raw = "#888888"
         if parent is not None and hasattr(parent, "theme"):
             raw = parent.theme.text_hint
         color = QColor(raw)
         p.setBrush(color)
-        mid_x = self.width() // 2
-        for y in range(self.height() // 2 - 15, self.height() // 2 + 15, 6):
-            p.drawEllipse(mid_x - 1, y, 2, 2)
+        mid_y = self.height() // 2
+        for x in range(self.width() // 2 - 15, self.width() // 2 + 15, 6):
+            p.drawEllipse(x, mid_y - 1, 2, 2)
         p.end()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = True
             self._start_pos = event.globalPosition().toPoint()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
             event.accept()
 
     def mouseMoveEvent(self, event):
@@ -163,12 +162,14 @@ class DragHandle(QWidget):
             if delta.manhattanLength() > 30:
                 self._dragging = False
                 self._start_pos = None
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
                 self.detach_requested.emit()
             event.accept()
 
     def mouseReleaseEvent(self, event):
         self._dragging = False
         self._start_pos = None
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
 
 
 # ---------------------------------------------------------------------------
@@ -208,8 +209,8 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _build_ui(self):
-        # Outer layout: drag handle on the left, content fills the rest
-        outer = QHBoxLayout(self)
+        # Outer layout: drag bar on top, content below
+        outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
@@ -221,7 +222,7 @@ class EditorPanel(QWidget):
         outer.addWidget(content, 1)
 
         root = QVBoxLayout(content)
-        root.setContentsMargins(10, 8, 10, 8)
+        root.setContentsMargins(10, 4, 10, 8)
         root.setSpacing(6)
 
         # --- Toolbar ---

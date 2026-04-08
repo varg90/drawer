@@ -117,28 +117,34 @@ class ImageEditorWindow(QWidget):
     def _check_dock_snap(self, pos):
         """Dock back to main window if floating editor drifts close enough."""
         main_geo = self._parent.geometry()
-        snap_distance = 20
+        snap = 25
 
-        # Right-edge snap: editor's left aligns with main window's right edge
         editor_top = pos.y()
+        editor_left = pos.x()
+
+        # Right-edge snap: editor's left near main window's right edge
         vertical_overlap = (
-            editor_top < main_geo.bottom() + snap_distance
-            and editor_top + self.height() > main_geo.top() - snap_distance
+            editor_top < main_geo.bottom() + snap
+            and editor_top + self.height() > main_geo.top() - snap
         )
-        if abs(pos.x() - main_geo.right()) < snap_distance and vertical_overlap:
-            self._do_dock()
+        if abs(editor_left - main_geo.right()) < snap and vertical_overlap:
+            self._do_dock("right")
             return
 
-        # Bottom-edge snap: editor's top aligns with main window's bottom edge
-        if (abs(editor_top - main_geo.bottom()) < snap_distance
-                and abs(pos.x() - main_geo.left()) < snap_distance):
-            self._do_dock()
+        # Bottom-edge snap: editor's top near main window's bottom edge
+        horizontal_overlap = (
+            editor_left < main_geo.right() + snap
+            and editor_left + self.width() > main_geo.left() - snap
+        )
+        if abs(editor_top - main_geo.bottom()) < snap and horizontal_overlap:
+            self._do_dock("bottom")
+            return
 
-    def _do_dock(self):
+    def _do_dock(self, position="right"):
         """Ask the main window to re-dock this editor, then close the float."""
         if self._parent and hasattr(self._parent, '_dock_editor_from_detached'):
             view = self._panel._view_mode if hasattr(self, '_panel') else 'list'
-            self._parent._dock_editor_from_detached(self.images, view)
+            self._parent._dock_editor_from_detached(self.images, view, position)
         self.close()
 
     def mouseReleaseEvent(self, event):
