@@ -770,7 +770,7 @@ class SettingsWindow(QMainWindow):
         self.editor.images_updated.connect(self._on_editor_update)
         self.editor.show()
 
-    def _dock_editor_from_detached(self, images, view_mode):
+    def _dock_editor_from_detached(self, images, view_mode, position="right"):
         """Re-dock the editor after the user snaps the floating window back."""
         self.images = images
         self._last_editor_view = view_mode
@@ -778,6 +778,7 @@ class SettingsWindow(QMainWindow):
         self._editor_panel = None
         self._dock_mode = "compact"
         self._on_images_changed()
+        # TODO: position="bottom" not yet implemented — always docks right
         self._open_editor()
 
     def _on_editor_update(self, images):
