@@ -250,9 +250,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
 
-        # Header title — re-render pixmap with current theme color
-        from ui.widgets import make_title_pixmap
-        self._title.setPixmap(make_title_pixmap("REFBOT", t.text_header))
+        self._title.setStyleSheet(
+            f"color: {t.text_header}; font-size: {S.FONT_TITLE}px; "
+            f"font-weight: 500; letter-spacing: 3px;")
 
         # Header icon buttons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))

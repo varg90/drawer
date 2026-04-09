@@ -2,39 +2,15 @@
 import qtawesome as qta
 from PyQt6.QtWidgets import QPushButton, QLabel, QHBoxLayout, QWidget
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QPixmap, QPainter, QFont, QColor, QFontMetrics
 from ui.scales import S
 from ui.icons import Icons
-
-
-def make_title_pixmap(text, color, font_size=S.FONT_TITLE, letter_spacing=3):
-    """Render title text as a tight pixmap with no font padding above glyphs."""
-    font = QFont()
-    font.setPixelSize(font_size)
-    font.setWeight(QFont.Weight.Medium)
-    font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, letter_spacing)
-    fm = QFontMetrics(font)
-    # tightBoundingRect gives pixel-exact bounds of the visible glyphs
-    tight = fm.tightBoundingRect(text)
-    w = tight.width() + 2  # small horizontal buffer
-    h = tight.height()
-    pix = QPixmap(w, h)
-    pix.fill(QColor(0, 0, 0, 0))
-    p = QPainter(pix)
-    p.setFont(font)
-    p.setPen(QColor(color))
-    # Draw at baseline offset so glyphs start at y=0
-    p.drawText(0, -tight.top(), text)
-    p.end()
-    return pix
 
 
 def make_icon_btn(icon_name, color, size=S.ICON_HEADER, tooltip=""):
     """Small icon button with no background/border."""
     btn = QPushButton()
-    icon_sz = int(size * 1.3)  # oversize to compensate for glyph padding
     btn.setIcon(qta.icon(icon_name, color=color))
-    btn.setIconSize(QSize(icon_sz, icon_sz))
+    btn.setIconSize(QSize(size, size))
     btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
@@ -64,9 +40,8 @@ def make_icon_toggle(icon_on, icon_off, is_on, theme, size=S.ICON_HEADER):
     btn = QPushButton()
     icon_name = icon_on if is_on else icon_off
     color = theme.accent if is_on else theme.text_hint
-    icon_sz = int(size * 1.3)
     btn.setIcon(qta.icon(icon_name, color=color))
-    btn.setIconSize(QSize(icon_sz, icon_sz))
+    btn.setIconSize(QSize(size, size))
     btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
@@ -79,18 +54,35 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
     header.setContentsMargins(0, 0, 0, 0)
     header.setSpacing(0)
 
+    left_box = QHBoxLayout()
+    left_box.setSpacing(2)
+    left_box.setContentsMargins(0, 0, 0, 0)
     for w in left_widgets:
-        header.addWidget(w, 0, Qt.AlignmentFlag.AlignTop)
-    header.addStretch()
+        left_box.addWidget(w)
+    left_box.addStretch()
+    lw = QWidget()
+    lw.setLayout(left_box)
+    lw.setStyleSheet("background: transparent;")
 
-    title = QLabel()
-    title.setPixmap(make_title_pixmap(title_text, theme.text_header))
-    title.setStyleSheet("background: transparent;")
-    header.addWidget(title, 0, Qt.AlignmentFlag.AlignTop)
-
-    header.addStretch()
+    right_box = QHBoxLayout()
+    right_box.setSpacing(2)
+    right_box.setContentsMargins(0, 0, 0, 0)
+    right_box.addStretch()
     for w in right_widgets:
-        header.addWidget(w, 0, Qt.AlignmentFlag.AlignTop)
+        right_box.addWidget(w)
+    rw = QWidget()
+    rw.setLayout(right_box)
+    rw.setStyleSheet("background: transparent;")
+
+    title = QLabel(title_text)
+    title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    title.setStyleSheet(
+        f"color: {theme.text_header}; font-size: {S.FONT_TITLE}px; "
+        f"font-weight: 500; letter-spacing: 3px;")
+
+    header.addWidget(lw, 1)
+    header.addWidget(title)
+    header.addWidget(rw, 1)
     return header, title
 
 
