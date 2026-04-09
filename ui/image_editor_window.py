@@ -15,13 +15,16 @@ class ImageEditorWindow(QWidget, SnapMixin):
 
     EDGE = 6  # resize grip width in pixels
 
-    def __init__(self, images, theme, parent=None, view_mode="list"):
+    shuffle_changed = pyqtSignal(bool)
+
+    def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True):
         QWidget.__init__(self)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.images = list(images)
         self.theme = theme
         self._parent = parent
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
+        self._shuffle_init = shuffle
         self.setMinimumSize(200, 200)
         self._resizing = False
         self._resize_edge = None
@@ -59,8 +62,10 @@ class ImageEditorWindow(QWidget, SnapMixin):
         # Editor panel
         init_view = self.__dict__.get('_view_mode_init', 'list')
         self._panel = EditorPanel(
-            self.images, self.theme, parent=self, view_mode=init_view)
+            self.images, self.theme, parent=self, view_mode=init_view,
+            shuffle=self._shuffle_init)
         self._panel.images_updated.connect(self._on_panel_update)
+        self._panel.shuffle_changed.connect(self.shuffle_changed.emit)
         self._panel.close_requested.connect(self.close)
         # Hide detach and close in panel — window title bar has them
         if hasattr(self._panel, '_detach_btn'):

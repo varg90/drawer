@@ -6,10 +6,6 @@ class Icons:
     # Start button
     START = "fa6s.pencil"
 
-    # Toggle: random order
-    RANDOM_ON = "ph.dice-five-fill"
-    RANDOM_OFF = "ph.dice-three-bold"
-
     # Toggle: always on top
     TOPMOST_ON = "ph.push-pin-fill"
     TOPMOST_OFF = "ph.push-pin-bold"
@@ -34,6 +30,10 @@ class Icons:
     DETACH = "ph.arrow-square-out-bold"
     DOCK = "ph.arrows-in-bold"
     TRASH = "ph.trash-bold"
+
+    # Shuffle toggle
+    SHUFFLE_ON = "ph.shuffle-bold"
+    SHUFFLE_OFF = "ph.shuffle-bold"
 
     # View modes
     LIST = "ph.list-bullets-bold"

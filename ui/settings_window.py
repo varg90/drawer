@@ -46,6 +46,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._class_groups = []
 
         self._topmost = False
+        self._shuffle = True
 
         self._build_ui()
         self._apply_theme()
@@ -682,8 +683,10 @@ class SettingsWindow(QMainWindow, SnapMixin):
             return
         from ui.image_editor_window import ImageEditorWindow
         view = getattr(self, "_last_editor_view", "list")
-        self.editor = ImageEditorWindow(self.images, self.theme, parent=self, view_mode=view)
+        self.editor = ImageEditorWindow(
+            self.images, self.theme, parent=self, view_mode=view, shuffle=self._shuffle)
         self.editor.images_updated.connect(self._on_editor_update)
+        self.editor.shuffle_changed.connect(self._on_shuffle_changed)
         # Position to the right and auto-snap
         pos = self.geometry()
         self.editor.move(pos.right() + 1, pos.top())
@@ -698,6 +701,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
         if self.editor is not None:
             self._last_editor_view = self.editor._view_mode
         self.editor = None
+
+    def _on_shuffle_changed(self, value):
+        self._shuffle = value
 
     def _on_editor_update(self, images):
         self.images = list(images)
@@ -733,11 +739,14 @@ class SettingsWindow(QMainWindow, SnapMixin):
         if not self.images:
             return
 
-        # Shuffle unpinned images for variety, then assign timers
-        pinned = [img for img in self.images if img.pinned]
-        unpinned = [img for img in self.images if not img.pinned]
-        random.shuffle(unpinned)
-        show_images = unpinned + pinned  # pinned appended at end
+        # Shuffle unpinned images for variety (if enabled), then assign timers
+        if self._shuffle:
+            pinned = [img for img in self.images if img.pinned]
+            unpinned = [img for img in self.images if not img.pinned]
+            random.shuffle(unpinned)
+            show_images = unpinned + pinned
+        else:
+            show_images = list(self.images)
 
         if self._timer_mode == "quick":
             timer = self.get_timer_seconds()
@@ -810,6 +819,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             self._session_limit_index = 0
 
         self._topmost = data.get("topmost", False)
+        self._shuffle = data.get("shuffle", True)
 
         saved_tiers = data.get("tiers")
         if saved_tiers is not None:
@@ -850,6 +860,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             "timer_mode": saved_mode,
             "session_limit": self._get_session_limit(),
             "topmost": self._topmost,
+            "shuffle": self._shuffle,
             "theme": self.theme.name,
             "accent": self.theme.accent,
             "tiers": [secs for btn, secs in self._class_btns if btn.isChecked()],
