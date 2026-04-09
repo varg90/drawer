@@ -24,7 +24,7 @@ class S:
     START_RADIUS_RATIO = 0.12
 
     # Fonts (px)
-    FONT_TITLE = 11
+    FONT_TITLE = 20
     FONT_BUTTON = 10
     FONT_MODE = 12
     FONT_LABEL = 9
