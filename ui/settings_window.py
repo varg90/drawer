@@ -879,5 +879,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             self.viewer.show()
         else:
             self._save_session()
+            if self.editor is not None:
+                self.editor.close()
             self.snap_cleanup()
             event.accept()
