@@ -335,30 +335,13 @@ class SettingsWindow(QMainWindow, SnapMixin):
         inner = QVBoxLayout(content)
         inner.setContentsMargins(16, 14, 16, 12)
 
-        lbl = QLabel(
-            "<b>Settings</b><br>"
-            "Drag files/folders into the window to add images<br>"
-            "+ button — open editor (reorder, delete, pin)<br>"
-            "Quick — same timer for all images<br>"
-            "Class — auto-distribute by tiers, optional session limit<br>"
-            "Pencil button — start slideshow<br><br>"
-            "<b>Slideshow</b><br>"
-            "<table>"
-            "<tr><td>Space&nbsp;&nbsp;</td><td>pause / resume</td></tr>"
-            "<tr><td>\u2190 \u2192&nbsp;&nbsp;</td><td>prev / next</td></tr>"
-            "<tr><td>F11&nbsp;&nbsp;</td><td>fullscreen</td></tr>"
-            "<tr><td>Esc&nbsp;&nbsp;</td><td>exit fullscreen</td></tr>"
-            "<tr><td>H&nbsp;&nbsp;</td><td>help</td></tr>"
-            "</table><br>"
-            "RMB + drag — move window<br>"
-            "Edges — resize<br><br>"
-            "<b>Header</b><br>"
-            "Pin — always on top<br>"
-            "Dot — accent color<br>"
-            "Sun/Moon — toggle theme<br><br>"
-            "<span style='color: {hint}'>Click anywhere to close</span>".format(
-                hint=t.text_hint)
-        )
+        info_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "info_main.html")
+        try:
+            with open(info_path, encoding="utf-8") as f:
+                info_text = f.read().format(hint=t.text_hint)
+        except FileNotFoundError:
+            info_text = "RefBot 0.1.0"
+        lbl = QLabel(info_text)
         lbl.setStyleSheet(f"color: {t.text_primary}; font-size: 11px;")
         lbl.setWordWrap(True)
         lbl.mousePressEvent = lambda e: self._dismiss_help()
