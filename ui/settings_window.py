@@ -230,7 +230,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         bottom_row.addWidget(summary_widget, alignment=Qt.AlignmentFlag.AlignBottom)
         bottom_row.addStretch()
-        bottom_row.addWidget(self._add_btn)
+        bottom_row.addWidget(self._add_btn, 0, Qt.AlignmentFlag.AlignBottom)
         bottom_row.addSpacing(8)
         bottom_row.addWidget(self._start_btn, 0, Qt.AlignmentFlag.AlignBottom)
 
