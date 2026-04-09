@@ -182,6 +182,14 @@ class ViewerWindow(QWidget):
             "color: white; font-size: 20px; background: transparent;")
         self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
+        # Alarm icon (session warning)
+        self._alarm_label = QLabel(self)
+        self._alarm_label.setPixmap(
+            _icon("ph.alarm-fill", CLR_WARNING).pixmap(QSize(20, 20)))
+        self._alarm_label.setFixedSize(20, 20)
+        self._alarm_label.setStyleSheet("background: transparent;")
+        self._alarm_label.hide()
+
         # Coffee icon (always visible when paused)
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
@@ -253,11 +261,17 @@ class ViewerWindow(QWidget):
         lbl_h = 24
         bottom_y = h - lbl_h - 8
         x = 10
+        if self._alarm_label.isVisible():
+            self._alarm_label.setFixedSize(20, 20)
+            self._alarm_label.move(x, bottom_y + 2)
+            x += 26
         if self._coffee_label.isVisible():
             self._coffee_label.setFixedSize(20, 20)
             self._coffee_label.move(x, bottom_y + 2)
             x += 26
-        self._timer_label.setGeometry(x, bottom_y, 80, lbl_h)
+        # Center timer
+        self._timer_label.setGeometry((w - 80) // 2, bottom_y, 80, lbl_h)
+        self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._counter_label.setGeometry(w - 70, bottom_y, 60, lbl_h)
         self._counter_label.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -351,15 +365,21 @@ class ViewerWindow(QWidget):
 
     def _update_session_display(self):
         if not self._session_limit:
+            self._alarm_label.hide()
             return
         remaining = self._session_limit - self._session_elapsed
         if remaining < 0:
             remaining = 0
         warn_at = min(300, int(self._session_limit * 0.2))
         is_warning = remaining <= warn_at
+        if is_warning:
+            self._alarm_label.show()
+        else:
+            self._alarm_label.hide()
         progress = self._session_elapsed / self._session_limit
         self._progress_bar.set_progress(progress, is_warning)
         self._progress_bar.show()
+        self._layout_bottom(self.width(), self.height())
 
     # ------------------------------------------------------------------ Navigation
 
