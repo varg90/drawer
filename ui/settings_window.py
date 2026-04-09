@@ -24,26 +24,6 @@ ALL_TIERS = [(30, "30s"), (60, "1m"), (180, "3m"),
              (1800, "30m"), (3600, "1h")]
 
 
-# DEPRECATED — kept for backward compatibility only
-class TierToggle(QPushButton):
-    """Deprecated: toggleable tier button. Use make_timer_btn instead."""
-
-    def __init__(self, text, seconds, parent=None):
-        super().__init__(text, parent)
-        self.seconds = seconds
-        self._active = False
-        self.setCheckable(True)
-        self.setChecked(False)
-        self.clicked.connect(self._on_click)
-
-    def _on_click(self):
-        self._active = self.isChecked()
-
-    @property
-    def active(self):
-        return self._active
-
-
 class SettingsWindow(QMainWindow, SnapMixin):
     images_changed = pyqtSignal()
 

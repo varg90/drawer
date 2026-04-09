@@ -670,40 +670,13 @@ class EditorPanel(QWidget):
 
     def _update_total_label(self):
         t = self.theme
-        # Sum only active (timer > 0) images
         total_s = sum(img.timer for img in self.images if img.timer > 0)
-
-        # Get session duration — walk parent chain to find SettingsWindow
-        session_secs = 0
-        p = self._parent
-        while p is not None:
-            if hasattr(p, '_get_session_seconds'):
-                session_secs = p._get_session_seconds()
-                break
-            p = getattr(p, '_parent', None)
-
         if total_s == 0:
             self._total_label.setText("")
             return
-
-        # Format total time
-        total_text = format_time(total_s)
-
-        # Check if over budget
-        is_over_budget = session_secs > 0 and total_s > session_secs
-
-        if is_over_budget:
-            # Show "total / session" with warning color
-            session_text = format_time(session_secs)
-            text = f"{total_text} / {session_text}"
-            color = t.warning
-        else:
-            text = f"{total_text} total"
-            color = t.text_secondary
-
-        self._total_label.setText(text)
+        self._total_label.setText(f"{format_time(total_s)} total")
         self._total_label.setStyleSheet(
-            f"color: {color}; font-size: {S.FONT_LABEL}px;")
+            f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px;")
 
     # ------------------------------------------------------------------
     # Cache
