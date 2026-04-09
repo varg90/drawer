@@ -246,16 +246,10 @@ class EditorPanel(QWidget):
         self._clear_btn.clicked.connect(self._clear)
 
         self._shuffle_btn = make_icon_btn(
-            Icons.SHUFFLE_ON, self.theme.accent if self._shuffle else self.theme.text_hint,
+            Icons.SHUFFLE, self.theme.accent if self._shuffle else self.theme.text_hint,
             size=S.EDITOR_BTN, tooltip="Shuffle on start",
         )
         self._shuffle_btn.clicked.connect(self._toggle_shuffle)
-
-        self._clear_btn = make_icon_btn(
-            Icons.ERASER, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Clear all",
-        )
-        self._clear_btn.clicked.connect(self._clear)
 
         bottom.addWidget(self._cache_btn)
         bottom.addWidget(self._cache_size_label)
@@ -332,7 +326,7 @@ class EditorPanel(QWidget):
             btn.setIcon(qta.icon(icon, color=t.text_secondary))
 
         _shuf_color = t.accent if self._shuffle else t.text_hint
-        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE_ON, color=_shuf_color))
+        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=_shuf_color))
 
         self._update_view_buttons()
         self._update_cache_size()
@@ -910,7 +904,7 @@ class EditorPanel(QWidget):
         self._shuffle = not self._shuffle
         t = self.theme
         color = t.accent if self._shuffle else t.text_hint
-        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE_ON, color=color))
+        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=color))
         self.shuffle_changed.emit(self._shuffle)
 
     def _clear(self):

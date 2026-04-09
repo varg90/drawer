@@ -1,7 +1,7 @@
 # core/class_mode.py
 """Class mode: distribute images into timed groups across tiers."""
 
-from core.constants import CLASS_MODE_TEMPLATES
+from core.constants import DEFAULT_TIERS
 
 
 def auto_distribute(num_images, custom_tiers=None):
@@ -18,7 +18,7 @@ def auto_distribute(num_images, custom_tiers=None):
     if custom_tiers and len(custom_tiers) > 0:
         tiers = sorted(custom_tiers, key=lambda t: t[0])
     else:
-        tiers = CLASS_MODE_TEMPLATES["medium"]
+        tiers = DEFAULT_TIERS
 
     num_tiers = len(tiers)
     # Start with 1 image per tier (up to num_images)
