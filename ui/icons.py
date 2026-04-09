@@ -21,7 +21,7 @@ class Icons:
     CARET_LEFT = "ph.caret-left-bold"
     CARET_RIGHT = "ph.caret-right-bold"
     INFO = "ph.info-bold"
-    PLUS = "ph.plus-bold"
+    PLUS = "ph.image-square-fill"
 
     # Editor toolbar
     ADD_FILE = "ph.file-plus-bold"
