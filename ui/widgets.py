@@ -9,9 +9,10 @@ from ui.icons import Icons
 def make_icon_btn(icon_name, color, size=S.ICON_HEADER, tooltip=""):
     """Small icon button with no background/border."""
     btn = QPushButton()
-    btn.setIcon(qta.icon(icon_name, color=color, scale_factor=1.2))
-    btn.setIconSize(QSize(size, size))
-    btn.setFixedSize(size, size)
+    render_sz = int(size * 1.2)
+    btn.setIcon(qta.icon(icon_name, color=color))
+    btn.setIconSize(QSize(render_sz, render_sz))
+    btn.setFixedSize(render_sz, render_sz)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
     if tooltip:
@@ -40,9 +41,10 @@ def make_icon_toggle(icon_on, icon_off, is_on, theme, size=S.ICON_HEADER):
     btn = QPushButton()
     icon_name = icon_on if is_on else icon_off
     color = theme.accent if is_on else theme.text_hint
-    btn.setIcon(qta.icon(icon_name, color=color, scale_factor=1.2))
-    btn.setIconSize(QSize(size, size))
-    btn.setFixedSize(size, size)
+    render_sz = int(size * 1.2)
+    btn.setIcon(qta.icon(icon_name, color=color))
+    btn.setIconSize(QSize(render_sz, render_sz))
+    btn.setFixedSize(render_sz, render_sz)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
     return btn

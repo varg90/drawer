@@ -325,15 +325,14 @@ class EditorPanel(QWidget):
             f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px;")
 
         # Refresh icon colors
-        _sf = 1.2
         for btn, icon in [
             (self._clear_btn, Icons.ERASER),
             (self._cache_btn, Icons.TRASH),
         ]:
-            btn.setIcon(qta.icon(icon, color=t.text_secondary, scale_factor=_sf))
+            btn.setIcon(qta.icon(icon, color=t.text_secondary))
 
         _shuf_color = t.accent if self._shuffle else t.text_hint
-        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE_ON, color=_shuf_color, scale_factor=_sf))
+        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE_ON, color=_shuf_color))
 
         self._update_view_buttons()
         self._update_cache_size()
@@ -358,8 +357,8 @@ class EditorPanel(QWidget):
         inactive_color = t.text_secondary
         list_color = active_color if self._view_mode == "list" else inactive_color
         grid_color = active_color if self._view_mode == "grid" else inactive_color
-        self._list_btn.setIcon(qta.icon(Icons.LIST, color=list_color, scale_factor=1.2))
-        self._grid_btn.setIcon(qta.icon(Icons.GRID, color=grid_color, scale_factor=1.2))
+        self._list_btn.setIcon(qta.icon(Icons.LIST, color=list_color))
+        self._grid_btn.setIcon(qta.icon(Icons.GRID, color=grid_color))
 
     def _update_bottom_controls(self):
         is_grid = self._view_mode == "grid"
@@ -911,7 +910,7 @@ class EditorPanel(QWidget):
         self._shuffle = not self._shuffle
         t = self.theme
         color = t.accent if self._shuffle else t.text_hint
-        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE_ON, color=color, scale_factor=1.2))
+        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE_ON, color=color))
         self.shuffle_changed.emit(self._shuffle)
 
     def _clear(self):

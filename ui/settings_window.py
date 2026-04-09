@@ -253,31 +253,30 @@ class SettingsWindow(QMainWindow, SnapMixin):
             f"font-weight: 500; letter-spacing: 3px;")
 
         # Header icon buttons
-        _sf = 1.2
-        self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint, scale_factor=_sf))
+        self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
         self._help_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
         _topmost_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
         _topmost_color = t.accent if self._topmost else t.text_hint
-        self._topmost_btn.setIcon(qta.icon(_topmost_icon, color=_topmost_color, scale_factor=_sf))
+        self._topmost_btn.setIcon(qta.icon(_topmost_icon, color=_topmost_color))
         self._topmost_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
         _theme_icon = Icons.THEME_DARK if t.name == "dark" else Icons.THEME_LIGHT
-        self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint, scale_factor=_sf))
+        self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
         self._theme_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
-        self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint, scale_factor=_sf))
+        self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
         self._min_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
-        self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint, scale_factor=_sf))
+        self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
         self._close_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
-        self._accent_btn.setIcon(qta.icon(Icons.PALETTE, color=t.accent, scale_factor=_sf))
+        self._accent_btn.setIcon(qta.icon(Icons.PALETTE, color=t.accent))
 
         # Mode buttons
         self._update_mode_buttons()
 
-        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint, scale_factor=_sf))
+        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
         self._add_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
         # Timer buttons
@@ -414,7 +413,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         t = self.theme
         _icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
         _color = t.accent if self._topmost else t.text_hint
-        self._topmost_btn.setIcon(qta.icon(_icon, color=_color, scale_factor=1.2))
+        self._topmost_btn.setIcon(qta.icon(_icon, color=_color))
 
     # ------------------------------------------------------------------ Mode
 
