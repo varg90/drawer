@@ -1,4 +1,5 @@
 import os
+import random
 import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QPushButton, QLabel, QFileDialog, QScrollArea,
@@ -732,15 +733,24 @@ class SettingsWindow(QMainWindow, SnapMixin):
         if not self.images:
             return
 
-        show_images = list(self.images)
+        # Shuffle unpinned images for variety, then assign timers
+        pinned = [img for img in self.images if img.pinned]
+        unpinned = [img for img in self.images if not img.pinned]
+        random.shuffle(unpinned)
+        show_images = unpinned + pinned  # pinned appended at end
+
         if self._timer_mode == "quick":
             timer = self.get_timer_seconds()
             for img in show_images:
-                img.timer = timer
+                if not img.pinned:
+                    img.timer = timer
         elif self._class_groups:
             timers = groups_to_timers(self._class_groups)
-            for i, img in enumerate(show_images):
-                img.timer = timers[i] if i < len(timers) else timers[-1]
+            idx = 0
+            for img in show_images:
+                if not img.pinned and idx < len(timers):
+                    img.timer = timers[idx]
+                    idx += 1
             # Sort by timer so slideshow goes from short to long poses
             show_images.sort(key=lambda img: img.timer)
 
