@@ -10,6 +10,7 @@ class S:
 
     # Margins
     MARGIN = 14
+    MARGIN_TOP = 8
     MARGIN_BOTTOM = 18
 
     # Icons — header row
