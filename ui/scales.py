@@ -27,8 +27,8 @@ class S:
     FONT_TITLE = 11
     FONT_BUTTON = 10
     FONT_LABEL = 9
-    FONT_HINT = 9
-    FONT_TOTAL = 11
+    FONT_HINT = 10
+    FONT_TOTAL = 12
 
     # Spacing
     SPACING_HEADER = 6
