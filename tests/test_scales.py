@@ -10,7 +10,7 @@ def test_margins_defined():
 
 
 def test_icon_sizes():
-    assert S.ICON_HEADER == 15
+    assert S.ICON_HEADER == 11
     assert S.ICON_START == 42
 
 
