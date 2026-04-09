@@ -156,7 +156,7 @@ class EditorPanel(QWidget):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(10, 8, 10, 8)
+        root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(6)
 
         # --- Toolbar ---
