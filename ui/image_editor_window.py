@@ -42,10 +42,21 @@ class ImageEditorWindow(QWidget, SnapMixin):
         root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
 
-        # Title bar — close/minimize right-aligned
+        # Title bar — add buttons left, close/minimize right
         title_bar = QHBoxLayout()
         title_bar.setContentsMargins(0, 0, 0, 4)
         title_bar.setSpacing(4)
+
+        self._add_files_btn = make_icon_btn(Icons.ADD_FILE, self.theme.text_hint,
+                                             size=S.ICON_HEADER, tooltip="Add files")
+        self._add_folder_btn = make_icon_btn(Icons.ADD_FOLDER, self.theme.text_hint,
+                                              size=S.ICON_HEADER, tooltip="Add folder")
+        self._add_url_btn = make_icon_btn(Icons.ADD_URL, self.theme.text_hint,
+                                           size=S.ICON_HEADER, tooltip="Load from URL")
+
+        title_bar.addWidget(self._add_files_btn)
+        title_bar.addWidget(self._add_folder_btn)
+        title_bar.addWidget(self._add_url_btn)
         title_bar.addStretch()
         self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint)
         self._min_btn.clicked.connect(self.showMinimized)
@@ -63,7 +74,18 @@ class ImageEditorWindow(QWidget, SnapMixin):
         self._panel.images_updated.connect(self._on_panel_update)
         self._panel.shuffle_changed.connect(self.shuffle_changed.emit)
         self._panel.close_requested.connect(self.close)
-        # Hide detach and close in panel — window title bar has them
+        # Connect title bar add buttons to panel methods
+        self._add_files_btn.clicked.connect(self._panel._add_files)
+        self._add_folder_btn.clicked.connect(self._panel._add_folder)
+        self._add_url_btn.clicked.connect(self._panel._add_from_url)
+
+        # Hide duplicate buttons in panel — window title bar has them
+        if hasattr(self._panel, '_add_files_btn'):
+            self._panel._add_files_btn.setVisible(False)
+        if hasattr(self._panel, '_add_folder_btn'):
+            self._panel._add_folder_btn.setVisible(False)
+        if hasattr(self._panel, '_url_btn'):
+            self._panel._url_btn.setVisible(False)
         if hasattr(self._panel, '_detach_btn'):
             self._panel._detach_btn.setVisible(False)
         if hasattr(self._panel, '_close_btn'):
@@ -73,6 +95,9 @@ class ImageEditorWindow(QWidget, SnapMixin):
     def _apply_theme(self):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg};")
+        self._add_files_btn.setIcon(qta.icon(Icons.ADD_FILE, color=t.text_hint))
+        self._add_folder_btn.setIcon(qta.icon(Icons.ADD_FOLDER, color=t.text_hint))
+        self._add_url_btn.setIcon(qta.icon(Icons.ADD_URL, color=t.text_hint))
         self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
         self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
 
