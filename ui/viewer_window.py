@@ -166,6 +166,18 @@ class ViewerWindow(QWidget):
         self._info_btn.clicked.connect(self._show_help)
         self._info_btn.move(0, 0)
 
+        # Top center: viewer tools
+        self._top_center = QWidget(self)
+        self._top_center.setStyleSheet("background: transparent;")
+        self._bw_btn = _icon_btn("ph.rainbow-fill", 20, self._top_center, tooltip="B&W (G)")
+        self._bw_btn.clicked.connect(self._toggle_grayscale)
+        self._grid_btn = _icon_btn("ph.grid-four-bold", 20, self._top_center, tooltip="Grid (R)")
+        self._grid_btn.clicked.connect(self._toggle_grid)
+        self._fliph_btn = _icon_btn("ph.arrows-left-right-bold", 20, self._top_center, tooltip="Flip H (F)")
+        self._fliph_btn.clicked.connect(self._toggle_flip_h)
+        self._flipv_btn = _icon_btn("ph.arrows-down-up-bold", 20, self._top_center, tooltip="Flip V (V)")
+        self._flipv_btn.clicked.connect(self._toggle_flip_v)
+
         self._top_right = QWidget(self)
         self._top_right.setStyleSheet("background: transparent;")
         self._settings_btn = _icon_btn("ph.dots-three-vertical-bold", 20, self._top_right, tooltip="Настройки")
@@ -230,7 +242,7 @@ class ViewerWindow(QWidget):
 
         # Collect hover-only widgets
         self._hover_widgets = [
-            self._top_left, self._top_right, self._center_btn,
+            self._top_left, self._top_center, self._top_right, self._center_btn,
             self._left_nav, self._right_nav,
             self._timer_label, self._counter_label,
             self._progress_bar,
@@ -494,6 +506,9 @@ class ViewerWindow(QWidget):
 
     def _toggle_grayscale(self):
         self._grayscale = not self._grayscale
+        icon_name = "ph.cloud-rain-fill" if self._grayscale else "ph.rainbow-fill"
+        self._bw_btn.setIcon(_icon(icon_name, CLR_NORMAL))
+        self._bw_btn.setIconSize(QSize(20, 20))
         self._update_display()
 
     def _toggle_grid(self):
@@ -585,8 +600,17 @@ class ViewerWindow(QWidget):
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
         self._info_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
-        # Top right: settings + close
+        # Top center: viewer tools
         gap = 4
+        tc_w = btn_sz * 4 + gap * 3
+        tc_x = (w - tc_w) // 2
+        self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
+        self._bw_btn.setGeometry(0, 0, btn_sz, btn_sz)
+        self._grid_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
+        self._fliph_btn.setGeometry(2 * (btn_sz + gap), 0, btn_sz, btn_sz)
+        self._flipv_btn.setGeometry(3 * (btn_sz + gap), 0, btn_sz, btn_sz)
+
+        # Top right: settings + close
         tr_w = btn_sz * 2 + gap
         self._top_right.setGeometry(w - tr_w - margin, margin, tr_w, btn_sz)
         self._settings_btn.setGeometry(0, 0, btn_sz, btn_sz)
