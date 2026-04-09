@@ -121,9 +121,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._quick_btn.clicked.connect(lambda: self._set_timer_mode("quick"))
 
-        self._img_count_label = QLabel("0 img")
-        self._img_count_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
-
         self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
                                       size=S.ICON_HEADER, tooltip="Add files")
         self._add_btn.clicked.connect(self._open_editor)
@@ -131,8 +128,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         mode_row.addWidget(self._class_btn)
         mode_row.addWidget(self._quick_btn)
         mode_row.addStretch()
-        mode_row.addWidget(self._img_count_label)
-        mode_row.addSpacing(4)
         mode_row.addWidget(self._add_btn)
         root.addLayout(mode_row)
         root.addSpacing(S.SPACING_MODE)
@@ -244,7 +239,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._update_mode_buttons()
         self._update_preset_styles()
         self._update_summary()
-        self._update_img_count()
+
 
     # ------------------------------------------------------------------ Theme
 
@@ -282,10 +277,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         # Mode buttons
         self._update_mode_buttons()
-
-        # Image count
-        self._img_count_label.setStyleSheet(
-            f"color: {t.text_hint}; font-size: {S.FONT_HINT}px; font-weight: 500;")
 
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
         self._add_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
@@ -620,12 +611,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._limit_btn.show()
         self._update_limit_display()
 
-    # ------------------------------------------------------------------ Image count
-
-    def _update_img_count(self):
-        n = len(self.images)
-        self._img_count_label.setText(f"{n} img")
-
     # ------------------------------------------------------------------ Summary
 
     def _update_summary(self):
@@ -678,7 +663,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._on_images_changed()
 
     def _on_images_changed(self):
-        self._update_img_count()
+
         self._update_summary()
         self.images_changed.emit()
         if self._editor_visible:
@@ -715,7 +700,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
     def _on_editor_update(self, images):
         self.images = list(images)
-        self._update_img_count()
+
         self._update_summary()
 
     # ------------------------------------------------------------------ Drag and drop
@@ -852,7 +837,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         # Rebuild class-mode groups so images get proper timers
         if self._timer_mode == "class" and self.images:
             self._auto_distribute()
-        self._update_img_count()
+
         self._update_summary()
 
     def _save_session(self):
