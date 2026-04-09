@@ -419,13 +419,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         _icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
         _color = t.accent if self._topmost else t.text_hint
         self._topmost_btn.setIcon(qta.icon(_icon, color=_color))
-        # Apply always-on-top flag to this window
-        flags = self.windowFlags()
-        if self._topmost:
-            self.setWindowFlags(flags | Qt.WindowType.WindowStaysOnTopHint)
-        else:
-            self.setWindowFlags(flags & ~Qt.WindowType.WindowStaysOnTopHint)
-        self.show()
 
     # ------------------------------------------------------------------ Mode
 
