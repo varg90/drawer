@@ -1,11 +1,13 @@
+import os
 import random
 import qtawesome as qta
 from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QGraphicsOpacityEffect,
                               QApplication)
-from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon
+from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon, QTransform, QImage
 from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
                            QEasingCurve)
 from core.timer_logic import format_time, auto_warn_seconds
+from ui.icons import Icons
 
 CORNER_GRIP = 50
 MIN_WIDTH = 200
@@ -159,30 +161,30 @@ class ViewerWindow(QWidget):
 
         # ---- Hover overlays (fade in/out) ----
 
-        # Top bar (gradient drawn in paintEvent)
+        # Top bar
         self._top_left = QWidget(self)
         self._top_left.setStyleSheet("background: transparent;")
-        self._info_btn = _icon_btn("ph.info-bold", 20, self._top_left, tooltip="Инфо")
+        self._info_btn = _icon_btn(Icons.INFO, 20, self._top_left, tooltip="Инфо")
         self._info_btn.clicked.connect(self._show_help)
         self._info_btn.move(0, 0)
 
         # Top center: viewer tools
         self._top_center = QWidget(self)
         self._top_center.setStyleSheet("background: transparent;")
-        self._bw_btn = _icon_btn("ph.rainbow-fill", 20, self._top_center, tooltip="B&W (G)")
+        self._bw_btn = _icon_btn(Icons.BW_OFF, 20, self._top_center, tooltip="B&W (G)")
         self._bw_btn.clicked.connect(self._toggle_grayscale)
-        self._grid_btn = _icon_btn("ph.grid-four-bold", 20, self._top_center, tooltip="Grid (R)")
+        self._grid_btn = _icon_btn(Icons.GRID_OVERLAY, 20, self._top_center, tooltip="Grid (R)")
         self._grid_btn.clicked.connect(self._toggle_grid)
-        self._fliph_btn = _icon_btn("ph.arrows-left-right-bold", 20, self._top_center, tooltip="Flip H (F)")
+        self._fliph_btn = _icon_btn(Icons.FLIP_H, 20, self._top_center, tooltip="Flip H (F)")
         self._fliph_btn.clicked.connect(self._toggle_flip_h)
-        self._flipv_btn = _icon_btn("ph.arrows-down-up-bold", 20, self._top_center, tooltip="Flip V (V)")
+        self._flipv_btn = _icon_btn(Icons.FLIP_V, 20, self._top_center, tooltip="Flip V (V)")
         self._flipv_btn.clicked.connect(self._toggle_flip_v)
 
         self._top_right = QWidget(self)
         self._top_right.setStyleSheet("background: transparent;")
-        self._settings_btn = _icon_btn("ph.dots-three-vertical-bold", 20, self._top_right, tooltip="Настройки")
+        self._settings_btn = _icon_btn(Icons.DOTS_MENU, 20, self._top_right, tooltip="Настройки")
         self._settings_btn.clicked.connect(self._open_settings)
-        self._close_btn = _icon_btn("ph.x-bold", 20, self._top_right, tooltip="Закрыть")
+        self._close_btn = _icon_btn(Icons.CLOSE, 20, self._top_right, tooltip="Закрыть")
         self._close_btn.clicked.connect(self.close)
 
         # Center play/pause
@@ -197,13 +199,13 @@ class ViewerWindow(QWidget):
 
         # Side navigation (visual only — clicks handled in mousePressEvent)
         self._left_nav = QLabel(self)
-        self._left_nav.setPixmap(_icon("ph.caret-left-bold", CLR_DIM).pixmap(QSize(20, 20)))
+        self._left_nav.setPixmap(_icon(Icons.CARET_LEFT, CLR_DIM).pixmap(QSize(20, 20)))
         self._left_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._left_nav.setStyleSheet("background: transparent;")
         self._left_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._right_nav = QLabel(self)
-        self._right_nav.setPixmap(_icon("ph.caret-right-bold", CLR_DIM).pixmap(QSize(20, 20)))
+        self._right_nav.setPixmap(_icon(Icons.CARET_RIGHT, CLR_DIM).pixmap(QSize(20, 20)))
         self._right_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._right_nav.setStyleSheet("background: transparent;")
         self._right_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -222,7 +224,7 @@ class ViewerWindow(QWidget):
         # Alarm icon (session warning)
         self._alarm_label = QLabel(self)
         self._alarm_label.setPixmap(
-            _icon("ph.alarm-fill", CLR_WARNING).pixmap(QSize(20, 20)))
+            _icon(Icons.ALARM, CLR_WARNING).pixmap(QSize(20, 20)))
         self._alarm_label.setFixedSize(20, 20)
         self._alarm_label.setStyleSheet("background: transparent;")
         self._alarm_label.hide()
@@ -230,7 +232,7 @@ class ViewerWindow(QWidget):
         # Coffee icon (always visible when paused)
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _icon("ph.coffee-fill", CLR_NORMAL).pixmap(QSize(20, 20)))
+            _icon(Icons.COFFEE, CLR_NORMAL).pixmap(QSize(20, 20)))
         self._coffee_label.setFixedSize(20, 20)
         self._coffee_label.setStyleSheet("background: transparent;")
         self._coffee_label.hide()
@@ -286,7 +288,7 @@ class ViewerWindow(QWidget):
     def _update_coffee(self):
         if self._paused:
             self._coffee_label.setPixmap(
-                _icon("ph.coffee-fill", CLR_NORMAL).pixmap(QSize(20, 20)))
+                _icon(Icons.COFFEE, CLR_NORMAL).pixmap(QSize(20, 20)))
             self._coffee_label.setFixedSize(20, 20)
             self._coffee_label.show()
         else:
@@ -345,7 +347,6 @@ class ViewerWindow(QWidget):
     def _update_display(self):
         if self._pixmap is None:
             return
-        from PyQt6.QtGui import QTransform, QImage
         pix = self._pixmap
         # Flip
         if self._flip_h or self._flip_v:
@@ -426,7 +427,6 @@ class ViewerWindow(QWidget):
         progress = self._session_elapsed / self._session_limit
         self._progress_bar.set_progress(progress, is_warning)
         self._progress_bar.show()
-        self._layout_bottom(self.width(), self.height())
 
     # ------------------------------------------------------------------ Navigation
 
@@ -459,7 +459,7 @@ class ViewerWindow(QWidget):
             self._help_overlay.hide()
             return
         from PyQt6.QtWidgets import QScrollArea, QVBoxLayout
-        import os as _os
+        
 
         self._help_overlay = QWidget(self)
         self._help_overlay.setGeometry(self.rect())
@@ -485,7 +485,7 @@ class ViewerWindow(QWidget):
         inner = QVBoxLayout(content)
         inner.setContentsMargins(20, 20, 20, 20)
 
-        info_path = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "info_viewer.txt")
+        info_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "info_viewer.txt")
         try:
             with open(info_path, encoding="utf-8") as f:
                 info_text = f.read().replace("\n", "<br>")
@@ -533,7 +533,7 @@ class ViewerWindow(QWidget):
 
     def _toggle_grayscale(self):
         self._grayscale = not self._grayscale
-        icon_name = "ph.cloud-rain-fill" if self._grayscale else "ph.rainbow-fill"
+        icon_name = Icons.BW_ON if self._grayscale else Icons.BW_OFF
         self._bw_btn.setIcon(_icon(icon_name, CLR_NORMAL))
         self._bw_btn.setIconSize(QSize(20, 20))
         self._update_display()
@@ -658,9 +658,6 @@ class ViewerWindow(QWidget):
         self._progress_bar.setGeometry(0, h - 3, w, 3)
 
         self._update_display()
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
 
     def enterEvent(self, event):
         super().enterEvent(event)

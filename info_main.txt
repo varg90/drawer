@@ -1,26 +1,23 @@
 RefBot 0.1.0
+Name suggestions are welcome.
 
 SETTINGS
-Drag files/folders into the window to add images
-Image button - open editor (reorder, delete, pin)
 Quick - same timer for all images
-Class - auto-distribute by tiers
-Click limit to set session time limit
+Class - auto-distribute by tiers (manual distribution available in file manager)
+Set session time limit - lmk forward, rmk back (no limit by default)
 
-SLIDESHOW HOTKEYS
-Space     pause / resume
-Left/Right     prev / next
-F11     fullscreen
-Esc     exit fullscreen
-G     black & white
-R     rule of thirds grid
-F     flip horizontal
-V     flip vertical
-H     help
-
-HEADER
 Pin - always on top (slideshow only)
 Palette - accent color
-Sun/Moon - toggle theme
+Sun/Moon - toggle dark and light theme
 
-Click anywhere to close
+Image button - open file manager. Drag and drop to upload files or use file, folder or url buttons respectively. 
+Google drive and yandex disk support available (folders/files must be public). Files remain in cache until manual clearing on the bin button (appears when filled). 
+Select multiple files through shift or ctrl. Delete to..delete. 
+Eraser button clears the file list. Toggle shuffle to unlock manual reorder. 
+Rmk to move files to a different or pin in a  current time group. 
+File manager can be dettached and resized. Drag to the main window on any side to reattach.
+
+Contact info - valerianashot@gmail.com
+Claude did the job, i complained and picked icons. My husband Alex allowed me to waste tokens. My cat Loaf meowed. 
+
+Click anywhere to close info

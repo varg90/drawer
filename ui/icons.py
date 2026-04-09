@@ -35,10 +35,12 @@ class Icons:
     TRASH = "ph.trash-bold"
 
     # Shuffle toggle
-    SHUFFLE_ON = "ph.shuffle-bold"
-    SHUFFLE_OFF = "ph.shuffle-bold"
+    SHUFFLE = "ph.shuffle-bold"
 
-    # Viewer tools
+    # Viewer
+    COFFEE = "ph.coffee-fill"
+    ALARM = "ph.alarm-fill"
+    DOTS_MENU = "ph.dots-three-vertical-bold"
     BW_ON = "ph.cloud-rain-fill"
     BW_OFF = "ph.rainbow-fill"
     GRID_OVERLAY = "ph.grid-four-bold"
