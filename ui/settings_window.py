@@ -64,7 +64,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         central = QWidget()
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
-        root.setContentsMargins(S.MARGIN, S.MARGIN_TOP, S.MARGIN, S.MARGIN_BOTTOM)
+        root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
 
         # ── 1. Header ──────────────────────────────────────────────────────
