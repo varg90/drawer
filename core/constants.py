@@ -16,6 +16,7 @@ TIMER_MAX = 10800
 
 SESSION_LIMIT_PRESETS = [
     (None, "no limit"),
+    (60, "1m"),
     (300, "5m"),
     (600, "10m"),
     (900, "15m"),
