@@ -27,5 +27,5 @@ def test_font_sizes():
 
 def test_window_sizes():
     assert S.MAIN_W == 250
-    assert S.MAIN_H == 270
+    assert S.MAIN_H == 250
     assert S.EDITOR_W == 250
