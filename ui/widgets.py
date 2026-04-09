@@ -76,9 +76,11 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
 
     title = QLabel(title_text)
     title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    title.setFixedHeight(S.ICON_HEADER)
+    title.setContentsMargins(0, 0, 0, 0)
     title.setStyleSheet(
         f"color: {theme.text_header}; font-size: {S.FONT_TITLE}px; "
-        f"font-weight: 500; letter-spacing: 3px;")
+        f"font-weight: 500; letter-spacing: 3px; padding: 0; margin: 0;")
 
     header.addWidget(lw, 1, Qt.AlignmentFlag.AlignTop)
     header.addWidget(title, 0, Qt.AlignmentFlag.AlignTop)
