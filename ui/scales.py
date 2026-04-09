@@ -17,7 +17,6 @@ class S:
     ACCENT_DOT = 11
 
     # Icons — bottom bar
-    ICON_DICE = 34
     ICON_START = 42
 
     # Start button
@@ -29,19 +28,13 @@ class S:
     FONT_BUTTON = 10
     FONT_LABEL = 9
     FONT_HINT = 8
-    FONT_DURATION = 18
     FONT_TOTAL = 10
 
     # Spacing
     SPACING_HEADER = 6
     SPACING_MODE = 10
-    SPACING_DURATION = 12
     SPACING_TIERS = 3
     SPACING_SUMMARY = 6
-
-    # Duration picker
-    DURATION_ARROW = 14
-    DURATION_ARROW_BTN = 22
 
     # Timer buttons
     TIMER_BTN_PADDING_V = 4
