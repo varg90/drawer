@@ -84,6 +84,22 @@ class _GradientOverlay(QWidget):
         p.end()
 
 
+class _GridOverlay(QWidget):
+    """Transparent widget that draws rule of thirds grid."""
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setPen(QColor(255, 255, 255, 100))
+        w, h = self.width(), self.height()
+        # Vertical lines at 1/3 and 2/3
+        p.drawLine(w // 3, 0, w // 3, h)
+        p.drawLine(2 * w // 3, 0, 2 * w // 3, h)
+        # Horizontal lines at 1/3 and 2/3
+        p.drawLine(0, h // 3, w, h // 3)
+        p.drawLine(0, 2 * h // 3, w, 2 * h // 3)
+        p.end()
+
+
 class ViewerWindow(QWidget):
     def __init__(self, images, settings, on_close=None):
         super().__init__()
@@ -102,6 +118,10 @@ class ViewerWindow(QWidget):
         self._is_warning = False
         self._session_limit = settings.get("session_limit")  # seconds or None
         self._session_elapsed = 0
+        self._grayscale = False
+        self._flip_h = False
+        self._flip_v = False
+        self._grid_thirds = False
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
@@ -126,6 +146,11 @@ class ViewerWindow(QWidget):
         self._img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._img_label.setStyleSheet("background-color: black;")
         self._img_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+        # Grid overlay (rule of thirds)
+        self._grid_overlay = _GridOverlay(self)
+        self._grid_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._grid_overlay.hide()
 
         # Gradient overlay (above image, below controls)
         self._gradient = _GradientOverlay(self)
@@ -308,7 +333,18 @@ class ViewerWindow(QWidget):
     def _update_display(self):
         if self._pixmap is None:
             return
-        scaled = self._pixmap.scaled(
+        from PyQt6.QtGui import QTransform, QImage
+        pix = self._pixmap
+        # Flip
+        if self._flip_h or self._flip_v:
+            sx = -1 if self._flip_h else 1
+            sy = -1 if self._flip_v else 1
+            pix = pix.transformed(QTransform().scale(sx, sy))
+        # Grayscale
+        if self._grayscale:
+            img = pix.toImage().convertToFormat(QImage.Format.Format_Grayscale8)
+            pix = QPixmap.fromImage(img)
+        scaled = pix.scaled(
             self._img_label.size(),
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
@@ -454,6 +490,28 @@ class ViewerWindow(QWidget):
         current = self._current_idx + 1
         self._counter_label.setText(f"{current}/{total}")
 
+    # ------------------------------------------------------------------ Viewer tools
+
+    def _toggle_grayscale(self):
+        self._grayscale = not self._grayscale
+        self._update_display()
+
+    def _toggle_grid(self):
+        self._grid_thirds = not self._grid_thirds
+        if self._grid_thirds:
+            self._grid_overlay.show()
+            self._grid_overlay.raise_()
+        else:
+            self._grid_overlay.hide()
+
+    def _toggle_flip_h(self):
+        self._flip_h = not self._flip_h
+        self._update_display()
+
+    def _toggle_flip_v(self):
+        self._flip_v = not self._flip_v
+        self._update_display()
+
     # ------------------------------------------------------------------ Fade animation
 
     def _fade_controls(self, show):
@@ -492,6 +550,14 @@ class ViewerWindow(QWidget):
             self._next()
         elif event.key() == Qt.Key.Key_H:
             self._show_help()
+        elif event.key() == Qt.Key.Key_G:
+            self._toggle_grayscale()
+        elif event.key() == Qt.Key.Key_R:
+            self._toggle_grid()
+        elif event.key() == Qt.Key.Key_F:
+            self._toggle_flip_h()
+        elif event.key() == Qt.Key.Key_V:
+            self._toggle_flip_v()
         else:
             super().keyPressEvent(event)
 
@@ -508,6 +574,7 @@ class ViewerWindow(QWidget):
         w, h = self.width(), self.height()
 
         self._img_label.setGeometry(0, 0, w, h)
+        self._grid_overlay.setGeometry(0, 0, w, h)
         self._gradient.setGeometry(0, 0, w, h)
 
         # Fixed sizes
