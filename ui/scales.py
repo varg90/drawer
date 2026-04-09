@@ -13,7 +13,7 @@ class S:
     MARGIN_BOTTOM = 18
 
     # Icons — header row
-    ICON_HEADER = 13
+    ICON_HEADER = 15
     ACCENT_DOT = 11
 
     # Icons — bottom bar
@@ -42,5 +42,4 @@ class S:
     TIMER_BTN_PADDING_H = 7
 
     # Editor toolbar buttons
-    EDITOR_BTN = 20
-    EDITOR_BTN_ICON = 11
+    EDITOR_BTN = 15
