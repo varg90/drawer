@@ -38,6 +38,13 @@ class Icons:
     SHUFFLE_ON = "ph.shuffle-bold"
     SHUFFLE_OFF = "ph.shuffle-bold"
 
+    # Viewer tools
+    BW_ON = "ph.cloud-rain-fill"
+    BW_OFF = "ph.rainbow-fill"
+    GRID_OVERLAY = "ph.grid-four-bold"
+    FLIP_H = "ph.arrows-left-right-bold"
+    FLIP_V = "ph.arrows-down-up-bold"
+
     # View modes
     LIST = "ph.list-bullets-bold"
     GRID = "ph.squares-four-bold"
