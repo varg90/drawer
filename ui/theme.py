@@ -93,6 +93,8 @@ class Theme:
     def __init__(self, name="dark", accent=None):
         self._name = name if name in _BASES else "dark"
         self._accent = accent or DEFAULT_ACCENT
+        self._cache = {}
+        self._cache_key = None
 
     @property
     def name(self):
@@ -110,15 +112,19 @@ class Theme:
         self._name = "light" if self._name == "dark" else "dark"
 
     def _colors(self):
-        base = dict(_BASES[self._name])
-        base.update(_accent_colors(self._accent, self._name))
-        return base
+        key = (self._name, self._accent)
+        if self._cache_key != key:
+            base = dict(_BASES[self._name])
+            base.update(_accent_colors(self._accent, self._name))
+            for k in list(base):
+                r, g, b = _hex_to_rgb(base[k])
+                base[k + "_rgb"] = f"{r}, {g}, {b}"
+            self._cache = base
+            self._cache_key = key
+        return self._cache
 
     def __getattr__(self, key):
-        name = self.__dict__.get("_name", "dark")
-        accent = self.__dict__.get("_accent", DEFAULT_ACCENT)
-        base = dict(_BASES.get(name, _DARK_BASE))
-        base.update(_accent_colors(accent, name))
-        if key in base:
-            return base[key]
+        colors = self._colors()
+        if key in colors:
+            return colors[key]
         raise AttributeError(f"Theme has no color '{key}'")

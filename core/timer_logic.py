@@ -4,6 +4,7 @@ def validate_timer_seconds(seconds):
     return max(TIMER_MIN, min(TIMER_MAX, int(seconds)))
 
 def format_time(s):
+    s = max(0, int(s))
     if s >= 3600:
         return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
     elif s >= 60:
