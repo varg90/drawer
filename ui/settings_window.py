@@ -191,18 +191,18 @@ class SettingsWindow(QMainWindow, SnapMixin):
         root.addStretch()
 
         # ── 5. Bottom group: summary left + start right ──────────────────
-        self._groups_label = QLabel("")
-        self._groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        root.addWidget(self._groups_label)
-
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(0)
-        bottom_row.setContentsMargins(0, 2, 0, 0)
+        bottom_row.setContentsMargins(0, 0, 0, 0)
 
         # Summary info (left side)
         summary_col = QVBoxLayout()
         summary_col.setSpacing(0)
         summary_col.setContentsMargins(0, 0, 0, 0)
+
+        self._groups_label = QLabel("")
+        self._groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        summary_col.addWidget(self._groups_label)
 
         summary_time = QHBoxLayout()
         summary_time.setSpacing(4)
