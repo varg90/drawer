@@ -128,8 +128,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         mode_row.addWidget(self._class_btn, 1)
         mode_row.addSpacing(4)
         mode_row.addWidget(self._quick_btn, 1)
-        mode_row.addSpacing(8)
-        mode_row.addWidget(self._add_btn)
         root.addLayout(mode_row)
         root.addSpacing(S.SPACING_MODE)
 
@@ -199,6 +197,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         self._groups_label = QLabel("")
         self._groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._groups_label.setWordWrap(True)
+        self._groups_label.setMaximumWidth(150)
         summary_col.addWidget(self._groups_label)
 
         summary_time = QHBoxLayout()
@@ -226,13 +226,20 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         summary_col.addLayout(summary_time)
 
-        # Start button (right side)
+        # Action buttons (right side)
         self._start_btn = make_start_btn(self.theme)
         self._start_btn.clicked.connect(self._start_slideshow)
 
+        actions_col = QVBoxLayout()
+        actions_col.setSpacing(4)
+        actions_col.setContentsMargins(0, 0, 0, 0)
+        actions_col.addStretch()
+        actions_col.addWidget(self._add_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        actions_col.addWidget(self._start_btn, alignment=Qt.AlignmentFlag.AlignRight)
+
         bottom_row.addWidget(summary_widget, alignment=Qt.AlignmentFlag.AlignBottom)
         bottom_row.addStretch()
-        bottom_row.addWidget(self._start_btn, alignment=Qt.AlignmentFlag.AlignBottom)
+        bottom_row.addLayout(actions_col)
 
         root.addLayout(bottom_row)
 
