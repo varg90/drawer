@@ -9,7 +9,7 @@ from ui.icons import Icons
 def make_icon_btn(icon_name, color, size=S.ICON_HEADER, tooltip=""):
     """Small icon button with no background/border."""
     btn = QPushButton()
-    btn.setIcon(qta.icon(icon_name, color=color))
+    btn.setIcon(qta.icon(icon_name, color=color, scale_factor=1.2))
     btn.setIconSize(QSize(size, size))
     btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -40,7 +40,7 @@ def make_icon_toggle(icon_on, icon_off, is_on, theme, size=S.ICON_HEADER):
     btn = QPushButton()
     icon_name = icon_on if is_on else icon_off
     color = theme.accent if is_on else theme.text_hint
-    btn.setIcon(qta.icon(icon_name, color=color))
+    btn.setIcon(qta.icon(icon_name, color=color, scale_factor=1.2))
     btn.setIconSize(QSize(size, size))
     btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
