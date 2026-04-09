@@ -228,21 +228,11 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._start_btn = make_start_btn(self.theme)
         self._start_btn.clicked.connect(self._start_slideshow)
 
-        # Right side: + and start, bottom-aligned together
-        right_col = QVBoxLayout()
-        right_col.setSpacing(0)
-        right_col.setContentsMargins(0, 0, 0, 0)
-        right_col.addStretch()
-        right_btns = QHBoxLayout()
-        right_btns.setSpacing(8)
-        right_btns.setContentsMargins(0, 0, 0, 0)
-        right_btns.addWidget(self._add_btn, alignment=Qt.AlignmentFlag.AlignBottom)
-        right_btns.addWidget(self._start_btn, alignment=Qt.AlignmentFlag.AlignBottom)
-        right_col.addLayout(right_btns)
-
         bottom_row.addWidget(summary_widget, alignment=Qt.AlignmentFlag.AlignBottom)
         bottom_row.addStretch()
-        bottom_row.addLayout(right_col)
+        bottom_row.addWidget(self._add_btn)
+        bottom_row.addSpacing(8)
+        bottom_row.addWidget(self._start_btn)
 
         root.addLayout(bottom_row)
 
