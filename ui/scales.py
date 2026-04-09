@@ -33,11 +33,11 @@ class S:
     # Spacing
     SPACING_HEADER = 6
     SPACING_MODE = 10
-    SPACING_TIERS = 3
+    SPACING_TIERS = 4
     SPACING_SUMMARY = 6
 
     # Timer buttons
-    TIMER_BTN_PADDING_V = 4
+    TIMER_BTN_PADDING_V = 6
     TIMER_BTN_PADDING_H = 7
 
     # Editor toolbar buttons
