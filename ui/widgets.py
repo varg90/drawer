@@ -80,9 +80,9 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
         f"color: {theme.text_header}; font-size: {S.FONT_TITLE}px; "
         f"font-weight: 500; letter-spacing: 3px;")
 
-    header.addWidget(lw, 1)
+    header.addWidget(lw, 1, Qt.AlignmentFlag.AlignTop)
     header.addWidget(title)
-    header.addWidget(rw, 1)
+    header.addWidget(rw, 1, Qt.AlignmentFlag.AlignTop)
     return header, title
 
 

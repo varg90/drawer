@@ -44,7 +44,7 @@ class ImageEditorWindow(QWidget, SnapMixin):
 
         # Title bar — add buttons left, close/minimize right
         title_bar = QHBoxLayout()
-        title_bar.setContentsMargins(0, 0, 0, 4)
+        title_bar.setContentsMargins(0, 0, 0, 0)
         title_bar.setSpacing(4)
 
         self._add_files_btn = make_icon_btn(Icons.ADD_FILE, self.theme.text_hint,
