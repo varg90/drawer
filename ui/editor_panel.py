@@ -159,55 +159,6 @@ class EditorPanel(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(6)
 
-        # --- Toolbar ---
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(4)
-        toolbar.setContentsMargins(0, 0, 0, 0)
-
-        self._add_files_btn = make_icon_btn(
-            Icons.ADD_FILE, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Add files",
-        )
-        self._add_files_btn.clicked.connect(self._add_files)
-
-        self._add_folder_btn = make_icon_btn(
-            Icons.ADD_FOLDER, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Add folder",
-        )
-        self._add_folder_btn.clicked.connect(self._add_folder)
-
-        self._url_btn = make_icon_btn(
-            Icons.ADD_URL, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Load from URL",
-        )
-        self._url_btn.clicked.connect(self._add_from_url)
-
-        self._detach_btn = make_icon_btn(
-            Icons.DETACH, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Detach to window",
-        )
-        self._detach_btn.setVisible(False)
-
-        self._shuffle_btn = make_icon_btn(
-            Icons.SHUFFLE_ON, self.theme.accent if self._shuffle else self.theme.text_hint,
-            size=S.EDITOR_BTN, tooltip="Shuffle on start",
-        )
-        self._shuffle_btn.clicked.connect(self._toggle_shuffle)
-
-        self._close_btn = make_icon_btn(
-            Icons.CLOSE, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Close",
-        )
-        self._close_btn.clicked.connect(self.close_requested.emit)
-
-        toolbar.addWidget(self._add_files_btn)
-        toolbar.addWidget(self._add_folder_btn)
-        toolbar.addWidget(self._url_btn)
-        toolbar.addStretch()
-        toolbar.addWidget(self._close_btn)
-
-        root.addLayout(toolbar)
-
         # --- Stacked widget: list / grid ---
         self._stack = QStackedWidget()
 
@@ -294,6 +245,18 @@ class EditorPanel(QWidget):
         )
         self._clear_btn.clicked.connect(self._clear)
 
+        self._shuffle_btn = make_icon_btn(
+            Icons.SHUFFLE_ON, self.theme.accent if self._shuffle else self.theme.text_hint,
+            size=S.EDITOR_BTN, tooltip="Shuffle on start",
+        )
+        self._shuffle_btn.clicked.connect(self._toggle_shuffle)
+
+        self._clear_btn = make_icon_btn(
+            Icons.ERASER, self.theme.text_secondary,
+            size=S.EDITOR_BTN, tooltip="Clear all",
+        )
+        self._clear_btn.clicked.connect(self._clear)
+
         bottom.addWidget(self._cache_btn)
         bottom.addWidget(self._cache_size_label)
         bottom.addWidget(self._shuffle_btn)
@@ -363,12 +326,7 @@ class EditorPanel(QWidget):
 
         # Refresh icon colors
         for btn, icon in [
-            (self._add_files_btn, Icons.ADD_FILE),
-            (self._add_folder_btn, Icons.ADD_FOLDER),
-            (self._url_btn, Icons.ADD_URL),
-            (self._detach_btn, Icons.DETACH),
             (self._clear_btn, Icons.ERASER),
-            (self._close_btn, Icons.CLOSE),
             (self._cache_btn, Icons.TRASH),
         ]:
             btn.setIcon(qta.icon(icon, color=t.text_secondary))

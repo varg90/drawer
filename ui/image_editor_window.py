@@ -79,17 +79,6 @@ class ImageEditorWindow(QWidget, SnapMixin):
         self._add_folder_btn.clicked.connect(self._panel._add_folder)
         self._add_url_btn.clicked.connect(self._panel._add_from_url)
 
-        # Hide duplicate buttons in panel — window title bar has them
-        if hasattr(self._panel, '_add_files_btn'):
-            self._panel._add_files_btn.setVisible(False)
-        if hasattr(self._panel, '_add_folder_btn'):
-            self._panel._add_folder_btn.setVisible(False)
-        if hasattr(self._panel, '_url_btn'):
-            self._panel._url_btn.setVisible(False)
-        if hasattr(self._panel, '_detach_btn'):
-            self._panel._detach_btn.setVisible(False)
-        if hasattr(self._panel, '_close_btn'):
-            self._panel._close_btn.setVisible(False)
         root.addWidget(self._panel)
 
     def _apply_theme(self):
