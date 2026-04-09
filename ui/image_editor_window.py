@@ -58,10 +58,12 @@ class ImageEditorWindow(QWidget, SnapMixin):
         title_bar.addWidget(self._add_folder_btn)
         title_bar.addWidget(self._add_url_btn)
         title_bar.addStretch()
-        self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint)
+        self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint,
+                                      size=S.ICON_WINDOW_CTRL)
         self._min_btn.clicked.connect(self.showMinimized)
         title_bar.addWidget(self._min_btn)
-        self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint)
+        self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint,
+                                        size=S.ICON_WINDOW_CTRL)
         self._close_btn.clicked.connect(self.close)
         title_bar.addWidget(self._close_btn)
         root.addLayout(title_bar)

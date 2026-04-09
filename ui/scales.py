@@ -15,6 +15,7 @@ class S:
 
     # Icons — header row
     ICON_HEADER = 15
+    ICON_WINDOW_CTRL = 17
     ACCENT_DOT = 11
 
     # Icons — bottom bar
