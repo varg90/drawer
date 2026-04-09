@@ -196,7 +196,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._groups_label = QLabel("")
         self._groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._groups_label.setWordWrap(True)
-        self._groups_label.setMaximumWidth(150)
         summary_col.addWidget(self._groups_label)
 
         summary_time = QHBoxLayout()
