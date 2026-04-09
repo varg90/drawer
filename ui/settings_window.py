@@ -1,11 +1,11 @@
 import os
 import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                              QPushButton, QLabel, QFileDialog,
+                              QPushButton, QLabel, QFileDialog, QScrollArea,
                               QSizePolicy, QApplication, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QColor
-from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_PRESETS
+from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_LIMIT_PRESETS
 from core.timer_logic import format_time
 from core.class_mode import auto_distribute, groups_to_timers, total_duration, format_group
 from core.file_utils import filter_image_files, scan_folder
@@ -61,12 +61,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
         # "quick" replaces old "standard", "class" replaces old "session"
         self._timer_mode = "quick"
         self._preset_index = 3   # default 5min
-        self._session_index = 5  # default 1h
-        self._manual_groups = []
+        self._session_limit_index = 0  # default: no limit
         self._class_groups = []
 
-        # Toggle states (replace checkboxes)
-        self._random = False
         self._topmost = False
 
         self._build_ui()
@@ -158,33 +155,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         root.addLayout(mode_row)
         root.addSpacing(S.SPACING_MODE)
 
-        # ── 3. Duration picker ─────────────────────────────────────────────
-        dur_row = QHBoxLayout()
-        dur_row.setSpacing(0)
-        dur_row.setContentsMargins(0, 0, 0, 0)
-        dur_row.addStretch()
-
-        self._ses_left = make_icon_btn(Icons.CARET_LEFT, self.theme.text_secondary,
-                                       size=S.DURATION_ARROW)
-        self._ses_left.setFixedSize(S.DURATION_ARROW_BTN, S.DURATION_ARROW_BTN)
-        self._ses_left.clicked.connect(self._prev_session)
-
-        self._ses_display = QLabel("1:00:00")
-        self._ses_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self._ses_right = make_icon_btn(Icons.CARET_RIGHT, self.theme.text_secondary,
-                                        size=S.DURATION_ARROW)
-        self._ses_right.setFixedSize(S.DURATION_ARROW_BTN, S.DURATION_ARROW_BTN)
-        self._ses_right.clicked.connect(self._next_session)
-
-        dur_row.addWidget(self._ses_left)
-        dur_row.addWidget(self._ses_display)
-        dur_row.addWidget(self._ses_right)
-        dur_row.addStretch()
-        root.addLayout(dur_row)
-        root.addSpacing(S.SPACING_DURATION)
-
-        # ── 4. Timer buttons (2 rows × 4) ──────────────────────────────────
+        # ── 3. Timer buttons (2 rows × 4) ──────────────────────────────────
         self._timer_buttons = []  # list of (btn, secs)
 
         # Quick mode uses TIMER_PRESETS, Class mode uses ALL_TIERS.
@@ -234,34 +205,46 @@ class SettingsWindow(QMainWindow, SnapMixin):
         root.addLayout(timer_grid)
         root.addSpacing(S.SPACING_SUMMARY)
 
-        # ── 5. Summary line (groups + total) ──────────────────────────────
+        # ── 4. Summary line (groups + total + limit) ─────────────────────
         self._groups_label = QLabel("")
         self._groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        root.addWidget(self._groups_label)
+
+        summary_row = QHBoxLayout()
+        summary_row.setSpacing(4)
+        summary_row.setContentsMargins(0, 2, 0, 0)
 
         self._total_label = QLabel("")
         self._total_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        root.addWidget(self._groups_label)
-        root.addWidget(self._total_label)
+        self._limit_sep = QLabel("\u00b7")
+        self._limit_sep.hide()
+
+        self._limit_btn = QPushButton("no limit")
+        self._limit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._limit_btn.setToolTip("Session time limit")
+        self._limit_btn.clicked.connect(self._next_limit)
+        self._limit_btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._limit_btn.customContextMenuRequested.connect(self._prev_limit)
+        self._limit_btn.hide()
+
+        summary_row.addWidget(self._total_label)
+        summary_row.addWidget(self._limit_sep)
+        summary_row.addWidget(self._limit_btn)
+        summary_row.addStretch()
+        root.addLayout(summary_row)
 
         # ── 6. Stretch ─────────────────────────────────────────────────────
         root.addStretch()
 
-        # ── 7. Bottom bar: [dice]  ... [start] ────────────────────────────
+        # ── 7. Bottom bar: [start] ────────────────────────────────────────
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(0)
         bottom_row.setContentsMargins(0, 0, 0, 0)
 
-        self._dice_btn = make_icon_toggle(
-            Icons.RANDOM_ON, Icons.RANDOM_OFF, self._random, self.theme,
-            size=S.ICON_DICE)
-        self._dice_btn.setToolTip("Random order")
-        self._dice_btn.clicked.connect(self._toggle_random)
-
         self._start_btn = make_start_btn(self.theme)
         self._start_btn.clicked.connect(self._start_slideshow)
 
-        bottom_row.addWidget(self._dice_btn)
         bottom_row.addStretch()
         bottom_row.addWidget(self._start_btn)
 
@@ -270,7 +253,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         # ── Initialize display ─────────────────────────────────────────────
         self._update_mode_buttons()
         self._update_preset_styles()
-        self._update_session_display()
         self._update_summary()
         self._update_img_count()
 
@@ -318,17 +300,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
         self._add_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
-        # Duration picker
-        _dur_color = t.text_secondary if self._timer_mode == "class" else t.text_hint
-        self._ses_left.setIcon(qta.icon(Icons.CARET_LEFT, color=_dur_color))
-        self._ses_right.setIcon(qta.icon(Icons.CARET_RIGHT, color=_dur_color))
-        self._ses_left.setStyleSheet("background: transparent; border: none; padding: 0px;")
-        self._ses_right.setStyleSheet("background: transparent; border: none; padding: 0px;")
-
-        _dur_text = t.text_primary if self._timer_mode == "class" else t.text_hint
-        self._ses_display.setStyleSheet(
-            f"color: {_dur_text}; font-size: {S.FONT_DURATION}px; font-weight: 400;")
-
         # Timer buttons
         self._update_preset_styles()
         self._update_tier_styles()
@@ -338,18 +309,17 @@ class SettingsWindow(QMainWindow, SnapMixin):
             f"color: {t.text_secondary}; font-size: {S.FONT_HINT}px; font-weight: 500;")
         self._total_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500;")
+        self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px;")
+        self._update_limit_display()
 
         # Bottom bar
-        _dice_icon = Icons.RANDOM_ON if self._random else Icons.RANDOM_OFF
-        _dice_color = t.accent if self._random else t.text_hint
-        self._dice_btn.setIcon(qta.icon(_dice_icon, color=_dice_color))
-        self._dice_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
-
         # Refresh start button
         self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
             f"border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
+
+        self._dismiss_help()
 
     # ------------------------------------------------------------------ Window dragging
 
@@ -364,34 +334,76 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
     # ------------------------------------------------------------------ Help / Theme / Accent
 
+    def _dismiss_help(self):
+        if hasattr(self, "_help_overlay") and self._help_overlay is not None:
+            self._help_overlay.deleteLater()
+            self._help_overlay = None
+
     def _show_help(self):
-        from PyQt6.QtWidgets import QDialog, QVBoxLayout
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Help")
+        if hasattr(self, "_help_overlay") and self._help_overlay is not None:
+            self._dismiss_help()
+            return
         t = self.theme
-        dlg.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
-        layout = QVBoxLayout(dlg)
-        layout.setContentsMargins(16, 12, 16, 12)
+        cw = self.centralWidget()
+        overlay = QWidget(cw)
+        overlay.setGeometry(cw.rect())
+        overlay.setStyleSheet(f"background-color: rgba({t.bg_rgb}, 230);")
+
+        layout = QVBoxLayout(overlay)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setStyleSheet(
+            f"QScrollArea {{ background: transparent; }}"
+            f"QScrollBar:vertical {{ width: 4px; background: transparent; }}"
+            f"QScrollBar::handle:vertical {{ background: {t.text_hint}; }}"
+            f"QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}")
+        scroll.mousePressEvent = lambda e: self._dismiss_help()
+
+        content = QWidget()
+        content.setStyleSheet("background: transparent;")
+        content.mousePressEvent = lambda e: self._dismiss_help()
+        inner = QVBoxLayout(content)
+        inner.setContentsMargins(16, 14, 16, 12)
+
         lbl = QLabel(
-            "<b>Settings</b><br><br>"
-            "Press + or drag images/folders into the window<br>"
-            "to add files<br><br>"
-            "<b>Slideshow</b><br><br>"
+            "<b>Settings</b><br>"
+            "Drag files/folders into the window to add images<br>"
+            "+ button — open editor (reorder, delete, pin)<br>"
+            "Quick — same timer for all images<br>"
+            "Class — auto-distribute by tiers, optional session limit<br>"
+            "Pencil button — start slideshow<br><br>"
+            "<b>Slideshow</b><br>"
             "<table>"
             "<tr><td>Space&nbsp;&nbsp;</td><td>pause / resume</td></tr>"
-            "<tr><td>\u2190 \u2192&nbsp;&nbsp;</td><td>previous / next</td></tr>"
+            "<tr><td>\u2190 \u2192&nbsp;&nbsp;</td><td>prev / next</td></tr>"
             "<tr><td>F11&nbsp;&nbsp;</td><td>fullscreen</td></tr>"
             "<tr><td>Esc&nbsp;&nbsp;</td><td>exit fullscreen</td></tr>"
-            "<tr><td>? or H&nbsp;&nbsp;</td><td>help</td></tr>"
+            "<tr><td>H&nbsp;&nbsp;</td><td>help</td></tr>"
             "</table><br>"
             "RMB + drag — move window<br>"
-            "Window edges — resize"
+            "Edges — resize<br><br>"
+            "<b>Header</b><br>"
+            "Pin — always on top<br>"
+            "Dot — accent color<br>"
+            "Sun/Moon — toggle theme<br><br>"
+            "<span style='color: {hint}'>Click anywhere to close</span>".format(
+                hint=t.text_hint)
         )
         lbl.setStyleSheet(f"color: {t.text_primary}; font-size: 11px;")
         lbl.setWordWrap(True)
-        layout.addWidget(lbl)
-        dlg.adjustSize()
-        dlg.exec()
+        lbl.mousePressEvent = lambda e: self._dismiss_help()
+        inner.addWidget(lbl)
+        inner.addStretch()
+
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
+
+        overlay.raise_()
+        overlay.show()
+        self._help_overlay = overlay
 
     def _toggle_theme(self):
         self.theme.toggle()
@@ -431,36 +443,30 @@ class SettingsWindow(QMainWindow, SnapMixin):
             self.setWindowFlags(flags & ~Qt.WindowType.WindowStaysOnTopHint)
         self.show()
 
-    def _toggle_random(self):
-        self._random = not self._random
-        t = self.theme
-        _icon = Icons.RANDOM_ON if self._random else Icons.RANDOM_OFF
-        _color = t.accent if self._random else t.text_hint
-        self._dice_btn.setIcon(qta.icon(_icon, color=_color))
-
     # ------------------------------------------------------------------ Mode
 
     def _set_timer_mode(self, mode):
         self._timer_mode = mode
         if mode == "quick":
-            # Show quick buttons, hide class buttons
             for btn, _ in self._quick_btns:
                 btn.show()
             for btn, _ in self._class_btns:
                 btn.hide()
-            # Apply uniform timer to all images
             timer = self.get_timer_seconds()
             for img in self.images:
                 img.timer = timer
+            self._limit_sep.hide()
+            self._limit_btn.hide()
         else:
-            # Show class buttons, hide quick buttons
             for btn, _ in self._quick_btns:
                 btn.hide()
             for btn, _ in self._class_btns:
                 btn.show()
+            self._limit_sep.show()
+            self._limit_btn.show()
         self._update_mode_buttons()
         self._update_summary()
-        self._apply_theme()  # refreshes duration picker color
+        self._apply_theme()
         if self._editor_visible:
             self.editor.refresh(self.images)
 
@@ -516,28 +522,33 @@ class SettingsWindow(QMainWindow, SnapMixin):
     def get_timer_seconds(self):
         return TIMER_PRESETS[self._preset_index][0]
 
-    # ------------------------------------------------------------------ Class timer (session duration)
+    # ------------------------------------------------------------------ Session limit
 
-    def _prev_session(self):
-        if self._session_index > 0:
-            self._session_index -= 1
-            self._update_session_display()
-            if self.images:
-                self._auto_distribute()
+    def _next_limit(self):
+        self._session_limit_index = (self._session_limit_index + 1) % len(SESSION_LIMIT_PRESETS)
+        self._update_limit_display()
 
-    def _next_session(self):
-        if self._session_index < len(SESSION_PRESETS) - 1:
-            self._session_index += 1
-            self._update_session_display()
-            if self.images:
-                self._auto_distribute()
+    def _prev_limit(self, pos=None):
+        self._session_limit_index = (self._session_limit_index - 1) % len(SESSION_LIMIT_PRESETS)
+        self._update_limit_display()
 
-    def _update_session_display(self):
-        secs, _ = SESSION_PRESETS[self._session_index]
-        self._ses_display.setText(format_time(secs))
+    def _get_session_limit(self):
+        return SESSION_LIMIT_PRESETS[self._session_limit_index][0]
 
-    def _get_session_seconds(self):
-        return SESSION_PRESETS[self._session_index][0]
+    def _update_limit_display(self):
+        secs, label = SESSION_LIMIT_PRESETS[self._session_limit_index]
+        t = self.theme
+        if secs is None:
+            self._limit_btn.setText("no limit")
+            self._limit_btn.setStyleSheet(
+                f"color: {t.text_hint}; font-size: 9px; font-weight: 500; "
+                f"background: transparent; border: none; padding: 0;")
+        else:
+            self._limit_btn.setText(f"limit: {label}")
+            self._limit_btn.setStyleSheet(
+                f"color: {t.accent}; font-size: 9px; font-weight: 500; "
+                f"background: transparent; border: none; padding: 0; "
+                f"text-decoration: underline;")
 
     # ------------------------------------------------------------------ Tiers (class mode)
 
@@ -581,41 +592,21 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
     # ------------------------------------------------------------------ Auto-distribute
 
-    def _reset_groups(self):
-        self._manual_groups = []
-        self._class_groups = []
-        self._update_groups_display()
-        self._update_summary()
-
     def _apply_class_timers(self):
         if self._class_groups:
             timers = groups_to_timers(self._class_groups)
             for i, img in enumerate(self.images):
-                # Skip pinned files during auto-distribution
                 if getattr(img, "pinned", False):
                     continue
-                img.timer = timers[i] if i < len(timers) else 0
+                img.timer = timers[i] if i < len(timers) else timers[-1]
         if self._editor_visible:
             self.editor.refresh(self.images)
 
     def _auto_distribute(self):
         if not self.images:
             return
-        total_secs = self._get_session_seconds()
-        manual_time = total_duration(self._manual_groups)
-        manual_images = sum(c for c, _ in self._manual_groups)
-        remaining_time = max(0, total_secs - manual_time)
-        remaining_images = max(0, len(self.images) - manual_images)
-
-        if remaining_images > 0 and remaining_time > 0:
-            auto_groups = auto_distribute(remaining_images, remaining_time,
-                                          custom_tiers=self._get_selected_tiers())
-        else:
-            auto_groups = []
-
-        combined = self._manual_groups + auto_groups
-        combined.sort(key=lambda g: g[1])
-        self._class_groups = combined
+        self._class_groups = auto_distribute(
+            len(self.images), custom_tiers=self._get_selected_tiers())
         self._apply_class_timers()
         self._update_groups_display()
         self._update_summary()
@@ -624,6 +615,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
         if not self._class_groups:
             self._groups_label.setText("")
             self._total_label.setText("")
+            self._limit_sep.hide()
+            self._limit_btn.hide()
             return
         parts = []
         for count, timer in self._class_groups:
@@ -637,6 +630,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._groups_label.setText("  ".join(parts))
         dur = total_duration(self._class_groups)
         self._total_label.setText(format_time(dur))
+        self._limit_sep.show()
+        self._limit_btn.show()
+        self._update_limit_display()
 
     # ------------------------------------------------------------------ Image count
 
@@ -751,21 +747,23 @@ class SettingsWindow(QMainWindow, SnapMixin):
         if not self.images:
             return
 
-        show_images = self.images
-        if self._timer_mode == "class" and self._class_groups:
+        show_images = list(self.images)
+        if self._timer_mode == "quick":
+            timer = self.get_timer_seconds()
+            for img in show_images:
+                img.timer = timer
+        elif self._class_groups:
             timers = groups_to_timers(self._class_groups)
-            show_images = []
-            for i, img in enumerate(self.images):
-                if i < len(timers):
-                    img.timer = timers[i]
-                    show_images.append(img)
+            for i, img in enumerate(show_images):
+                img.timer = timers[i] if i < len(timers) else timers[-1]
             # Sort by timer so slideshow goes from short to long poses
             show_images.sort(key=lambda img: img.timer)
 
         settings = {
-            "order": "random" if self._random else "sequential",
+            "order": "sequential",
             "topmost": self._topmost,
             "viewer_size": getattr(self, "_last_viewer_size", None),
+            "session_limit": self._get_session_limit() if self._timer_mode == "class" else None,
         }
         from ui.viewer_window import ViewerWindow
         self.viewer = ViewerWindow(show_images, settings, on_close=self._on_viewer_closed)
@@ -807,14 +805,15 @@ class SettingsWindow(QMainWindow, SnapMixin):
         _MODE_MAP = {"standard": "quick", "session": "class", "class": "class"}
         self._timer_mode = _MODE_MAP.get(data.get("timer_mode", "quick"), "quick")
 
-        session_secs = data.get("session_seconds")
-        if session_secs:
-            for i, (s, _) in enumerate(SESSION_PRESETS):
-                if s == session_secs:
-                    self._session_index = i
+        session_limit = data.get("session_limit")
+        if session_limit is not None:
+            for i, (s, _) in enumerate(SESSION_LIMIT_PRESETS):
+                if s == session_limit:
+                    self._session_limit_index = i
                     break
+        else:
+            self._session_limit_index = 0
 
-        self._random = data.get("random_order", False)
         self._topmost = data.get("topmost", False)
 
         saved_tiers = data.get("tiers")
@@ -836,8 +835,10 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         self._apply_theme()
         self._update_preset_styles()
-        self._update_session_display()
         self._set_timer_mode(self._timer_mode)
+        # Rebuild class-mode groups so images get proper timers
+        if self._timer_mode == "class" and self.images:
+            self._auto_distribute()
         self._update_img_count()
         self._update_summary()
 
@@ -852,8 +853,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             "images": [img.to_dict() for img in self.images],
             "timer_seconds": self.get_timer_seconds(),
             "timer_mode": saved_mode,
-            "session_seconds": self._get_session_seconds(),
-            "random_order": self._random,
+            "session_limit": self._get_session_limit(),
             "topmost": self._topmost,
             "theme": self.theme.name,
             "accent": self.theme.accent,
