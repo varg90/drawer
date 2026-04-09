@@ -84,12 +84,11 @@ class ImageEditorWindow(QWidget, SnapMixin):
     def _apply_theme(self):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg};")
-        _sf = 1.2
-        self._add_files_btn.setIcon(qta.icon(Icons.ADD_FILE, color=t.text_hint, scale_factor=_sf))
-        self._add_folder_btn.setIcon(qta.icon(Icons.ADD_FOLDER, color=t.text_hint, scale_factor=_sf))
-        self._add_url_btn.setIcon(qta.icon(Icons.ADD_URL, color=t.text_hint, scale_factor=_sf))
-        self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint, scale_factor=_sf))
-        self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint, scale_factor=_sf))
+        self._add_files_btn.setIcon(qta.icon(Icons.ADD_FILE, color=t.text_hint))
+        self._add_folder_btn.setIcon(qta.icon(Icons.ADD_FOLDER, color=t.text_hint))
+        self._add_url_btn.setIcon(qta.icon(Icons.ADD_URL, color=t.text_hint))
+        self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
+        self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
 
     def _on_panel_update(self, images):
         self.images = images
