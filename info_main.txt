@@ -1,0 +1,26 @@
+RefBot 0.1.0
+
+SETTINGS
+Drag files/folders into the window to add images
+Image button - open editor (reorder, delete, pin)
+Quick - same timer for all images
+Class - auto-distribute by tiers
+Click limit to set session time limit
+
+SLIDESHOW HOTKEYS
+Space     pause / resume
+Left/Right     prev / next
+F11     fullscreen
+Esc     exit fullscreen
+G     black & white
+R     rule of thirds grid
+F     flip horizontal
+V     flip vertical
+H     help
+
+HEADER
+Pin - always on top (slideshow only)
+Palette - accent color
+Sun/Moon - toggle theme
+
+Click anywhere to close

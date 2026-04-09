@@ -335,10 +335,10 @@ class SettingsWindow(QMainWindow, SnapMixin):
         inner = QVBoxLayout(content)
         inner.setContentsMargins(16, 14, 16, 12)
 
-        info_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "info_main.html")
+        info_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "info_main.txt")
         try:
             with open(info_path, encoding="utf-8") as f:
-                info_text = f.read().format(hint=t.text_hint)
+                info_text = f.read().replace("\n", "<br>")
         except FileNotFoundError:
             info_text = "RefBot 0.1.0"
         lbl = QLabel(info_text)
