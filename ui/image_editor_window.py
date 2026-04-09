@@ -43,7 +43,10 @@ class ImageEditorWindow(QWidget, SnapMixin):
         root.setSpacing(0)
 
         # Title bar — add buttons left, close/minimize right
-        title_bar = QHBoxLayout()
+        # Match main window header height (driven by FONT_TITLE)
+        title_bar_widget = QWidget()
+        title_bar_widget.setFixedHeight(S.FONT_TITLE + 6)
+        title_bar = QHBoxLayout(title_bar_widget)
         title_bar.setContentsMargins(0, 0, 0, 0)
         title_bar.setSpacing(4)
 
@@ -64,7 +67,7 @@ class ImageEditorWindow(QWidget, SnapMixin):
         self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint)
         self._close_btn.clicked.connect(self.close)
         title_bar.addWidget(self._close_btn)
-        root.addLayout(title_bar)
+        root.addWidget(title_bar_widget)
 
         # Editor panel
         init_view = self.__dict__.get('_view_mode_init', 'list')
