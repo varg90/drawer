@@ -32,8 +32,9 @@ def make_title_pixmap(text, color, font_size=S.FONT_TITLE, letter_spacing=3):
 def make_icon_btn(icon_name, color, size=S.ICON_HEADER, tooltip=""):
     """Small icon button with no background/border."""
     btn = QPushButton()
+    icon_sz = int(size * 1.3)  # oversize to compensate for glyph padding
     btn.setIcon(qta.icon(icon_name, color=color))
-    btn.setIconSize(QSize(size, size))
+    btn.setIconSize(QSize(icon_sz, icon_sz))
     btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
