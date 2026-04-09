@@ -463,15 +463,14 @@ class ViewerWindow(QWidget):
             "background-color: rgba(0, 0, 0, 210); color: rgba(255,255,255,200); "
             "font-size: 20px; padding: 20px;")
         self._help_overlay.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._help_overlay.setText(
-            "Пробел — пауза / продолжить\n"
-            "\u2190  \u2192  — предыдущее / следующее\n"
-            "F11 — полный экран\n"
-            "Esc — выйти из полного экрана\n"
-            "H — эта справка\n\n"
-            "ПКМ + перетаскивание — переместить окно\n"
-            "Края окна — изменить размер"
-        )
+        import os as _os
+        info_path = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "info_viewer.html")
+        try:
+            with open(info_path, encoding="utf-8") as f:
+                info_text = f.read()
+        except FileNotFoundError:
+            info_text = "H — help"
+        self._help_overlay.setText(info_text)
         self._help_overlay.setGeometry(self.rect())
         self._help_overlay.show()
         self._help_overlay.mousePressEvent = lambda e: self._help_overlay.hide()
