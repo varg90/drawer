@@ -228,18 +228,11 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._start_btn = make_start_btn(self.theme)
         self._start_btn.clicked.connect(self._start_slideshow)
 
-        # Wrap + button in a column with stretch above to force it to bottom
-        add_wrapper = QVBoxLayout()
-        add_wrapper.setContentsMargins(0, 0, 0, 0)
-        add_wrapper.setSpacing(0)
-        add_wrapper.addStretch()
-        add_wrapper.addWidget(self._add_btn)
-
-        bottom_row.addWidget(summary_widget, alignment=Qt.AlignmentFlag.AlignBottom)
+        bottom_row.addWidget(summary_widget, 0, Qt.AlignmentFlag.AlignBottom)
         bottom_row.addStretch()
-        bottom_row.addLayout(add_wrapper)
+        bottom_row.addWidget(self._add_btn, 0, Qt.AlignmentFlag.AlignBottom)
         bottom_row.addSpacing(8)
-        bottom_row.addWidget(self._start_btn)
+        bottom_row.addWidget(self._start_btn, 0, Qt.AlignmentFlag.AlignBottom)
 
         root.addLayout(bottom_row)
 
