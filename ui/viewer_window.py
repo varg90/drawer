@@ -74,12 +74,12 @@ class _GradientOverlay(QWidget):
         # Top gradient
         top_h = min(80, h // 3)
         for i in range(top_h):
-            alpha = int(200 * (1 - i / top_h) ** 1.2)
+            alpha = int(255 * (1 - i / top_h) ** 1.2)
             p.fillRect(0, i, w, 1, QColor(0, 0, 0, alpha))
         # Bottom gradient
         bot_h = min(70, h // 3)
         for i in range(bot_h):
-            alpha = int(180 * (i / bot_h) ** 1.2)
+            alpha = int(255 * (i / bot_h) ** 1.2)
             p.fillRect(0, h - bot_h + i, w, 1, QColor(0, 0, 0, alpha))
         p.end()
 
