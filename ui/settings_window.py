@@ -104,7 +104,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             self.theme,
         )
         root.addLayout(header_layout)
-        root.addSpacing(S.SPACING_HEADER)
+        root.addStretch()
 
         # ── 2. Mode row + image count ──────────────────────────────────────
         mode_row = QHBoxLayout()
