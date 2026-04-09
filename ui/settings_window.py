@@ -88,11 +88,11 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._theme_btn.clicked.connect(self._toggle_theme)
 
         self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint,
-                                      size=S.ICON_WINDOW_CTRL, tooltip="Minimize")
+                                      size=S.ICON_HEADER, tooltip="Minimize")
         self._min_btn.clicked.connect(self.showMinimized)
 
         self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint,
-                                        size=S.ICON_WINDOW_CTRL, tooltip="Close")
+                                        size=S.ICON_HEADER, tooltip="Close")
         self._close_btn.clicked.connect(self.close)
 
         header_layout, self._title = make_centered_header(
