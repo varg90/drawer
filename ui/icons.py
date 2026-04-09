@@ -6,6 +6,9 @@ class Icons:
     # Start button
     START = "fa6s.pencil"
 
+    # Accent color picker
+    PALETTE = "ph.palette-fill"
+
     # Toggle: always on top
     TOPMOST_ON = "ph.push-pin-fill"
     TOPMOST_OFF = "ph.push-pin-bold"

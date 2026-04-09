@@ -78,10 +78,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._topmost_btn.setToolTip("Always on top")
         self._topmost_btn.clicked.connect(self._toggle_topmost)
 
-        self._accent_btn = QPushButton()
-        self._accent_btn.setFixedSize(S.ACCENT_DOT, S.ACCENT_DOT)
-        self._accent_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._accent_btn.setToolTip("Accent color")
+        self._accent_btn = make_icon_btn(Icons.PALETTE, self.theme.accent,
+                                          size=S.ICON_HEADER, tooltip="Accent color")
         self._accent_btn.clicked.connect(self._pick_accent)
 
         self._theme_btn = make_icon_btn(
@@ -274,9 +272,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint, scale_factor=_sf))
         self._close_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
 
-        self._accent_btn.setStyleSheet(
-            f"background-color: {t.accent}; border: 1px solid {t.border}; "
-            f"border-radius: {S.ACCENT_DOT // 2}px;")
+        self._accent_btn.setIcon(qta.icon(Icons.PALETTE, color=t.accent, scale_factor=_sf))
 
         # Mode buttons
         self._update_mode_buttons()
