@@ -187,14 +187,26 @@ class SettingsWindow(QMainWindow, SnapMixin):
         root.addLayout(timer_grid)
         root.addSpacing(S.SPACING_SUMMARY)
 
-        # ── 4. Summary line (groups + total + limit) ─────────────────────
+        # ── 4. Stretch — separates upper (config) and lower (summary+start)
+        root.addStretch()
+
+        # ── 5. Bottom group: summary left + start right ──────────────────
         self._groups_label = QLabel("")
         self._groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         root.addWidget(self._groups_label)
 
-        summary_row = QHBoxLayout()
-        summary_row.setSpacing(4)
-        summary_row.setContentsMargins(0, 2, 0, 0)
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(0)
+        bottom_row.setContentsMargins(0, 2, 0, 0)
+
+        # Summary info (left side)
+        summary_col = QVBoxLayout()
+        summary_col.setSpacing(0)
+        summary_col.setContentsMargins(0, 0, 0, 0)
+
+        summary_time = QHBoxLayout()
+        summary_time.setSpacing(4)
+        summary_time.setContentsMargins(0, 0, 0, 0)
 
         self._total_label = QLabel("")
         self._total_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -210,22 +222,20 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._limit_btn.customContextMenuRequested.connect(self._prev_limit)
         self._limit_btn.hide()
 
-        summary_row.addWidget(self._total_label)
-        summary_row.addWidget(self._limit_sep)
-        summary_row.addWidget(self._limit_btn)
-        summary_row.addStretch()
-        root.addLayout(summary_row)
+        summary_time.addWidget(self._total_label)
+        summary_time.addWidget(self._limit_sep)
+        summary_time.addWidget(self._limit_btn)
+        summary_time.addStretch()
 
-        # ── 6. Bottom bar: [start] ────────────────────────────────────────
-        bottom_row = QHBoxLayout()
-        bottom_row.setSpacing(0)
-        bottom_row.setContentsMargins(0, 0, 0, 0)
+        summary_col.addLayout(summary_time)
 
+        # Start button (right side, bottom-aligned)
         self._start_btn = make_start_btn(self.theme)
         self._start_btn.clicked.connect(self._start_slideshow)
 
+        bottom_row.addLayout(summary_col)
         bottom_row.addStretch()
-        bottom_row.addWidget(self._start_btn)
+        bottom_row.addWidget(self._start_btn, alignment=Qt.AlignmentFlag.AlignBottom)
 
         root.addLayout(bottom_row)
 
