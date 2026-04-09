@@ -39,12 +39,12 @@ class ImageEditorWindow(QWidget, SnapMixin):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
 
-        # Title bar with dock-back button
+        # Title bar — close/minimize right-aligned
         title_bar = QHBoxLayout()
-        title_bar.setContentsMargins(8, 5, 8, 3)
+        title_bar.setContentsMargins(0, 0, 0, 4)
         title_bar.setSpacing(4)
         title_bar.addStretch()
         self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint)
