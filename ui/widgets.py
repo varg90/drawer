@@ -8,7 +8,7 @@ from ui.icons import Icons
 
 
 class IconButton(QWidget):
-    """Clickable icon widget — paints pixmap at full size, no QPushButton padding."""
+    """Clickable icon widget — paints icon scaled to fill widget, no padding."""
     clicked = pyqtSignal()
 
     def __init__(self, size=S.ICON_HEADER, parent=None):
@@ -19,12 +19,37 @@ class IconButton(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def setIcon(self, icon):
-        self._pixmap = icon.pixmap(QSize(self._size, self._size))
+        # Render larger, crop transparent borders, scale to fill widget
+        big = int(self._size * 2)
+        raw = icon.pixmap(QSize(big, big)).toImage()
+        # Find opaque bounding rect
+        bounds = raw.rect()
+        for top in range(raw.height()):
+            if any(raw.pixelColor(x, top).alpha() > 0 for x in range(raw.width())):
+                break
+        for bottom in range(raw.height() - 1, -1, -1):
+            if any(raw.pixelColor(x, bottom).alpha() > 0 for x in range(raw.width())):
+                break
+        for left in range(raw.width()):
+            if any(raw.pixelColor(left, y).alpha() > 0 for y in range(raw.height())):
+                break
+        for right in range(raw.width() - 1, -1, -1):
+            if any(raw.pixelColor(right, y).alpha() > 0 for y in range(raw.height())):
+                break
+        from PyQt6.QtCore import QRect
+        from PyQt6.QtGui import QPixmap
+        cropped = raw.copy(QRect(left, top, right - left + 1, bottom - top + 1))
+        self._pixmap = QPixmap.fromImage(cropped).scaled(
+            self._size, self._size,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
         self.update()
 
     def paintEvent(self, event):
         if self._pixmap:
-            QPainter(self).drawPixmap(0, 0, self._pixmap)
+            x = (self._size - self._pixmap.width()) // 2
+            y = (self._size - self._pixmap.height()) // 2
+            QPainter(self).drawPixmap(x, y, self._pixmap)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
