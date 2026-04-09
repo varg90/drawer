@@ -1,19 +1,40 @@
 """Reusable widget factories for RefBot UI."""
 import qtawesome as qta
 from PyQt6.QtWidgets import QPushButton, QLabel, QHBoxLayout, QWidget
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtGui import QPainter
 from ui.scales import S
 from ui.icons import Icons
 
 
+class IconButton(QWidget):
+    """Clickable icon widget — paints pixmap at full size, no QPushButton padding."""
+    clicked = pyqtSignal()
+
+    def __init__(self, size=S.ICON_HEADER, parent=None):
+        super().__init__(parent)
+        self._size = size
+        self._pixmap = None
+        self.setFixedSize(size, size)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def setIcon(self, icon):
+        self._pixmap = icon.pixmap(QSize(self._size, self._size))
+        self.update()
+
+    def paintEvent(self, event):
+        if self._pixmap:
+            QPainter(self).drawPixmap(0, 0, self._pixmap)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+
+
 def make_icon_btn(icon_name, color, size=S.ICON_HEADER, tooltip=""):
-    """Small icon button with no background/border."""
-    btn = QPushButton()
+    """Small icon button — pixmap fills full widget, no internal padding."""
+    btn = IconButton(size)
     btn.setIcon(qta.icon(icon_name, color=color))
-    btn.setIconSize(QSize(size, size))
-    btn.setFixedSize(size, size)
-    btn.setCursor(Qt.CursorShape.PointingHandCursor)
-    btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
     if tooltip:
         btn.setToolTip(tooltip)
     return btn
@@ -37,14 +58,10 @@ def make_start_btn(theme):
 
 def make_icon_toggle(icon_on, icon_off, is_on, theme, size=S.ICON_HEADER):
     """Toggle button that switches between two icons."""
-    btn = QPushButton()
+    btn = IconButton(size)
     icon_name = icon_on if is_on else icon_off
     color = theme.accent if is_on else theme.text_hint
     btn.setIcon(qta.icon(icon_name, color=color))
-    btn.setIconSize(QSize(size, size))
-    btn.setFixedSize(size, size)
-    btn.setCursor(Qt.CursorShape.PointingHandCursor)
-    btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
     return btn
 
 
