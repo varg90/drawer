@@ -71,13 +71,13 @@ class _GradientOverlay(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         w, h = self.width(), self.height()
-        # Top gradient
-        top_h = min(80, h // 3)
+        # Top gradient (25% of height)
+        top_h = max(1, h // 4)
         for i in range(top_h):
             alpha = int(255 * (1 - i / top_h) ** 1.2)
             p.fillRect(0, i, w, 1, QColor(0, 0, 0, alpha))
-        # Bottom gradient
-        bot_h = min(70, h // 3)
+        # Bottom gradient (25% of height)
+        bot_h = max(1, h // 4)
         for i in range(bot_h):
             alpha = int(255 * (i / bot_h) ** 1.2)
             p.fillRect(0, h - bot_h + i, w, 1, QColor(0, 0, 0, alpha))
