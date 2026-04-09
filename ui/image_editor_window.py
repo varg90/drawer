@@ -158,6 +158,18 @@ class ImageEditorWindow(QWidget, SnapMixin):
             if "t" in e:
                 new_geo.setTop(geo.top() + delta.y())
             if new_geo.width() >= self.minimumWidth() and new_geo.height() >= self.minimumHeight():
+                # Snap edges to parent window during resize
+                if self._parent:
+                    pg = self._parent.geometry()
+                    snap = 12
+                    if "b" in e and abs(new_geo.bottom() - pg.bottom()) < snap:
+                        new_geo.setBottom(pg.bottom())
+                    if "t" in e and abs(new_geo.top() - pg.top()) < snap:
+                        new_geo.setTop(pg.top())
+                    if "r" in e and abs(new_geo.right() - pg.right()) < snap:
+                        new_geo.setRight(pg.right())
+                    if "l" in e and abs(new_geo.left() - pg.left()) < snap:
+                        new_geo.setLeft(pg.left())
                 self.setGeometry(new_geo)
             event.accept()
             return
