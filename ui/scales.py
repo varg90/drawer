@@ -14,7 +14,7 @@ class S:
 
     # Icons — header row
     ICON_HEADER = 15
-    ACCENT_DOT = 11
+    ACCENT_DOT = 13
 
     # Icons — bottom bar
     ICON_START = 42
