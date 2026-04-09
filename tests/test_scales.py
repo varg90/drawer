@@ -20,7 +20,7 @@ def test_start_button():
 
 
 def test_font_sizes():
-    assert S.FONT_TITLE == 11
+    assert S.FONT_TITLE == 20
     assert S.FONT_BUTTON == 10
     assert S.FONT_LABEL == 9
 
