@@ -216,10 +216,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         summary_row.addStretch()
         root.addLayout(summary_row)
 
-        # ── 6. Stretch ─────────────────────────────────────────────────────
-        root.addStretch()
-
-        # ── 7. Bottom bar: [start] ────────────────────────────────────────
+        # ── 6. Bottom bar: [start] ────────────────────────────────────────
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(0)
         bottom_row.setContentsMargins(0, 0, 0, 0)
