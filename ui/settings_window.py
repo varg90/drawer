@@ -120,7 +120,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._quick_btn.clicked.connect(lambda: self._set_timer_mode("quick"))
 
         self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
-                                      size=S.ICON_HEADER, tooltip="Add files")
+                                      size=32, tooltip="Add files")
         self._add_btn.clicked.connect(self._open_editor)
 
         mode_row.addWidget(self._class_btn, 1)
