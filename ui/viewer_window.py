@@ -17,7 +17,7 @@ FADE_MS = 200
 CLR_NORMAL = QColor(255, 255, 255, 255)
 CLR_HOVER = QColor(255, 255, 255, 255)
 CLR_DIM = QColor(255, 255, 255, 255)
-CLR_WARNING = QColor(255, 85, 85, 200)
+CLR_WARNING = QColor(255, 85, 85, 255)
 
 
 def _icon(name, color=CLR_NORMAL, size=15):
@@ -193,7 +193,7 @@ class ViewerWindow(QWidget):
         # Coffee icon (always visible when paused)
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _icon("ph.coffee-bold", CLR_NORMAL).pixmap(QSize(20, 20)))
+            _icon("ph.coffee-fill", CLR_NORMAL).pixmap(QSize(20, 20)))
         self._coffee_label.setFixedSize(20, 20)
         self._coffee_label.setStyleSheet("background: transparent;")
         self._coffee_label.hide()
