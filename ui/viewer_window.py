@@ -100,6 +100,8 @@ class ViewerWindow(QWidget):
         self._pixmap = None
         self._controls_visible = False
         self._is_warning = False
+        self._session_limit = settings.get("session_limit")  # seconds or None
+        self._session_elapsed = 0
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
@@ -188,6 +190,13 @@ class ViewerWindow(QWidget):
         self._coffee_label.setStyleSheet("background: transparent;")
         self._coffee_label.hide()
 
+        # Session limit label
+        self._session_label = QLabel(self)
+        self._session_label.setStyleSheet(
+            "color: rgba(255,255,255,75); font-size: 12px; background: transparent;")
+        self._session_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._session_label.hide()
+
         # Progress bar
         self._progress_bar = ProgressBar(self)
 
@@ -195,7 +204,8 @@ class ViewerWindow(QWidget):
         self._hover_widgets = [
             self._top_left, self._top_right, self._center_btn,
             self._left_nav, self._right_nav,
-            self._timer_label, self._counter_label, self._progress_bar,
+            self._timer_label, self._counter_label,
+            self._session_label, self._progress_bar,
         ]
 
         # Setup opacity effects for fade
@@ -253,8 +263,11 @@ class ViewerWindow(QWidget):
             self._coffee_label.move(x, bottom_y + 2)
             x += 26
         self._timer_label.setGeometry(x, bottom_y, 80, lbl_h)
+        if self._session_limit:
+            self._session_label.setGeometry(x + 80, bottom_y + 4, 60, lbl_h)
         self._counter_label.setGeometry(w - 70, bottom_y, 60, lbl_h)
-        self._counter_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._counter_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     # ------------------------------------------------------------------ Image display
 
@@ -284,6 +297,7 @@ class ViewerWindow(QWidget):
         self._update_display()
         self._schedule_next(img.timer)
         self._update_counter()
+        self._update_session_display()
 
     def _update_display(self):
         if self._pixmap is None:
@@ -309,7 +323,12 @@ class ViewerWindow(QWidget):
         if self._paused:
             return
         self._countdown -= 1
+        self._session_elapsed += 1
         self._update_timer_display()
+        self._update_session_display()
+        if self._session_limit and self._session_elapsed >= self._session_limit:
+            self._finish()
+            return
         if self._countdown <= 0:
             self._advance()
 
@@ -341,6 +360,22 @@ class ViewerWindow(QWidget):
             self._progress_bar.set_progress(elapsed / self._total_time, self._is_warning)
 
         self._update_coffee()
+
+    def _update_session_display(self):
+        if not self._session_limit:
+            self._session_label.hide()
+            return
+        remaining = self._session_limit - self._session_elapsed
+        if remaining < 0:
+            remaining = 0
+        self._session_label.setText(format_time(remaining))
+        self._session_label.show()
+        if remaining <= 300:
+            self._session_label.setStyleSheet(
+                "color: rgba(255,85,85,160); font-size: 12px; background: transparent;")
+        else:
+            self._session_label.setStyleSheet(
+                "color: rgba(255,255,255,75); font-size: 12px; background: transparent;")
 
     # ------------------------------------------------------------------ Navigation
 
