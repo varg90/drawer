@@ -14,9 +14,9 @@ NAV_ZONE = 40  # side click zone width
 FADE_MS = 200
 
 # Icon colors
-CLR_NORMAL = QColor(255, 255, 255, 115)
-CLR_HOVER = QColor(255, 255, 255, 180)
-CLR_DIM = QColor(255, 255, 255, 75)
+CLR_NORMAL = QColor(255, 255, 255, 255)
+CLR_HOVER = QColor(255, 255, 255, 255)
+CLR_DIM = QColor(255, 255, 255, 255)
 CLR_WARNING = QColor(255, 85, 85, 200)
 
 
@@ -174,12 +174,12 @@ class ViewerWindow(QWidget):
         # Bottom: timer + counter
         self._timer_label = QLabel(self)
         self._timer_label.setStyleSheet(
-            "color: rgba(255,255,255,115); font-size: 20px; background: transparent;")
+            "color: white; font-size: 20px; background: transparent;")
         self._timer_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._counter_label = QLabel(self)
         self._counter_label.setStyleSheet(
-            "color: rgba(255,255,255,90); font-size: 20px; background: transparent;")
+            "color: white; font-size: 20px; background: transparent;")
         self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         # Coffee icon (always visible when paused)
@@ -193,7 +193,7 @@ class ViewerWindow(QWidget):
         # Session limit label
         self._session_label = QLabel(self)
         self._session_label.setStyleSheet(
-            "color: rgba(255,255,255,75); font-size: 12px; background: transparent;")
+            "color: white; font-size: 12px; background: transparent;")
         self._session_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._session_label.hide()
 
@@ -347,7 +347,7 @@ class ViewerWindow(QWidget):
             self._timer_color = "rgba(255,85,85,200)"
             self._opacity_effects[idx].setOpacity(1.0)
         else:
-            self._timer_color = "rgba(255,255,255,115)"
+            self._timer_color = "white"
             if not self._controls_visible:
                 self._opacity_effects[idx].setOpacity(0.0)
         self._timer_label.setStyleSheet(
@@ -376,7 +376,7 @@ class ViewerWindow(QWidget):
                 "color: rgba(255,85,85,160); font-size: 12px; background: transparent;")
         else:
             self._session_label.setStyleSheet(
-                "color: rgba(255,255,255,75); font-size: 12px; background: transparent;")
+                "color: white; font-size: 12px; background: transparent;")
 
     # ------------------------------------------------------------------ Navigation
 
