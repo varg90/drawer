@@ -248,9 +248,8 @@ class ViewerWindow(QWidget):
 
     def _update_coffee(self):
         if self._paused:
-            color = CLR_WARNING if self._is_warning else CLR_NORMAL
             self._coffee_label.setPixmap(
-                _icon("ph.coffee-bold", color).pixmap(QSize(20, 20)))
+                _icon("ph.coffee-fill", CLR_NORMAL).pixmap(QSize(20, 20)))
             self._coffee_label.setFixedSize(20, 20)
             self._coffee_label.show()
         else:
@@ -553,6 +552,7 @@ class ViewerWindow(QWidget):
         for w in self._hover_widgets:
             w.raise_()
         self._coffee_label.raise_()
+        self._alarm_label.raise_()
         self._fade_controls(True)
 
     def leaveEvent(self, event):
