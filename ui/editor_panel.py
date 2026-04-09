@@ -194,25 +194,16 @@ class EditorPanel(QWidget):
         )
         self._shuffle_btn.clicked.connect(self._toggle_shuffle)
 
-        toolbar.addWidget(self._add_files_btn)
-        toolbar.addWidget(self._add_folder_btn)
-        toolbar.addWidget(self._url_btn)
-        toolbar.addStretch()
-        toolbar.addWidget(self._shuffle_btn)
-
-        self._clear_btn = make_icon_btn(
-            Icons.ERASER, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Clear all",
-        )
-        self._clear_btn.clicked.connect(self._clear)
-
         self._close_btn = make_icon_btn(
             Icons.CLOSE, self.theme.text_secondary,
             size=S.EDITOR_BTN, tooltip="Close",
         )
         self._close_btn.clicked.connect(self.close_requested.emit)
 
-        toolbar.addWidget(self._clear_btn)
+        toolbar.addWidget(self._add_files_btn)
+        toolbar.addWidget(self._add_folder_btn)
+        toolbar.addWidget(self._url_btn)
+        toolbar.addStretch()
         toolbar.addWidget(self._close_btn)
 
         root.addLayout(toolbar)
@@ -297,8 +288,16 @@ class EditorPanel(QWidget):
         )
         self._cache_btn.clicked.connect(self._clear_cache)
         self._cache_size_label = QLabel("")
+        self._clear_btn = make_icon_btn(
+            Icons.ERASER, self.theme.text_secondary,
+            size=S.EDITOR_BTN, tooltip="Clear all",
+        )
+        self._clear_btn.clicked.connect(self._clear)
+
         bottom.addWidget(self._cache_btn)
         bottom.addWidget(self._cache_size_label)
+        bottom.addWidget(self._shuffle_btn)
+        bottom.addWidget(self._clear_btn)
 
         root.addLayout(bottom)
 
