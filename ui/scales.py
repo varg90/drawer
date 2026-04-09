@@ -26,6 +26,7 @@ class S:
     # Fonts (px)
     FONT_TITLE = 11
     FONT_BUTTON = 10
+    FONT_MODE = 12
     FONT_LABEL = 9
     FONT_HINT = 10
     FONT_TOTAL = 12

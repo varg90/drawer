@@ -125,9 +125,10 @@ class SettingsWindow(QMainWindow, SnapMixin):
                                       size=S.ICON_HEADER, tooltip="Add files")
         self._add_btn.clicked.connect(self._open_editor)
 
-        mode_row.addWidget(self._class_btn)
-        mode_row.addWidget(self._quick_btn)
-        mode_row.addStretch()
+        mode_row.addWidget(self._class_btn, 1)
+        mode_row.addSpacing(4)
+        mode_row.addWidget(self._quick_btn, 1)
+        mode_row.addSpacing(8)
         mode_row.addWidget(self._add_btn)
         root.addLayout(mode_row)
         root.addSpacing(S.SPACING_MODE)
@@ -452,11 +453,11 @@ class SettingsWindow(QMainWindow, SnapMixin):
         active_s = (
             f"background-color: {t.bg_active}; color: {t.text_primary}; "
             f"border: 1px solid {t.border_active}; "
-            f"font-size: {S.FONT_BUTTON}px; font-weight: 500; padding: 2px 8px;")
+            f"font-size: {S.FONT_MODE}px; font-weight: 500; padding: 4px 8px;")
         inactive_s = (
             f"background-color: {t.bg}; color: {t.text_secondary}; "
             f"border: 1px solid {t.border}; "
-            f"font-size: {S.FONT_BUTTON}px; font-weight: 500; padding: 2px 8px;")
+            f"font-size: {S.FONT_MODE}px; font-weight: 500; padding: 4px 8px;")
         if self._timer_mode == "class":
             self._class_btn.setStyleSheet(active_s)
             self._quick_btn.setStyleSheet(inactive_s)
