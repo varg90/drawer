@@ -197,8 +197,10 @@ class ViewerWindow(QWidget):
         self._session_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._session_label.hide()
 
-        # Progress bar
+        # Progress bar — only visible when session limit is set
         self._progress_bar = ProgressBar(self)
+        if not self._session_limit:
+            self._progress_bar.hide()
 
         # Collect hover-only widgets
         self._hover_widgets = [
@@ -354,11 +356,6 @@ class ViewerWindow(QWidget):
             f"color: {self._timer_color}; font-size: 20px; background: transparent;")
         self._timer_label.setText(t)
 
-        # Progress bar
-        if self._total_time > 0:
-            elapsed = self._total_time - self._countdown
-            self._progress_bar.set_progress(elapsed / self._total_time, self._is_warning)
-
         self._update_coffee()
 
     def _update_session_display(self):
@@ -371,12 +368,17 @@ class ViewerWindow(QWidget):
         self._session_label.setText(format_time(remaining))
         self._session_label.show()
         warn_at = min(300, int(self._session_limit * 0.2))
-        if remaining <= warn_at:
+        is_warning = remaining <= warn_at
+        if is_warning:
             self._session_label.setStyleSheet(
                 "color: rgba(255,85,85,160); font-size: 12px; background: transparent;")
         else:
             self._session_label.setStyleSheet(
                 "color: white; font-size: 12px; background: transparent;")
+        # Progress bar tracks session
+        progress = self._session_elapsed / self._session_limit
+        self._progress_bar.set_progress(progress, is_warning)
+        self._progress_bar.show()
 
     # ------------------------------------------------------------------ Navigation
 
