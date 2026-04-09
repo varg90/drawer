@@ -18,8 +18,9 @@ class ImageEditorWindow(QWidget, SnapMixin):
     shuffle_changed = pyqtSignal(bool)
 
     def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True):
-        QWidget.__init__(self)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        QWidget.__init__(self, parent)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
         self.images = list(images)
         self.theme = theme
         self._parent = parent
