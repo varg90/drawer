@@ -195,8 +195,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
         bottom_row.setSpacing(0)
         bottom_row.setContentsMargins(0, 0, 0, 0)
 
-        # Summary info (left side)
-        summary_col = QVBoxLayout()
+        # Summary info (left side) — wrapped in a widget for AlignBottom
+        summary_widget = QWidget()
+        summary_col = QVBoxLayout(summary_widget)
         summary_col.setSpacing(0)
         summary_col.setContentsMargins(0, 0, 0, 0)
 
@@ -229,11 +230,11 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         summary_col.addLayout(summary_time)
 
-        # Start button (right side, bottom-aligned)
+        # Start button (right side)
         self._start_btn = make_start_btn(self.theme)
         self._start_btn.clicked.connect(self._start_slideshow)
 
-        bottom_row.addLayout(summary_col)
+        bottom_row.addWidget(summary_widget, alignment=Qt.AlignmentFlag.AlignBottom)
         bottom_row.addStretch()
         bottom_row.addWidget(self._start_btn, alignment=Qt.AlignmentFlag.AlignBottom)
 
