@@ -5,7 +5,7 @@
 class S:
     # Window
     MAIN_W = 250
-    MAIN_H = 270
+    MAIN_H = 250
     EDITOR_W = 250
 
     # Margins
