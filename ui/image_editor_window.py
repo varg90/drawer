@@ -39,7 +39,7 @@ class ImageEditorWindow(QWidget, SnapMixin):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
+        root.setContentsMargins(S.MARGIN, S.MARGIN_TOP, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
 
         # Title bar — add buttons left, close/minimize right
