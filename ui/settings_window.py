@@ -112,12 +112,12 @@ class SettingsWindow(QMainWindow, SnapMixin):
         mode_row.setContentsMargins(0, 0, 0, 0)
 
         self._class_btn = QPushButton("Class")
-        self._class_btn.setFixedHeight(22)
+        self._class_btn.setFixedHeight(28)
         self._class_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._class_btn.clicked.connect(lambda: self._set_timer_mode("class"))
 
         self._quick_btn = QPushButton("Quick")
-        self._quick_btn.setFixedHeight(22)
+        self._quick_btn.setFixedHeight(28)
         self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._quick_btn.clicked.connect(lambda: self._set_timer_mode("quick"))
 
