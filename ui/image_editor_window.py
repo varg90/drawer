@@ -58,10 +58,6 @@ class ImageEditorWindow(QWidget, SnapMixin):
         title_bar.addWidget(self._add_folder_btn)
         title_bar.addWidget(self._add_url_btn)
         title_bar.addStretch()
-        self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint,
-                                      size=S.ICON_HEADER)
-        self._min_btn.clicked.connect(self.showMinimized)
-        title_bar.addWidget(self._min_btn)
         self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint,
                                         size=S.ICON_HEADER)
         self._close_btn.clicked.connect(self.close)
@@ -89,7 +85,6 @@ class ImageEditorWindow(QWidget, SnapMixin):
         self._add_files_btn.setIcon(qta.icon(Icons.ADD_FILE, color=t.text_hint))
         self._add_folder_btn.setIcon(qta.icon(Icons.ADD_FOLDER, color=t.text_hint))
         self._add_url_btn.setIcon(qta.icon(Icons.ADD_URL, color=t.text_hint))
-        self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
         self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
 
     def _on_panel_update(self, images):
