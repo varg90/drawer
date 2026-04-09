@@ -649,9 +649,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
             self.editor.refresh(self.images)
 
     def _open_editor(self):
-        """Open the editor as a separate window, snapped to the right."""
+        """Toggle editor — open if closed, close if open."""
         if self._editor_visible:
-            self.editor.raise_()
+            self.editor.close()
             return
         from ui.image_editor_window import ImageEditorWindow
         view = getattr(self, "_last_editor_view", "list")
