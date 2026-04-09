@@ -868,6 +868,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
     def closeEvent(self, event):
         if self.viewer is not None:
             event.ignore()
+            if self._editor_visible:
+                self.editor.hide()
             self.hide()
             self.viewer.show()
         else:
