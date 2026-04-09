@@ -2,8 +2,31 @@
 import qtawesome as qta
 from PyQt6.QtWidgets import QPushButton, QLabel, QHBoxLayout, QWidget
 from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QPixmap, QPainter, QFont, QColor, QFontMetrics
 from ui.scales import S
 from ui.icons import Icons
+
+
+def make_title_pixmap(text, color, font_size=S.FONT_TITLE, letter_spacing=3):
+    """Render title text as a tight pixmap with no font padding above glyphs."""
+    font = QFont()
+    font.setPixelSize(font_size)
+    font.setWeight(QFont.Weight.Medium)
+    font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, letter_spacing)
+    fm = QFontMetrics(font)
+    # tightBoundingRect gives pixel-exact bounds of the visible glyphs
+    tight = fm.tightBoundingRect(text)
+    w = tight.width() + 2  # small horizontal buffer
+    h = tight.height()
+    pix = QPixmap(w, h)
+    pix.fill(QColor(0, 0, 0, 0))
+    p = QPainter(pix)
+    p.setFont(font)
+    p.setPen(QColor(color))
+    # Draw at baseline offset so glyphs start at y=0
+    p.drawText(0, -tight.top(), text)
+    p.end()
+    return pix
 
 
 def make_icon_btn(icon_name, color, size=S.ICON_HEADER, tooltip=""):
@@ -74,11 +97,10 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
     rw.setLayout(right_box)
     rw.setStyleSheet("background: transparent;")
 
-    title = QLabel(title_text)
+    title = QLabel()
+    title.setPixmap(make_title_pixmap(title_text, theme.text_header))
     title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    title.setStyleSheet(
-        f"color: {theme.text_header}; font-size: {S.FONT_TITLE}px; "
-        f"font-weight: 500; letter-spacing: 3px;")
+    title.setStyleSheet("background: transparent;")
 
     lw.setFixedHeight(S.ICON_HEADER)
     rw.setFixedHeight(S.ICON_HEADER)
