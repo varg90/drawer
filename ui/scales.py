@@ -14,8 +14,8 @@ class S:
     MARGIN_BOTTOM = 18
 
     # Icons — header row
-    ICON_HEADER = 15
-    ICON_WINDOW_CTRL = 17
+    ICON_HEADER = 11
+    ICON_WINDOW_CTRL = 13
     ACCENT_DOT = 11
 
     # Icons — bottom bar

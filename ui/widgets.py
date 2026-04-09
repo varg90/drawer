@@ -97,7 +97,7 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
     header.setSpacing(0)
 
     left_box = QHBoxLayout()
-    left_box.setSpacing(2)
+    left_box.setSpacing(6)
     left_box.setContentsMargins(0, 0, 0, 0)
     for w in left_widgets:
         left_box.addWidget(w)
@@ -107,7 +107,7 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
     lw.setStyleSheet("background: transparent;")
 
     right_box = QHBoxLayout()
-    right_box.setSpacing(2)
+    right_box.setSpacing(6)
     right_box.setContentsMargins(0, 0, 0, 0)
     right_box.addStretch()
     for w in right_widgets:
