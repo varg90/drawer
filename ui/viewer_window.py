@@ -458,22 +458,50 @@ class ViewerWindow(QWidget):
         if hasattr(self, "_help_overlay") and self._help_overlay.isVisible():
             self._help_overlay.hide()
             return
-        self._help_overlay = QLabel(self)
-        self._help_overlay.setStyleSheet(
-            "background-color: rgba(0, 0, 0, 210); color: rgba(255,255,255,200); "
-            "font-size: 20px; padding: 20px;")
-        self._help_overlay.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        from PyQt6.QtWidgets import QScrollArea, QVBoxLayout
         import os as _os
+
+        self._help_overlay = QWidget(self)
+        self._help_overlay.setGeometry(self.rect())
+        self._help_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 210);")
+        self._help_overlay.mousePressEvent = lambda e: self._help_overlay.hide()
+
+        layout = QVBoxLayout(self._help_overlay)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setStyleSheet(
+            "QScrollArea { background: transparent; }"
+            "QScrollBar:vertical { width: 4px; background: transparent; }"
+            "QScrollBar::handle:vertical { background: rgba(255,255,255,80); }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }")
+        scroll.mousePressEvent = lambda e: self._help_overlay.hide()
+
+        content = QWidget()
+        content.setStyleSheet("background: transparent;")
+        content.mousePressEvent = lambda e: self._help_overlay.hide()
+        inner = QVBoxLayout(content)
+        inner.setContentsMargins(20, 20, 20, 20)
+
         info_path = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "info_viewer.txt")
         try:
             with open(info_path, encoding="utf-8") as f:
-                info_text = f.read()
+                info_text = f.read().replace("\n", "<br>")
         except FileNotFoundError:
             info_text = "H - help"
-        self._help_overlay.setText(info_text)
-        self._help_overlay.setGeometry(self.rect())
+
+        lbl = QLabel(info_text)
+        lbl.setStyleSheet("color: rgba(255,255,255,200); font-size: 14px;")
+        lbl.setWordWrap(True)
+        lbl.mousePressEvent = lambda e: self._help_overlay.hide()
+        inner.addWidget(lbl)
+        inner.addStretch()
+
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
         self._help_overlay.show()
-        self._help_overlay.mousePressEvent = lambda e: self._help_overlay.hide()
 
     def _toggle_fullscreen(self):
         if self.isFullScreen():
