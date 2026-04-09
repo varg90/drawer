@@ -370,7 +370,8 @@ class ViewerWindow(QWidget):
             remaining = 0
         self._session_label.setText(format_time(remaining))
         self._session_label.show()
-        if remaining <= 300:
+        warn_at = min(300, int(self._session_limit * 0.2))
+        if remaining <= warn_at:
             self._session_label.setStyleSheet(
                 "color: rgba(255,85,85,160); font-size: 12px; background: transparent;")
         else:
