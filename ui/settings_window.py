@@ -435,15 +435,11 @@ class SettingsWindow(QMainWindow, SnapMixin):
             timer = self.get_timer_seconds()
             for img in self.images:
                 img.timer = timer
-            self._limit_sep.hide()
-            self._limit_btn.hide()
         else:
             for btn, _ in self._quick_btns:
                 btn.hide()
             for btn, _ in self._class_btns:
                 btn.show()
-            self._limit_sep.show()
-            self._limit_btn.show()
         self._update_mode_buttons()
         self._update_summary()
         self._apply_theme()
@@ -628,19 +624,28 @@ class SettingsWindow(QMainWindow, SnapMixin):
             if n == 0:
                 self._groups_label.setText("")
                 self._total_label.setText("")
+                self._limit_sep.hide()
+                self._limit_btn.hide()
             else:
                 total = n * self.get_timer_seconds()
                 self._groups_label.setText(f"{n} images")
                 self._total_label.setText(format_time(total))
+                self._limit_sep.show()
+                self._limit_btn.show()
+                self._update_limit_display()
         else:
             if n == 0:
                 self._groups_label.setText("")
                 self._total_label.setText("")
+                self._limit_sep.hide()
+                self._limit_btn.hide()
             elif self._class_groups:
                 self._update_groups_display()
             else:
                 self._groups_label.setText(f"{n} images")
                 self._total_label.setText("")
+                self._limit_sep.hide()
+                self._limit_btn.hide()
 
     # ------------------------------------------------------------------ Image management
 
@@ -743,7 +748,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             "order": "sequential",
             "topmost": self._topmost,
             "viewer_size": getattr(self, "_last_viewer_size", None),
-            "session_limit": self._get_session_limit() if self._timer_mode == "class" else None,
+            "session_limit": self._get_session_limit(),
         }
         from ui.viewer_window import ViewerWindow
         self.viewer = ViewerWindow(show_images, settings, on_close=self._on_viewer_closed)
