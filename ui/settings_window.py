@@ -119,15 +119,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._quick_btn.clicked.connect(lambda: self._set_timer_mode("quick"))
 
-        self._add_btn = QPushButton()
-        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=self.theme.text_hint))
-        self._add_btn.setIconSize(QSize(24, 24))
-        self._add_btn.setFixedSize(32, 32)
-        self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._add_btn.setToolTip("Add files")
-        self._add_btn.setStyleSheet(
-            f"background-color: {self.theme.bg_button}; border: none; "
-            f"border-radius: {int(32 * S.START_RADIUS_RATIO)}px;")
+        self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
+                                      size=32, tooltip="Add files")
         self._add_btn.clicked.connect(self._open_editor)
 
         mode_row.addWidget(self._class_btn, 1)
@@ -268,32 +261,19 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         # Header icon buttons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
-        self._help_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
-
         _topmost_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
         _topmost_color = t.accent if self._topmost else t.text_hint
         self._topmost_btn.setIcon(qta.icon(_topmost_icon, color=_topmost_color))
-        self._topmost_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
-
         _theme_icon = Icons.THEME_DARK if t.name == "dark" else Icons.THEME_LIGHT
         self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
-        self._theme_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
-
         self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
-        self._min_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
-
         self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
-        self._close_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
-
         self._accent_btn.setIcon(qta.icon(Icons.PALETTE, color=t.accent))
 
         # Mode buttons
         self._update_mode_buttons()
 
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
-        self._add_btn.setStyleSheet(
-            f"background-color: {t.bg_button}; border: none; "
-            f"border-radius: {int(32 * S.START_RADIUS_RATIO)}px;")
 
         # Timer buttons
         self._update_preset_styles()
