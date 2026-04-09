@@ -119,8 +119,15 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._quick_btn.clicked.connect(lambda: self._set_timer_mode("quick"))
 
-        self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
-                                      size=32, tooltip="Add files")
+        self._add_btn = QPushButton()
+        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=self.theme.text_hint))
+        self._add_btn.setIconSize(QSize(24, 24))
+        self._add_btn.setFixedSize(32, 32)
+        self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._add_btn.setToolTip("Add files")
+        self._add_btn.setStyleSheet(
+            f"background-color: {self.theme.bg_button}; border: none; "
+            f"border-radius: {int(32 * S.START_RADIUS_RATIO)}px;")
         self._add_btn.clicked.connect(self._open_editor)
 
         mode_row.addWidget(self._class_btn, 1)
@@ -284,7 +291,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._update_mode_buttons()
 
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
-        self._add_btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
+        self._add_btn.setStyleSheet(
+            f"background-color: {t.bg_button}; border: none; "
+            f"border-radius: {int(32 * S.START_RADIUS_RATIO)}px;")
 
         # Timer buttons
         self._update_preset_styles()
