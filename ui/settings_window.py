@@ -226,20 +226,15 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         summary_col.addLayout(summary_time)
 
-        # Action buttons (right side)
+        # Start button (right side)
         self._start_btn = make_start_btn(self.theme)
         self._start_btn.clicked.connect(self._start_slideshow)
 
-        actions_col = QVBoxLayout()
-        actions_col.setSpacing(4)
-        actions_col.setContentsMargins(0, 0, 0, 0)
-        actions_col.addStretch()
-        actions_col.addWidget(self._add_btn, alignment=Qt.AlignmentFlag.AlignRight)
-        actions_col.addWidget(self._start_btn, alignment=Qt.AlignmentFlag.AlignRight)
-
         bottom_row.addWidget(summary_widget, alignment=Qt.AlignmentFlag.AlignBottom)
         bottom_row.addStretch()
-        bottom_row.addLayout(actions_col)
+        bottom_row.addWidget(self._add_btn, alignment=Qt.AlignmentFlag.AlignBottom)
+        bottom_row.addSpacing(8)
+        bottom_row.addWidget(self._start_btn, alignment=Qt.AlignmentFlag.AlignBottom)
 
         root.addLayout(bottom_row)
 
