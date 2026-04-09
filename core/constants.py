@@ -14,16 +14,17 @@ TIMER_PRESETS = [
 TIMER_MIN = 1
 TIMER_MAX = 10800
 
-SESSION_PRESETS = [
-    (300, "5 min"),
-    (600, "10 min"),
-    (900, "15 min"),
-    (1800, "30 min"),
-    (2700, "45 min"),
-    (3600, "1 hr"),
-    (5400, "1.5 hr"),
-    (7200, "2 hr"),
-    (10800, "3 hr"),
+SESSION_LIMIT_PRESETS = [
+    (None, "no limit"),
+    (300, "5m"),
+    (600, "10m"),
+    (900, "15m"),
+    (1800, "30m"),
+    (2700, "45m"),
+    (3600, "1h"),
+    (5400, "1.5h"),
+    (7200, "2h"),
+    (10800, "3h"),
 ]
 
 # Auto class-mode distributions: list of (timer_seconds, label) groups
