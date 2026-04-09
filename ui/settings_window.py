@@ -228,15 +228,10 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._start_btn = make_start_btn(self.theme)
         self._start_btn.clicked.connect(self._start_slideshow)
 
-        # Left group: summary + editor button, bottom-aligned together
-        left_group = QHBoxLayout()
-        left_group.setSpacing(8)
-        left_group.setContentsMargins(0, 0, 0, 0)
-        left_group.addWidget(summary_widget)
-        left_group.addWidget(self._add_btn, 0, Qt.AlignmentFlag.AlignBottom)
-
-        bottom_row.addLayout(left_group)
+        bottom_row.addWidget(summary_widget, alignment=Qt.AlignmentFlag.AlignBottom)
         bottom_row.addStretch()
+        bottom_row.addWidget(self._add_btn)
+        bottom_row.addSpacing(8)
         bottom_row.addWidget(self._start_btn, 0, Qt.AlignmentFlag.AlignBottom)
 
         root.addLayout(bottom_row)
