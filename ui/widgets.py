@@ -64,8 +64,9 @@ def make_icon_toggle(icon_on, icon_off, is_on, theme, size=S.ICON_HEADER):
     btn = QPushButton()
     icon_name = icon_on if is_on else icon_off
     color = theme.accent if is_on else theme.text_hint
+    icon_sz = int(size * 1.3)
     btn.setIcon(qta.icon(icon_name, color=color))
-    btn.setIconSize(QSize(size, size))
+    btn.setIconSize(QSize(icon_sz, icon_sz))
     btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setStyleSheet("background: transparent; border: none; padding: 0px;")
