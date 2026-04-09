@@ -190,13 +190,6 @@ class ViewerWindow(QWidget):
         self._coffee_label.setStyleSheet("background: transparent;")
         self._coffee_label.hide()
 
-        # Session limit label
-        self._session_label = QLabel(self)
-        self._session_label.setStyleSheet(
-            "color: white; font-size: 12px; background: transparent;")
-        self._session_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self._session_label.hide()
-
         # Progress bar — only visible when session limit is set
         self._progress_bar = ProgressBar(self)
         if not self._session_limit:
@@ -207,7 +200,7 @@ class ViewerWindow(QWidget):
             self._top_left, self._top_right, self._center_btn,
             self._left_nav, self._right_nav,
             self._timer_label, self._counter_label,
-            self._session_label, self._progress_bar,
+            self._progress_bar,
         ]
 
         # Setup opacity effects for fade
@@ -265,8 +258,6 @@ class ViewerWindow(QWidget):
             self._coffee_label.move(x, bottom_y + 2)
             x += 26
         self._timer_label.setGeometry(x, bottom_y, 80, lbl_h)
-        if self._session_limit:
-            self._session_label.setGeometry(x + 80, bottom_y + 4, 60, lbl_h)
         self._counter_label.setGeometry(w - 70, bottom_y, 60, lbl_h)
         self._counter_label.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -360,22 +351,12 @@ class ViewerWindow(QWidget):
 
     def _update_session_display(self):
         if not self._session_limit:
-            self._session_label.hide()
             return
         remaining = self._session_limit - self._session_elapsed
         if remaining < 0:
             remaining = 0
-        self._session_label.setText(format_time(remaining))
-        self._session_label.show()
         warn_at = min(300, int(self._session_limit * 0.2))
         is_warning = remaining <= warn_at
-        if is_warning:
-            self._session_label.setStyleSheet(
-                "color: rgba(255,85,85,160); font-size: 12px; background: transparent;")
-        else:
-            self._session_label.setStyleSheet(
-                "color: white; font-size: 12px; background: transparent;")
-        # Progress bar tracks session
         progress = self._session_elapsed / self._session_limit
         self._progress_bar.set_progress(progress, is_warning)
         self._progress_bar.show()
