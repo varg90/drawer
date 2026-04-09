@@ -77,36 +77,18 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
     header.setContentsMargins(0, 0, 0, 0)
     header.setSpacing(0)
 
-    left_box = QHBoxLayout()
-    left_box.setSpacing(2)
-    left_box.setContentsMargins(0, 0, 0, 0)
     for w in left_widgets:
-        left_box.addWidget(w)
-    left_box.addStretch()
-    lw = QWidget()
-    lw.setLayout(left_box)
-    lw.setStyleSheet("background: transparent;")
-
-    right_box = QHBoxLayout()
-    right_box.setSpacing(2)
-    right_box.setContentsMargins(0, 0, 0, 0)
-    right_box.addStretch()
-    for w in right_widgets:
-        right_box.addWidget(w)
-    rw = QWidget()
-    rw.setLayout(right_box)
-    rw.setStyleSheet("background: transparent;")
+        header.addWidget(w, 0, Qt.AlignmentFlag.AlignTop)
+    header.addStretch()
 
     title = QLabel()
     title.setPixmap(make_title_pixmap(title_text, theme.text_header))
-    title.setAlignment(Qt.AlignmentFlag.AlignCenter)
     title.setStyleSheet("background: transparent;")
-
-    lw.setFixedHeight(S.ICON_HEADER)
-    rw.setFixedHeight(S.ICON_HEADER)
-    header.addWidget(lw, 1, Qt.AlignmentFlag.AlignTop)
     header.addWidget(title, 0, Qt.AlignmentFlag.AlignTop)
-    header.addWidget(rw, 1, Qt.AlignmentFlag.AlignTop)
+
+    header.addStretch()
+    for w in right_widgets:
+        header.addWidget(w, 0, Qt.AlignmentFlag.AlignTop)
     return header, title
 
 
