@@ -217,10 +217,6 @@ class EditorPanel(QWidget):
 
         root.addLayout(toolbar)
 
-        # --- Count label ---
-        self._count_label = QLabel("")
-        root.addWidget(self._count_label)
-
         # --- Stacked widget: list / grid ---
         self._stack = QStackedWidget()
 
@@ -306,10 +302,6 @@ class EditorPanel(QWidget):
 
         root.addLayout(bottom)
 
-        # --- Total label ---
-        self._total_label = QLabel("")
-        root.addWidget(self._total_label)
-
         self._update_bottom_controls()
 
     # ------------------------------------------------------------------
@@ -320,12 +312,6 @@ class EditorPanel(QWidget):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
 
-        self._count_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_BUTTON}px; "
-            f"font-weight: 500; letter-spacing: 2px;")
-
-        self._total_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px;")
 
         # Scroll area backgrounds + dashed drop-target border
         # Use #id selector to avoid bleeding into child widgets
@@ -435,10 +421,6 @@ class EditorPanel(QWidget):
             self._rebuild_list()
         else:
             self._rebuild_grid()
-
-        n = len(self.images)
-        self._count_label.setText(f"IMAGES — {n}")
-        self._update_total_label()
 
         # Background load for uncached images
         uncached = [img.path for img in self.images if img.path not in self._pix_cache]
@@ -675,20 +657,6 @@ class EditorPanel(QWidget):
                 groups[key] = []
             groups[key].append((i, img))
         return groups
-
-    # ------------------------------------------------------------------
-    # Total label
-    # ------------------------------------------------------------------
-
-    def _update_total_label(self):
-        t = self.theme
-        total_s = sum(img.timer for img in self.images if img.timer > 0)
-        if total_s == 0:
-            self._total_label.setText("")
-            return
-        self._total_label.setText(f"{format_time(total_s)} total")
-        self._total_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px;")
 
     # ------------------------------------------------------------------
     # Cache

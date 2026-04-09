@@ -46,11 +46,6 @@ class ImageEditorWindow(QWidget, SnapMixin):
         title_bar = QHBoxLayout()
         title_bar.setContentsMargins(8, 5, 8, 3)
         title_bar.setSpacing(4)
-        self._title = QLabel("Images")
-        self._title.setStyleSheet(
-            f"color: {self.theme.text_secondary}; "
-            f"font-size: {S.FONT_BUTTON}px; font-weight: 500;")
-        title_bar.addWidget(self._title)
         title_bar.addStretch()
         self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint)
         self._min_btn.clicked.connect(self.showMinimized)
@@ -78,8 +73,6 @@ class ImageEditorWindow(QWidget, SnapMixin):
     def _apply_theme(self):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg};")
-        self._title.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_BUTTON}px; font-weight: 500;")
         self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
         self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
 
