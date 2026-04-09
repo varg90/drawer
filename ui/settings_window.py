@@ -120,7 +120,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._quick_btn.clicked.connect(lambda: self._set_timer_mode("quick"))
 
         self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
-                                      size=S.ICON_START, tooltip="Add files")
+                                      size=32, tooltip="Add files")
         self._add_btn.clicked.connect(self._open_editor)
 
         mode_row.addWidget(self._class_btn, 1)
@@ -230,9 +230,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         bottom_row.addWidget(summary_widget, alignment=Qt.AlignmentFlag.AlignBottom)
         bottom_row.addStretch()
-        bottom_row.addWidget(self._add_btn)
+        bottom_row.addWidget(self._add_btn, 0, Qt.AlignmentFlag.AlignBottom)
         bottom_row.addSpacing(8)
-        bottom_row.addWidget(self._start_btn)
+        bottom_row.addWidget(self._start_btn, 0, Qt.AlignmentFlag.AlignBottom)
 
         root.addLayout(bottom_row)
 
