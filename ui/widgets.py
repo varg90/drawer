@@ -2,31 +2,35 @@
 import qtawesome as qta
 from PyQt6.QtWidgets import QPushButton, QLabel, QHBoxLayout, QWidget
 from PyQt6.QtCore import Qt, QSize, QRect, pyqtSignal
-from PyQt6.QtGui import QPainter, QFont, QFontMetrics, QColor, QImage, QPixmap
+from PyQt6.QtGui import QPainter, QFont, QColor, QPixmap, QImage
 from ui.scales import S
 from ui.icons import Icons
 
 
 def _crop_transparent(img):
-    """Crop transparent borders from a QImage, return the tight bounding QImage."""
-    top = bot = left = right = 0
-    for top in range(img.height()):
-        if any(img.pixelColor(x, top).alpha() > 0 for x in range(img.width())):
-            break
-    for bot in range(img.height() - 1, -1, -1):
-        if any(img.pixelColor(x, bot).alpha() > 0 for x in range(img.width())):
-            break
-    for left in range(img.width()):
-        if any(img.pixelColor(left, y).alpha() > 0 for y in range(img.height())):
-            break
-    for right in range(img.width() - 1, -1, -1):
-        if any(img.pixelColor(right, y).alpha() > 0 for y in range(img.height())):
-            break
-    return img.copy(QRect(left, top, right - left + 1, bot - top + 1))
+    """Crop transparent borders from a QImage via raw byte access."""
+    img = img.convertToFormat(QImage.Format.Format_ARGB32)
+    w, h = img.width(), img.height()
+    if w == 0 or h == 0:
+        return img
+    bpl = img.bytesPerLine()
+    ptr = img.bits()
+    ptr.setsize(bpl * h)
+    data = bytes(ptr)
+    # ARGB32 little-endian: each pixel is [B, G, R, A] — alpha at offset 3
+    top = next((y for y in range(h)
+                if any(data[y * bpl + x * 4 + 3] for x in range(w))), 0)
+    bot = next((y for y in range(h - 1, top - 1, -1)
+                if any(data[y * bpl + x * 4 + 3] for x in range(w))), top)
+    left = next((x for x in range(w)
+                 if any(data[y * bpl + x * 4 + 3] for y in range(top, bot + 1))), 0)
+    right = next((x for x in range(w - 1, left - 1, -1)
+                  if any(data[y * bpl + x * 4 + 3] for y in range(top, bot + 1))), left)
+    return img.copy(left, top, right - left + 1, bot - top + 1)
 
 
 class IconButton(QWidget):
-    """Clickable icon widget — paints icon scaled to fill widget, no padding."""
+    """Clickable icon widget — renders at native DPI for sharp display."""
     clicked = pyqtSignal()
 
     def __init__(self, size=S.ICON_HEADER, parent=None):
@@ -37,20 +41,26 @@ class IconButton(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def setIcon(self, icon):
-        big = int(self._size * 2)
-        raw = icon.pixmap(QSize(big, big)).toImage()
+        ratio = max(self.devicePixelRatioF(), 2.0)
+        phys = int(self._size * ratio)
+        raw = icon.pixmap(QSize(phys, phys)).toImage()
         cropped = _crop_transparent(raw)
-        self._pixmap = QPixmap.fromImage(cropped).scaled(
-            self._size, self._size,
+        pm = QPixmap.fromImage(cropped).scaled(
+            phys, phys,
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation)
+        pm.setDevicePixelRatio(ratio)
+        self._pixmap = pm
         self.update()
 
     def paintEvent(self, event):
         if self._pixmap:
-            x = (self._size - self._pixmap.width()) // 2
-            y = (self._size - self._pixmap.height()) // 2
-            QPainter(self).drawPixmap(x, y, self._pixmap)
+            ratio = self._pixmap.devicePixelRatio()
+            lw = self._pixmap.width() / ratio
+            lh = self._pixmap.height() / ratio
+            x = (self._size - lw) / 2
+            y = (self._size - lh) / 2
+            QPainter(self).drawPixmap(int(x), int(y), self._pixmap)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -91,60 +101,34 @@ def make_icon_toggle(icon_on, icon_off, is_on, theme, size=S.ICON_HEADER):
     return btn
 
 
-class _TitlePixmap(QWidget):
-    """Title rendered as a cropped pixmap — widget bounds = visible pixels."""
+class TitleLabel(QLabel):
+    """Title rendered natively by Qt font engine — sharp at any DPI."""
     def __init__(self, text, color, font_size, weight=500, spacing=3,
                  target_width=None, parent=None):
-        super().__init__(parent)
+        super().__init__(text, parent)
         self._color = color
-        self._text = text
-        self._font_size = font_size
-        self._weight = weight
-        self._spacing = spacing
-        self._target_width = target_width
-        self._render(color)
-
-    def _render(self, color):
         font = QFont()
-        font.setPixelSize(self._font_size)
-        font.setWeight(QFont.Weight(self._weight))
-        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, self._spacing)
-        fm = QFontMetrics(font)
-        w = fm.horizontalAdvance(self._text) + 20
-        h = fm.height() + 10
-        img = QImage(w, h, QImage.Format.Format_ARGB32)
-        img.fill(QColor(0, 0, 0, 0))
-        p = QPainter(img)
-        p.setFont(font)
-        p.setPen(QColor(color))
-        p.drawText(img.rect(), Qt.AlignmentFlag.AlignCenter, self._text)
-        p.end()
-        cropped = _crop_transparent(img)
-        pm = QPixmap.fromImage(cropped)
-        if self._target_width and pm.width() != self._target_width:
-            pm = pm.scaled(
-                self._target_width,
-                pm.height() * self._target_width // pm.width(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation)
-        self._pixmap = pm
-        self.setFixedSize(self._pixmap.width(), self._pixmap.height())
-        self.update()
+        font.setPixelSize(font_size)
+        font.setWeight(QFont.Weight(weight))
+        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
+        self.setFont(font)
+        self.setStyleSheet(f"color: {color}; background: transparent;")
+        self.setContentsMargins(0, 0, 0, 0)
+        if target_width:
+            self.setFixedWidth(target_width)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def recolor(self, color):
         if color == self._color:
             return
         self._color = color
-        self._render(color)
-
-    def paintEvent(self, event):
-        QPainter(self).drawPixmap(0, 0, self._pixmap)
+        self.setStyleSheet(f"color: {color}; background: transparent;")
 
 
 def make_centered_header(title_text, left_widgets, right_widgets, theme):
-    """Header row: title as cropped pixmap, all items aligned to top margin."""
-    title = _TitlePixmap(title_text, theme.text_header, S.FONT_TITLE,
-                         target_width=S.TITLE_W)
+    """Header row: title label, all items aligned to top margin."""
+    title = TitleLabel(title_text, theme.text_header, S.FONT_TITLE,
+                       target_width=S.TITLE_W)
 
     header = QHBoxLayout()
     header.setContentsMargins(0, 0, 0, 0)

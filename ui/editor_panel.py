@@ -365,6 +365,7 @@ class EditorPanel(QWidget):
 
     def _rebuild(self):
         if self._loader and self._loader.isRunning():
+            self._loader.loaded.disconnect(self._on_pixmap_loaded)
             self._loader.cancel()
             self._loader.wait()
 
