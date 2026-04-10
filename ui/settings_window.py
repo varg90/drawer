@@ -1,5 +1,6 @@
 import os
 import random
+import weakref
 import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QPushButton, QLabel, QFileDialog, QScrollArea,
@@ -632,8 +633,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self.editor.resize(S.EDITOR_W, S.MAIN_H)
         self.editor.show()
         # Establish snap relationship
-        self.editor._snapped_to = (self, "right")
-        self._snapped_children.append((self.editor, "right"))
+        self.editor._snapped_to = (weakref.ref(self), "right")
+        self._snapped_children.append((weakref.ref(self.editor), "right"))
 
     def _on_editor_close(self):
         """Called when the editor window is closed."""
@@ -709,7 +710,9 @@ class SettingsWindow(QMainWindow, SnapMixin):
             "session_limit": self._get_session_limit(),
         }
         from ui.viewer_window import ViewerWindow
-        self.viewer = ViewerWindow(show_images, settings, on_close=self._on_viewer_closed)
+        self.viewer = ViewerWindow(show_images, settings,
+                                   on_close=self._on_viewer_closed,
+                                   settings_window=self)
         self.viewer.show()
         # Hide editor window too
         if self._editor_visible:
@@ -743,6 +746,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             if s == timer_secs:
                 self._preset_index = i
                 break
+        self._preset_index = min(self._preset_index, len(TIMER_PRESETS) - 1)
 
         # Map old session file mode names to new names
         _MODE_MAP = {"standard": "quick", "session": "class", "class": "class"}
@@ -754,8 +758,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
                 if s == session_limit:
                     self._session_limit_index = i
                     break
-        else:
-            self._session_limit_index = 0
+        self._session_limit_index = min(self._session_limit_index,
+                                        len(SESSION_LIMIT_PRESETS) - 1)
 
         self._topmost = data.get("topmost", False)
         self._shuffle = data.get("shuffle", True)

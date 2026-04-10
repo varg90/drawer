@@ -34,9 +34,15 @@ class PreviewWorker(QThread):
     def __init__(self, files):
         super().__init__()
         self._files = files
+        self._cancel = False
+
+    def cancel(self):
+        self._cancel = True
 
     def run(self):
         for i, cf in enumerate(self._files):
+            if self._cancel:
+                return
             if not cf.preview_url:
                 continue
             try:
@@ -44,7 +50,7 @@ class PreviewWorker(QThread):
                 resp.raise_for_status()
                 img = QImage()
                 img.loadFromData(resp.content)
-                if not img.isNull():
+                if not img.isNull() and not self._cancel:
                     self.preview_ready.emit(i, img)
             except Exception:
                 pass
@@ -142,6 +148,7 @@ class UrlDialog(QDialog):
         self._file_list = QListWidget()
         self._file_list.setIconSize(QSize(0, 0))
         self._file_list.setMinimumHeight(200)
+        self._file_list.itemChanged.connect(self._update_count)
         root.addWidget(self._file_list)
 
         # Select all / deselect all
@@ -258,7 +265,6 @@ class UrlDialog(QDialog):
         self._add_btn.setVisible(True)
         self._add_btn.setEnabled(True)
         self._update_count()
-        self._file_list.itemChanged.connect(self._update_count)
         self.adjustSize()
 
         if self._preview_cb.isChecked():
@@ -277,7 +283,8 @@ class UrlDialog(QDialog):
             self._start_previews()
         else:
             if self._preview_worker and self._preview_worker.isRunning():
-                self._preview_worker.terminate()
+                self._preview_worker.cancel()
+                self._preview_worker.wait()
             for i in range(self._file_list.count()):
                 self._file_list.item(i).setIcon(QIcon())
             self._file_list.setIconSize(QSize(0, 0))

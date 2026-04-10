@@ -1,4 +1,5 @@
 import os
+import weakref
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 import qtawesome as qta
@@ -23,7 +24,7 @@ class ImageEditorWindow(QWidget, SnapMixin):
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
         self.images = list(images)
         self.theme = theme
-        self._parent = parent
+        self._parent_ref = weakref.ref(parent) if parent else lambda: None
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
         self._shuffle_init = shuffle
         self.setMinimumSize(200, 200)
@@ -171,8 +172,9 @@ class ImageEditorWindow(QWidget, SnapMixin):
                 new_geo.setTop(geo.top() + delta.y())
             if new_geo.width() >= self.minimumWidth() and new_geo.height() >= self.minimumHeight():
                 # Snap edges to parent window during resize
-                if self._parent:
-                    pg = self._parent.geometry()
+                p = self._parent_ref()
+                if p:
+                    pg = p.geometry()
                     snap = 12
                     if "b" in e and abs(new_geo.bottom() - pg.bottom()) < snap:
                         new_geo.setBottom(pg.bottom())
@@ -195,8 +197,9 @@ class ImageEditorWindow(QWidget, SnapMixin):
 
     def closeEvent(self, event):
         self.snap_cleanup()
-        if self._parent and hasattr(self._parent, '_on_editor_close'):
-            self._parent._on_editor_close()
+        p = self._parent_ref()
+        if p and hasattr(p, '_on_editor_close'):
+            p._on_editor_close()
         super().closeEvent(event)
 
     def keyPressEvent(self, event):
