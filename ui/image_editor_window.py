@@ -63,6 +63,7 @@ class ImageEditorWindow(QWidget, SnapMixin):
         self._close_btn.clicked.connect(self.close)
         title_bar.addWidget(self._close_btn)
         root.addLayout(title_bar)
+        root.addSpacing(6)
 
         # Editor panel
         init_view = self.__dict__.get('_view_mode_init', 'list')

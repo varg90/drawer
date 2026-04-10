@@ -13,6 +13,13 @@ CORNER_GRIP = 50
 MIN_WIDTH = 200
 MIN_HEIGHT = 150
 NAV_ZONE = 40  # side click zone width
+
+# Windows scan codes for physical key positions (layout-independent hotkeys)
+SC_H = 35
+SC_G = 34
+SC_R = 19
+SC_F = 33
+SC_V = 47
 FADE_MS = 200
 
 # Icon colors
@@ -577,6 +584,8 @@ class ViewerWindow(QWidget):
     # ------------------------------------------------------------------ Events
 
     def keyPressEvent(self, event):
+        # Use scan codes for letter keys so hotkeys work on any keyboard layout
+        sc = event.nativeScanCode()
         if event.key() == Qt.Key.Key_F11:
             self._toggle_fullscreen()
         elif event.key() == Qt.Key.Key_Escape:
@@ -590,15 +599,15 @@ class ViewerWindow(QWidget):
             self._prev()
         elif event.key() == Qt.Key.Key_Right:
             self._next()
-        elif event.key() == Qt.Key.Key_H:
+        elif sc == SC_H:
             self._show_help()
-        elif event.key() == Qt.Key.Key_G:
+        elif sc == SC_G:
             self._toggle_grayscale()
-        elif event.key() == Qt.Key.Key_R:
+        elif sc == SC_R:
             self._toggle_grid()
-        elif event.key() == Qt.Key.Key_F:
+        elif sc == SC_F:
             self._toggle_flip_h()
-        elif event.key() == Qt.Key.Key_V:
+        elif sc == SC_V:
             self._toggle_flip_v()
         else:
             super().keyPressEvent(event)
