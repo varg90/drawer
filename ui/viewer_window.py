@@ -1,23 +1,32 @@
+import os
 import random
 import qtawesome as qta
 from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QGraphicsOpacityEffect,
                               QApplication)
-from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon
+from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon, QTransform, QImage
 from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
                            QEasingCurve)
 from core.timer_logic import format_time, auto_warn_seconds
+from ui.icons import Icons
 
 CORNER_GRIP = 50
 MIN_WIDTH = 200
 MIN_HEIGHT = 150
 NAV_ZONE = 40  # side click zone width
+
+# Windows scan codes for physical key positions (layout-independent hotkeys)
+SC_H = 35
+SC_G = 34
+SC_R = 19
+SC_F = 33
+SC_V = 47
 FADE_MS = 200
 
 # Icon colors
-CLR_NORMAL = QColor(255, 255, 255, 115)
-CLR_HOVER = QColor(255, 255, 255, 180)
-CLR_DIM = QColor(255, 255, 255, 75)
-CLR_WARNING = QColor(255, 85, 85, 200)
+CLR_NORMAL = QColor(255, 255, 255, 255)
+CLR_HOVER = QColor(255, 255, 255, 255)
+CLR_DIM = QColor(255, 255, 255, 255)
+CLR_WARNING = QColor(255, 85, 85, 255)
 
 
 def _icon(name, color=CLR_NORMAL, size=15):
@@ -71,16 +80,32 @@ class _GradientOverlay(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         w, h = self.width(), self.height()
-        # Top gradient
-        top_h = min(80, h // 3)
+        # Top gradient (25% of height)
+        top_h = max(1, h // 4)
         for i in range(top_h):
             alpha = int(200 * (1 - i / top_h) ** 1.2)
             p.fillRect(0, i, w, 1, QColor(0, 0, 0, alpha))
-        # Bottom gradient
-        bot_h = min(70, h // 3)
+        # Bottom gradient (25% of height)
+        bot_h = max(1, h // 4)
         for i in range(bot_h):
-            alpha = int(180 * (i / bot_h) ** 1.2)
+            alpha = int(200 * (i / bot_h) ** 1.2)
             p.fillRect(0, h - bot_h + i, w, 1, QColor(0, 0, 0, alpha))
+        p.end()
+
+
+class _GridOverlay(QWidget):
+    """Transparent widget that draws rule of thirds grid."""
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setPen(QColor(255, 255, 255, 100))
+        w, h = self.width(), self.height()
+        # Vertical lines at 1/3 and 2/3
+        p.drawLine(w // 3, 0, w // 3, h)
+        p.drawLine(2 * w // 3, 0, 2 * w // 3, h)
+        # Horizontal lines at 1/3 and 2/3
+        p.drawLine(0, h // 3, w, h // 3)
+        p.drawLine(0, 2 * h // 3, w, 2 * h // 3)
         p.end()
 
 
@@ -100,6 +125,12 @@ class ViewerWindow(QWidget):
         self._pixmap = None
         self._controls_visible = False
         self._is_warning = False
+        self._session_limit = settings.get("session_limit")  # seconds or None
+        self._session_elapsed = 0
+        self._grayscale = False
+        self._flip_h = False
+        self._flip_v = False
+        self._grid_thirds = False
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
@@ -125,6 +156,11 @@ class ViewerWindow(QWidget):
         self._img_label.setStyleSheet("background-color: black;")
         self._img_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
+        # Grid overlay (rule of thirds)
+        self._grid_overlay = _GridOverlay(self)
+        self._grid_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._grid_overlay.hide()
+
         # Gradient overlay (above image, below controls)
         self._gradient = _GradientOverlay(self)
         self._gradient.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -132,18 +168,30 @@ class ViewerWindow(QWidget):
 
         # ---- Hover overlays (fade in/out) ----
 
-        # Top bar (gradient drawn in paintEvent)
+        # Top bar
         self._top_left = QWidget(self)
         self._top_left.setStyleSheet("background: transparent;")
-        self._info_btn = _icon_btn("ph.info-bold", 20, self._top_left, tooltip="Инфо")
+        self._info_btn = _icon_btn(Icons.INFO, 20, self._top_left, tooltip="Инфо")
         self._info_btn.clicked.connect(self._show_help)
         self._info_btn.move(0, 0)
 
+        # Top center: viewer tools
+        self._top_center = QWidget(self)
+        self._top_center.setStyleSheet("background: transparent;")
+        self._bw_btn = _icon_btn(Icons.BW_OFF, 20, self._top_center, tooltip="B&W (G)")
+        self._bw_btn.clicked.connect(self._toggle_grayscale)
+        self._grid_btn = _icon_btn(Icons.GRID_OVERLAY, 20, self._top_center, tooltip="Grid (R)")
+        self._grid_btn.clicked.connect(self._toggle_grid)
+        self._fliph_btn = _icon_btn(Icons.FLIP_H, 20, self._top_center, tooltip="Flip H (F)")
+        self._fliph_btn.clicked.connect(self._toggle_flip_h)
+        self._flipv_btn = _icon_btn(Icons.FLIP_V, 20, self._top_center, tooltip="Flip V (V)")
+        self._flipv_btn.clicked.connect(self._toggle_flip_v)
+
         self._top_right = QWidget(self)
         self._top_right.setStyleSheet("background: transparent;")
-        self._settings_btn = _icon_btn("ph.dots-three-vertical-bold", 20, self._top_right, tooltip="Настройки")
+        self._settings_btn = _icon_btn(Icons.DOTS_MENU, 20, self._top_right, tooltip="Настройки")
         self._settings_btn.clicked.connect(self._open_settings)
-        self._close_btn = _icon_btn("ph.x-bold", 20, self._top_right, tooltip="Закрыть")
+        self._close_btn = _icon_btn(Icons.CLOSE, 20, self._top_right, tooltip="Закрыть")
         self._close_btn.clicked.connect(self.close)
 
         # Center play/pause
@@ -158,13 +206,13 @@ class ViewerWindow(QWidget):
 
         # Side navigation (visual only — clicks handled in mousePressEvent)
         self._left_nav = QLabel(self)
-        self._left_nav.setPixmap(_icon("ph.caret-left-bold", CLR_DIM).pixmap(QSize(20, 20)))
+        self._left_nav.setPixmap(_icon(Icons.CARET_LEFT, CLR_DIM).pixmap(QSize(20, 20)))
         self._left_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._left_nav.setStyleSheet("background: transparent;")
         self._left_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._right_nav = QLabel(self)
-        self._right_nav.setPixmap(_icon("ph.caret-right-bold", CLR_DIM).pixmap(QSize(20, 20)))
+        self._right_nav.setPixmap(_icon(Icons.CARET_RIGHT, CLR_DIM).pixmap(QSize(20, 20)))
         self._right_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._right_nav.setStyleSheet("background: transparent;")
         self._right_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -172,30 +220,41 @@ class ViewerWindow(QWidget):
         # Bottom: timer + counter
         self._timer_label = QLabel(self)
         self._timer_label.setStyleSheet(
-            "color: rgba(255,255,255,115); font-size: 20px; background: transparent;")
+            "color: white; font-size: 20px; background: transparent;")
         self._timer_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._counter_label = QLabel(self)
         self._counter_label.setStyleSheet(
-            "color: rgba(255,255,255,90); font-size: 20px; background: transparent;")
+            "color: white; font-size: 20px; background: transparent;")
         self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+        # Alarm icon (session warning)
+        self._alarm_label = QLabel(self)
+        self._alarm_label.setPixmap(
+            _icon(Icons.ALARM, CLR_WARNING).pixmap(QSize(20, 20)))
+        self._alarm_label.setFixedSize(20, 20)
+        self._alarm_label.setStyleSheet("background: transparent;")
+        self._alarm_label.hide()
 
         # Coffee icon (always visible when paused)
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _icon("ph.coffee-bold", CLR_NORMAL).pixmap(QSize(20, 20)))
+            _icon(Icons.COFFEE, CLR_NORMAL).pixmap(QSize(20, 20)))
         self._coffee_label.setFixedSize(20, 20)
         self._coffee_label.setStyleSheet("background: transparent;")
         self._coffee_label.hide()
 
-        # Progress bar
+        # Progress bar — only visible when session limit is set
         self._progress_bar = ProgressBar(self)
+        if not self._session_limit:
+            self._progress_bar.hide()
 
         # Collect hover-only widgets
         self._hover_widgets = [
-            self._top_left, self._top_right, self._center_btn,
+            self._top_left, self._top_center, self._top_right, self._center_btn,
             self._left_nav, self._right_nav,
-            self._timer_label, self._counter_label, self._progress_bar,
+            self._timer_label, self._counter_label,
+            self._progress_bar,
         ]
 
         # Setup opacity effects for fade
@@ -235,9 +294,8 @@ class ViewerWindow(QWidget):
 
     def _update_coffee(self):
         if self._paused:
-            color = CLR_WARNING if self._is_warning else CLR_NORMAL
             self._coffee_label.setPixmap(
-                _icon("ph.coffee-bold", color).pixmap(QSize(20, 20)))
+                _icon(Icons.COFFEE, CLR_NORMAL).pixmap(QSize(20, 20)))
             self._coffee_label.setFixedSize(20, 20)
             self._coffee_label.show()
         else:
@@ -248,13 +306,20 @@ class ViewerWindow(QWidget):
         lbl_h = 24
         bottom_y = h - lbl_h - 8
         x = 10
+        if self._alarm_label.isVisible():
+            self._alarm_label.setFixedSize(20, 20)
+            self._alarm_label.move(x, bottom_y + 2)
+            x += 26
         if self._coffee_label.isVisible():
             self._coffee_label.setFixedSize(20, 20)
             self._coffee_label.move(x, bottom_y + 2)
             x += 26
-        self._timer_label.setGeometry(x, bottom_y, 80, lbl_h)
+        # Center timer
+        self._timer_label.setGeometry((w - 80) // 2, bottom_y, 80, lbl_h)
+        self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._counter_label.setGeometry(w - 70, bottom_y, 60, lbl_h)
-        self._counter_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._counter_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     # ------------------------------------------------------------------ Image display
 
@@ -284,11 +349,22 @@ class ViewerWindow(QWidget):
         self._update_display()
         self._schedule_next(img.timer)
         self._update_counter()
+        self._update_session_display()
 
     def _update_display(self):
         if self._pixmap is None:
             return
-        scaled = self._pixmap.scaled(
+        pix = self._pixmap
+        # Flip
+        if self._flip_h or self._flip_v:
+            sx = -1 if self._flip_h else 1
+            sy = -1 if self._flip_v else 1
+            pix = pix.transformed(QTransform().scale(sx, sy))
+        # Grayscale
+        if self._grayscale:
+            img = pix.toImage().convertToFormat(QImage.Format.Format_Grayscale8)
+            pix = QPixmap.fromImage(img)
+        scaled = pix.scaled(
             self._img_label.size(),
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
@@ -309,7 +385,12 @@ class ViewerWindow(QWidget):
         if self._paused:
             return
         self._countdown -= 1
+        self._session_elapsed += 1
         self._update_timer_display()
+        self._update_session_display()
+        if self._session_limit and self._session_elapsed >= self._session_limit:
+            self._finish()
+            return
         if self._countdown <= 0:
             self._advance()
 
@@ -328,19 +409,31 @@ class ViewerWindow(QWidget):
             self._timer_color = "rgba(255,85,85,200)"
             self._opacity_effects[idx].setOpacity(1.0)
         else:
-            self._timer_color = "rgba(255,255,255,115)"
+            self._timer_color = "white"
             if not self._controls_visible:
                 self._opacity_effects[idx].setOpacity(0.0)
         self._timer_label.setStyleSheet(
             f"color: {self._timer_color}; font-size: 20px; background: transparent;")
         self._timer_label.setText(t)
 
-        # Progress bar
-        if self._total_time > 0:
-            elapsed = self._total_time - self._countdown
-            self._progress_bar.set_progress(elapsed / self._total_time, self._is_warning)
-
         self._update_coffee()
+
+    def _update_session_display(self):
+        if not self._session_limit:
+            self._alarm_label.hide()
+            return
+        remaining = self._session_limit - self._session_elapsed
+        if remaining < 0:
+            remaining = 0
+        warn_at = min(300, int(self._session_limit * 0.2))
+        is_warning = remaining <= warn_at
+        if is_warning:
+            self._alarm_label.show()
+        else:
+            self._alarm_label.hide()
+        progress = self._session_elapsed / self._session_limit
+        self._progress_bar.set_progress(progress, is_warning)
+        self._progress_bar.show()
 
     # ------------------------------------------------------------------ Navigation
 
@@ -372,23 +465,50 @@ class ViewerWindow(QWidget):
         if hasattr(self, "_help_overlay") and self._help_overlay.isVisible():
             self._help_overlay.hide()
             return
-        self._help_overlay = QLabel(self)
-        self._help_overlay.setStyleSheet(
-            "background-color: rgba(0, 0, 0, 210); color: rgba(255,255,255,200); "
-            "font-size: 20px; padding: 20px;")
-        self._help_overlay.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._help_overlay.setText(
-            "Пробел — пауза / продолжить\n"
-            "\u2190  \u2192  — предыдущее / следующее\n"
-            "F11 — полный экран\n"
-            "Esc — выйти из полного экрана\n"
-            "H — эта справка\n\n"
-            "ПКМ + перетаскивание — переместить окно\n"
-            "Края окна — изменить размер"
-        )
+        from PyQt6.QtWidgets import QScrollArea, QVBoxLayout
+        
+
+        self._help_overlay = QWidget(self)
         self._help_overlay.setGeometry(self.rect())
-        self._help_overlay.show()
+        self._help_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 210);")
         self._help_overlay.mousePressEvent = lambda e: self._help_overlay.hide()
+
+        layout = QVBoxLayout(self._help_overlay)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setStyleSheet(
+            "QScrollArea { background: transparent; }"
+            "QScrollBar:vertical { width: 4px; background: transparent; }"
+            "QScrollBar::handle:vertical { background: rgba(255,255,255,80); }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }")
+        scroll.mousePressEvent = lambda e: self._help_overlay.hide()
+
+        content = QWidget()
+        content.setStyleSheet("background: transparent;")
+        content.mousePressEvent = lambda e: self._help_overlay.hide()
+        inner = QVBoxLayout(content)
+        inner.setContentsMargins(20, 20, 20, 20)
+
+        info_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "info_viewer.txt")
+        try:
+            with open(info_path, encoding="utf-8") as f:
+                info_text = f.read().replace("\n", "<br>")
+        except FileNotFoundError:
+            info_text = "H - help"
+
+        lbl = QLabel(info_text)
+        lbl.setStyleSheet("color: rgba(255,255,255,200); font-size: 14px;")
+        lbl.setWordWrap(True)
+        lbl.mousePressEvent = lambda e: self._help_overlay.hide()
+        inner.addWidget(lbl)
+        inner.addStretch()
+
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
+        self._help_overlay.show()
 
     def _toggle_fullscreen(self):
         if self.isFullScreen():
@@ -416,6 +536,31 @@ class ViewerWindow(QWidget):
         current = self._current_idx + 1
         self._counter_label.setText(f"{current}/{total}")
 
+    # ------------------------------------------------------------------ Viewer tools
+
+    def _toggle_grayscale(self):
+        self._grayscale = not self._grayscale
+        icon_name = Icons.BW_ON if self._grayscale else Icons.BW_OFF
+        self._bw_btn.setIcon(_icon(icon_name, CLR_NORMAL))
+        self._bw_btn.setIconSize(QSize(20, 20))
+        self._update_display()
+
+    def _toggle_grid(self):
+        self._grid_thirds = not self._grid_thirds
+        if self._grid_thirds:
+            self._grid_overlay.show()
+            self._grid_overlay.raise_()
+        else:
+            self._grid_overlay.hide()
+
+    def _toggle_flip_h(self):
+        self._flip_h = not self._flip_h
+        self._update_display()
+
+    def _toggle_flip_v(self):
+        self._flip_v = not self._flip_v
+        self._update_display()
+
     # ------------------------------------------------------------------ Fade animation
 
     def _fade_controls(self, show):
@@ -439,6 +584,8 @@ class ViewerWindow(QWidget):
     # ------------------------------------------------------------------ Events
 
     def keyPressEvent(self, event):
+        # Use scan codes for letter keys so hotkeys work on any keyboard layout
+        sc = event.nativeScanCode()
         if event.key() == Qt.Key.Key_F11:
             self._toggle_fullscreen()
         elif event.key() == Qt.Key.Key_Escape:
@@ -452,8 +599,16 @@ class ViewerWindow(QWidget):
             self._prev()
         elif event.key() == Qt.Key.Key_Right:
             self._next()
-        elif event.key() == Qt.Key.Key_H:
+        elif sc == SC_H:
             self._show_help()
+        elif sc == SC_G:
+            self._toggle_grayscale()
+        elif sc == SC_R:
+            self._toggle_grid()
+        elif sc == SC_F:
+            self._toggle_flip_h()
+        elif sc == SC_V:
+            self._toggle_flip_v()
         else:
             super().keyPressEvent(event)
 
@@ -470,6 +625,7 @@ class ViewerWindow(QWidget):
         w, h = self.width(), self.height()
 
         self._img_label.setGeometry(0, 0, w, h)
+        self._grid_overlay.setGeometry(0, 0, w, h)
         self._gradient.setGeometry(0, 0, w, h)
 
         # Fixed sizes
@@ -480,8 +636,17 @@ class ViewerWindow(QWidget):
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
         self._info_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
-        # Top right: settings + close
+        # Top center: viewer tools
         gap = 4
+        tc_w = btn_sz * 4 + gap * 3
+        tc_x = (w - tc_w) // 2
+        self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
+        self._bw_btn.setGeometry(0, 0, btn_sz, btn_sz)
+        self._grid_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
+        self._fliph_btn.setGeometry(2 * (btn_sz + gap), 0, btn_sz, btn_sz)
+        self._flipv_btn.setGeometry(3 * (btn_sz + gap), 0, btn_sz, btn_sz)
+
+        # Top right: settings + close
         tr_w = btn_sz * 2 + gap
         self._top_right.setGeometry(w - tr_w - margin, margin, tr_w, btn_sz)
         self._settings_btn.setGeometry(0, 0, btn_sz, btn_sz)
@@ -503,9 +668,6 @@ class ViewerWindow(QWidget):
 
         self._update_display()
 
-    def paintEvent(self, event):
-        super().paintEvent(event)
-
     def enterEvent(self, event):
         super().enterEvent(event)
         self._gradient.show()
@@ -514,6 +676,7 @@ class ViewerWindow(QWidget):
         for w in self._hover_widgets:
             w.raise_()
         self._coffee_label.raise_()
+        self._alarm_label.raise_()
         self._fade_controls(True)
 
     def leaveEvent(self, event):

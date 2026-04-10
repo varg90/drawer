@@ -1,0 +1,20 @@
+RMB + drag - move window
+Always on top - pin toggle in main window
+Three dots - reopen main window and file manager
+
+Space - pause/resume (peep the coffee symbol when the session is on pause)
+Left/Right - prev / next
+F11 - fullscreen
+Esc - exit fullscreen
+
+G or rainbow toggle - black & white
+R or grid buttton - rule of thirds grid
+F or horizontal arrows button  - flip horizontal
+V or vertical arrows button - flip vertical
+
+Countdown for per image timer, appears visible when runs out
+Progress bar for session limit (peep the alarm clock symbol when time runs out)
+Drag edges to resize the window
+
+H - help/info
+Click anywhere to close info

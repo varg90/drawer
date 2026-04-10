@@ -1,4 +1,4 @@
-# Project: RefBot — Windows Desktop App
+# Project: Drawer — Windows Desktop App
 
 ## User — Oksana
 - Non-developer, zero coding experience, first app ever
@@ -22,7 +22,7 @@
 - Language: Python
 - GUI framework: CustomTkinter (installed)
 - Entry point: python main.py
-- App type: RefBot — image reference viewer with timers
+- App type: Drawer — image reference viewer with timers
 - Plugin: Superpowers installed
 
 ## Development Workflow

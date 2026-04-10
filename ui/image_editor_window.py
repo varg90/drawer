@@ -15,13 +15,17 @@ class ImageEditorWindow(QWidget, SnapMixin):
 
     EDGE = 6  # resize grip width in pixels
 
-    def __init__(self, images, theme, parent=None, view_mode="list"):
-        QWidget.__init__(self)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+    shuffle_changed = pyqtSignal(bool)
+
+    def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True):
+        QWidget.__init__(self, parent)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
         self.images = list(images)
         self.theme = theme
         self._parent = parent
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
+        self._shuffle_init = shuffle
         self.setMinimumSize(200, 200)
         self._resizing = False
         self._resize_edge = None
@@ -35,46 +39,53 @@ class ImageEditorWindow(QWidget, SnapMixin):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
 
-        # Title bar with dock-back button
+        # Title bar — add buttons left, close/minimize right
         title_bar = QHBoxLayout()
-        title_bar.setContentsMargins(8, 5, 8, 3)
+        title_bar.setContentsMargins(0, 0, 0, 0)
         title_bar.setSpacing(4)
-        self._title = QLabel("Images")
-        self._title.setStyleSheet(
-            f"color: {self.theme.text_secondary}; "
-            f"font-size: {S.FONT_BUTTON}px; font-weight: 500;")
-        title_bar.addWidget(self._title)
+
+        self._add_files_btn = make_icon_btn(Icons.ADD_FILE, self.theme.text_hint,
+                                             size=S.ICON_HEADER, tooltip="Add files")
+        self._add_folder_btn = make_icon_btn(Icons.ADD_FOLDER, self.theme.text_hint,
+                                              size=S.ICON_HEADER, tooltip="Add folder")
+        self._add_url_btn = make_icon_btn(Icons.ADD_URL, self.theme.text_hint,
+                                           size=S.ICON_HEADER, tooltip="Load from URL")
+
+        title_bar.addWidget(self._add_files_btn)
+        title_bar.addWidget(self._add_folder_btn)
+        title_bar.addWidget(self._add_url_btn)
         title_bar.addStretch()
-        self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint)
-        self._min_btn.clicked.connect(self.showMinimized)
-        title_bar.addWidget(self._min_btn)
-        self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint)
+        self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint,
+                                        size=S.ICON_HEADER)
         self._close_btn.clicked.connect(self.close)
         title_bar.addWidget(self._close_btn)
         root.addLayout(title_bar)
+        root.addSpacing(6)
 
         # Editor panel
         init_view = self.__dict__.get('_view_mode_init', 'list')
         self._panel = EditorPanel(
-            self.images, self.theme, parent=self, view_mode=init_view)
+            self.images, self.theme, parent=self, view_mode=init_view,
+            shuffle=self._shuffle_init)
         self._panel.images_updated.connect(self._on_panel_update)
+        self._panel.shuffle_changed.connect(self.shuffle_changed.emit)
         self._panel.close_requested.connect(self.close)
-        # Hide detach and close in panel — window title bar has them
-        if hasattr(self._panel, '_detach_btn'):
-            self._panel._detach_btn.setVisible(False)
-        if hasattr(self._panel, '_close_btn'):
-            self._panel._close_btn.setVisible(False)
+        # Connect title bar add buttons to panel methods
+        self._add_files_btn.clicked.connect(self._panel._add_files)
+        self._add_folder_btn.clicked.connect(self._panel._add_folder)
+        self._add_url_btn.clicked.connect(self._panel._add_from_url)
+
         root.addWidget(self._panel)
 
     def _apply_theme(self):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg};")
-        self._title.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_BUTTON}px; font-weight: 500;")
-        self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
+        self._add_files_btn.setIcon(qta.icon(Icons.ADD_FILE, color=t.text_hint))
+        self._add_folder_btn.setIcon(qta.icon(Icons.ADD_FOLDER, color=t.text_hint))
+        self._add_url_btn.setIcon(qta.icon(Icons.ADD_URL, color=t.text_hint))
         self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
 
     def _on_panel_update(self, images):
@@ -159,6 +170,18 @@ class ImageEditorWindow(QWidget, SnapMixin):
             if "t" in e:
                 new_geo.setTop(geo.top() + delta.y())
             if new_geo.width() >= self.minimumWidth() and new_geo.height() >= self.minimumHeight():
+                # Snap edges to parent window during resize
+                if self._parent:
+                    pg = self._parent.geometry()
+                    snap = 12
+                    if "b" in e and abs(new_geo.bottom() - pg.bottom()) < snap:
+                        new_geo.setBottom(pg.bottom())
+                    if "t" in e and abs(new_geo.top() - pg.top()) < snap:
+                        new_geo.setTop(pg.top())
+                    if "r" in e and abs(new_geo.right() - pg.right()) < snap:
+                        new_geo.setRight(pg.right())
+                    if "l" in e and abs(new_geo.left() - pg.left()) < snap:
+                        new_geo.setLeft(pg.left())
                 self.setGeometry(new_geo)
             event.accept()
             return
