@@ -17,7 +17,13 @@
       "Bash(cp mockup_final3.py mockup_075.py)",
       "Bash(sed -i 's/ICON_RATIO = 0.80/ICON_RATIO = 0.75/' mockup_075.py)",
       "Bash(sed -i \"s/mockup_final3.png/mockup_075.png/g\" mockup_075.py)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(git:*)",
+      "Bash(start python:*)",
+      "Bash(where gh:*)",
+      "Bash(winget install:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")",
+      "Bash(gh auth:*)"
     ]
   }
 }

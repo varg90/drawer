@@ -1,5 +1,5 @@
 # ui/editor_panel.py
-"""EditorPanel — reusable image editor panel widget for RefBot.
+"""EditorPanel — reusable image editor panel widget for Drawer.
 
 Can be embedded inside a settings window (docked) or shown standalone (detached).
 """
@@ -126,13 +126,15 @@ class EditorPanel(QWidget):
 
     images_updated = pyqtSignal(list)
     close_requested = pyqtSignal()
+    shuffle_changed = pyqtSignal(bool)
 
-    def __init__(self, images, theme, parent=None, view_mode="list"):
+    def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True):
         super().__init__(parent)
         self.images = list(images)
         self.theme = theme
         self._parent = parent
         self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
+        self._shuffle = shuffle
 
         self._pix_cache = {}          # path -> QPixmap
         self._loader = None           # PixmapLoader thread
@@ -154,63 +156,8 @@ class EditorPanel(QWidget):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(10, 8, 10, 8)
+        root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(6)
-
-        # --- Toolbar ---
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(4)
-        toolbar.setContentsMargins(0, 0, 0, 0)
-
-        self._add_files_btn = make_icon_btn(
-            Icons.ADD_FILE, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Add files",
-        )
-        self._add_files_btn.clicked.connect(self._add_files)
-
-        self._add_folder_btn = make_icon_btn(
-            Icons.ADD_FOLDER, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Add folder",
-        )
-        self._add_folder_btn.clicked.connect(self._add_folder)
-
-        self._url_btn = make_icon_btn(
-            Icons.ADD_URL, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Load from URL",
-        )
-        self._url_btn.clicked.connect(self._add_from_url)
-
-        self._detach_btn = make_icon_btn(
-            Icons.DETACH, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Detach to window",
-        )
-        self._detach_btn.setVisible(False)
-
-        toolbar.addWidget(self._add_files_btn)
-        toolbar.addWidget(self._add_folder_btn)
-        toolbar.addWidget(self._url_btn)
-        toolbar.addStretch()
-
-        self._clear_btn = make_icon_btn(
-            Icons.ERASER, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Clear all",
-        )
-        self._clear_btn.clicked.connect(self._clear)
-
-        self._close_btn = make_icon_btn(
-            Icons.CLOSE, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Close",
-        )
-        self._close_btn.clicked.connect(self.close_requested.emit)
-
-        toolbar.addWidget(self._clear_btn)
-        toolbar.addWidget(self._close_btn)
-
-        root.addLayout(toolbar)
-
-        # --- Count label ---
-        self._count_label = QLabel("")
-        root.addWidget(self._count_label)
 
         # --- Stacked widget: list / grid ---
         self._stack = QStackedWidget()
@@ -292,14 +239,24 @@ class EditorPanel(QWidget):
         )
         self._cache_btn.clicked.connect(self._clear_cache)
         self._cache_size_label = QLabel("")
+        self._clear_btn = make_icon_btn(
+            Icons.ERASER, self.theme.text_secondary,
+            size=S.EDITOR_BTN, tooltip="Clear all",
+        )
+        self._clear_btn.clicked.connect(self._clear)
+
+        self._shuffle_btn = make_icon_btn(
+            Icons.SHUFFLE, self.theme.accent if self._shuffle else self.theme.text_hint,
+            size=S.EDITOR_BTN, tooltip="Shuffle on start",
+        )
+        self._shuffle_btn.clicked.connect(self._toggle_shuffle)
+
         bottom.addWidget(self._cache_btn)
         bottom.addWidget(self._cache_size_label)
+        bottom.addWidget(self._shuffle_btn)
+        bottom.addWidget(self._clear_btn)
 
         root.addLayout(bottom)
-
-        # --- Total label ---
-        self._total_label = QLabel("")
-        root.addWidget(self._total_label)
 
         self._update_bottom_controls()
 
@@ -311,12 +268,6 @@ class EditorPanel(QWidget):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
 
-        self._count_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_BUTTON}px; "
-            f"font-weight: 500; letter-spacing: 2px;")
-
-        self._total_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px;")
 
         # Scroll area backgrounds + dashed drop-target border
         # Use #id selector to avoid bleeding into child widgets
@@ -369,15 +320,13 @@ class EditorPanel(QWidget):
 
         # Refresh icon colors
         for btn, icon in [
-            (self._add_files_btn, Icons.ADD_FILE),
-            (self._add_folder_btn, Icons.ADD_FOLDER),
-            (self._url_btn, Icons.ADD_URL),
-            (self._detach_btn, Icons.DETACH),
             (self._clear_btn, Icons.ERASER),
-            (self._close_btn, Icons.CLOSE),
             (self._cache_btn, Icons.TRASH),
         ]:
             btn.setIcon(qta.icon(icon, color=t.text_secondary))
+
+        _shuf_color = t.accent if self._shuffle else t.text_hint
+        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=_shuf_color))
 
         self._update_view_buttons()
         self._update_cache_size()
@@ -423,10 +372,6 @@ class EditorPanel(QWidget):
             self._rebuild_list()
         else:
             self._rebuild_grid()
-
-        n = len(self.images)
-        self._count_label.setText(f"IMAGES — {n}")
-        self._update_total_label()
 
         # Background load for uncached images
         uncached = [img.path for img in self.images if img.path not in self._pix_cache]
@@ -663,47 +608,6 @@ class EditorPanel(QWidget):
                 groups[key] = []
             groups[key].append((i, img))
         return groups
-
-    # ------------------------------------------------------------------
-    # Total label
-    # ------------------------------------------------------------------
-
-    def _update_total_label(self):
-        t = self.theme
-        # Sum only active (timer > 0) images
-        total_s = sum(img.timer for img in self.images if img.timer > 0)
-
-        # Get session duration — walk parent chain to find SettingsWindow
-        session_secs = 0
-        p = self._parent
-        while p is not None:
-            if hasattr(p, '_get_session_seconds'):
-                session_secs = p._get_session_seconds()
-                break
-            p = getattr(p, '_parent', None)
-
-        if total_s == 0:
-            self._total_label.setText("")
-            return
-
-        # Format total time
-        total_text = format_time(total_s)
-
-        # Check if over budget
-        is_over_budget = session_secs > 0 and total_s > session_secs
-
-        if is_over_budget:
-            # Show "total / session" with warning color
-            session_text = format_time(session_secs)
-            text = f"{total_text} / {session_text}"
-            color = t.warning
-        else:
-            text = f"{total_text} total"
-            color = t.text_secondary
-
-        self._total_label.setText(text)
-        self._total_label.setStyleSheet(
-            f"color: {color}; font-size: {S.FONT_LABEL}px;")
 
     # ------------------------------------------------------------------
     # Cache
@@ -995,6 +899,13 @@ class EditorPanel(QWidget):
         self._rebuild()
         self._emit()
         self._update_cache_size()
+
+    def _toggle_shuffle(self):
+        self._shuffle = not self._shuffle
+        t = self.theme
+        color = t.accent if self._shuffle else t.text_hint
+        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=color))
+        self.shuffle_changed.emit(self._shuffle)
 
     def _clear(self):
         if not self.images:

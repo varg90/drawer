@@ -11,7 +11,6 @@ def test_margins_defined():
 
 def test_icon_sizes():
     assert S.ICON_HEADER == 13
-    assert S.ICON_DICE == 34
     assert S.ICON_START == 42
 
 
@@ -21,13 +20,12 @@ def test_start_button():
 
 
 def test_font_sizes():
-    assert S.FONT_TITLE == 11
+    assert S.FONT_TITLE == 20
     assert S.FONT_BUTTON == 10
     assert S.FONT_LABEL == 9
-    assert S.FONT_DURATION == 18
 
 
 def test_window_sizes():
     assert S.MAIN_W == 250
-    assert S.MAIN_H == 270
+    assert S.MAIN_H == 250
     assert S.EDITOR_W == 250

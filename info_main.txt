@@ -1,0 +1,27 @@
+Drawer 0.1.0
+
+Pin - always on top (slideshow only)
+Palette - accent color
+Sun/Moon - theme toggle
+
+TIMER
+Quick - same timer for all images
+Class - auto-distribute by tiers (manual distribution available in file manager)
+Set session time limit - lmk forward, rmk back (no limit by default)
+Pencil - start session.
+
+FILE MANAGER
+Open on image button next to start
+Drag and drop to upload files
+Google drive and yandex disk url upload (must be public); files remain in cache until manual clearing (peep the bin when filled)
+Select multiple files through shift or ctrl
+Delete to..delete
+Eraser clears the file list
+Toggle shuffle to unlock manual reorder
+Rmk to redistribute or pin files 
+File manager can be dettached and resized
+
+Contact info - valerianashot@gmail.com
+Claude did the job, I complained and picked icons. My husband Alex allowed me to waste tokens. My cat Loaf meowed. 
+
+Click anywhere to close info

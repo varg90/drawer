@@ -4,72 +4,65 @@ from core.class_mode import auto_distribute, groups_to_timers, total_duration, f
 
 
 def test_auto_distribute_basic():
-    groups = auto_distribute(10, 600)  # 10 images, 10 min
+    groups = auto_distribute(10, custom_tiers=[(30, "30s"), (60, "1m"), (300, "5m")])
     assert len(groups) > 0
-    assert sum(c for c, _ in groups) <= 10
-    assert sum(c for c, _ in groups) > 0
-
-
-def test_auto_distribute_fits_time():
-    groups = auto_distribute(10, 600)
-    assert total_duration(groups) <= 600
-
-
-def test_auto_distribute_long_session():
-    groups = auto_distribute(20, 3600)  # 20 images, 1 hour
-    assert sum(c for c, _ in groups) <= 20
-    assert total_duration(groups) <= 3600
-
-
-def test_auto_distribute_very_long():
-    groups = auto_distribute(30, 10800)  # 30 images, 3 hours
-    assert sum(c for c, _ in groups) <= 30
-    assert total_duration(groups) <= 10800
-
-
-def test_auto_distribute_plenty_of_time():
-    # With enough time, all images should be used
-    groups = auto_distribute(5, 3600)  # 5 images, 1 hour — plenty
-    assert sum(c for c, _ in groups) == 5
+    assert sum(c for c, _ in groups) == 10
 
 
 def test_auto_distribute_single_image():
-    groups = auto_distribute(1, 600)
+    groups = auto_distribute(1, custom_tiers=[(60, "1m"), (300, "5m")])
     assert sum(c for c, _ in groups) == 1
 
 
 def test_auto_distribute_zero():
-    assert auto_distribute(0, 600) == []
-    assert auto_distribute(10, 0) == []
+    assert auto_distribute(0) == []
 
 
 def test_auto_distribute_increasing_timers():
-    groups = auto_distribute(12, 1800)
+    groups = auto_distribute(12, custom_tiers=[(30, "30s"), (60, "1m"), (300, "5m")])
     timers = [t for _, t in groups]
-    # Timers should be non-decreasing (short to long)
     assert timers == sorted(timers)
 
 
 def test_auto_distribute_custom_tiers():
-    tiers = [(60, "1 мин"), (300, "5 мин")]
-    groups = auto_distribute(10, 1800, custom_tiers=tiers)
-    assert total_duration(groups) <= 1800
-    # Only uses 60 and 300
+    tiers = [(60, "1m"), (300, "5m")]
+    groups = auto_distribute(10, custom_tiers=tiers)
     for _, t in groups:
         assert t in (60, 300)
 
 
 def test_auto_distribute_custom_single_tier():
-    tiers = [(300, "5 мин")]
-    groups = auto_distribute(5, 1800, custom_tiers=tiers)
+    tiers = [(300, "5m")]
+    groups = auto_distribute(5, custom_tiers=tiers)
     assert all(t == 300 for _, t in groups)
 
 
 def test_auto_distribute_uses_all_tiers():
-    tiers = [(60, "1 мин"), (300, "5 мин"), (600, "10 мин")]
-    groups = auto_distribute(10, 7200, custom_tiers=tiers)  # plenty of time
+    tiers = [(60, "1m"), (300, "5m"), (600, "10m")]
+    groups = auto_distribute(10, custom_tiers=tiers)
     used_timers = set(t for _, t in groups)
     assert used_timers == {60, 300, 600}
+
+
+def test_auto_distribute_all_images_covered():
+    """Every image gets a timer — no overflow."""
+    tiers = [(30, "30s"), (60, "1m")]
+    groups = auto_distribute(20, custom_tiers=tiers)
+    assert sum(c for c, _ in groups) == 20
+
+
+def test_auto_distribute_no_time_budget():
+    """Without time budget, distribute all images across tiers."""
+    groups = auto_distribute(10, custom_tiers=[(60, "1m"), (300, "5m")])
+    assert sum(c for c, _ in groups) == 10
+    used_timers = set(t for _, t in groups)
+    assert used_timers == {60, 300}
+
+
+def test_auto_distribute_single_tier_all_images():
+    tiers = [(300, "5m")]
+    groups = auto_distribute(8, custom_tiers=tiers)
+    assert groups == [(8, 300)]
 
 
 def test_groups_to_timers():

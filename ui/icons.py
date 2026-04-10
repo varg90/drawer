@@ -6,9 +6,8 @@ class Icons:
     # Start button
     START = "fa6s.pencil"
 
-    # Toggle: random order
-    RANDOM_ON = "ph.dice-five-fill"
-    RANDOM_OFF = "ph.dice-three-bold"
+    # Accent color picker
+    PALETTE = "ph.palette-fill"
 
     # Toggle: always on top
     TOPMOST_ON = "ph.push-pin-fill"
@@ -22,7 +21,7 @@ class Icons:
     CARET_LEFT = "ph.caret-left-bold"
     CARET_RIGHT = "ph.caret-right-bold"
     INFO = "ph.info-bold"
-    PLUS = "ph.plus-bold"
+    PLUS = "ph.image-square-fill"
 
     # Editor toolbar
     ADD_FILE = "ph.file-plus-bold"
@@ -34,6 +33,19 @@ class Icons:
     DETACH = "ph.arrow-square-out-bold"
     DOCK = "ph.arrows-in-bold"
     TRASH = "ph.trash-bold"
+
+    # Shuffle toggle
+    SHUFFLE = "ph.shuffle-bold"
+
+    # Viewer
+    COFFEE = "ph.coffee-fill"
+    ALARM = "ph.alarm-fill"
+    DOTS_MENU = "ph.dots-three-vertical-bold"
+    BW_ON = "ph.cloud-rain-fill"
+    BW_OFF = "ph.rainbow-fill"
+    GRID_OVERLAY = "ph.grid-four-bold"
+    FLIP_H = "ph.arrows-left-right-bold"
+    FLIP_V = "ph.arrows-down-up-bold"
 
     # View modes
     LIST = "ph.list-bullets-bold"
