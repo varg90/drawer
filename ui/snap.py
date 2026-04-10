@@ -1,13 +1,22 @@
 # ui/snap.py
 """Winamp-style magnetic snap between frameless windows."""
+import weakref
 from PyQt6.QtCore import Qt, QPoint
 
 
 SNAP_DISTANCE = 15
 DETACH_DISTANCE = 40
 
-# Global registry of all snap-capable windows
+# Global registry of all snap-capable windows (weak refs — auto-cleaned)
 _snap_windows = []
+
+
+def _live_windows():
+    """Return alive windows, pruning dead refs."""
+    global _snap_windows
+    alive = [(ref, ref()) for ref in _snap_windows]
+    _snap_windows[:] = [ref for ref, obj in alive if obj is not None]
+    return [obj for _, obj in alive if obj is not None]
 
 
 class SnapMixin:
@@ -18,21 +27,26 @@ class SnapMixin:
 
     def snap_init(self):
         self._drag_pos = None
-        self._snapped_to = None  # (other_window, side)
-        self._snapped_children = []  # [(window, side), ...]
-        if self not in _snap_windows:
-            _snap_windows.append(self)
+        self._snapped_to = None  # (weakref, side)
+        self._snapped_children = []  # [(weakref, side), ...]
+        if not any(ref() is self for ref in _snap_windows):
+            _snap_windows.append(weakref.ref(self))
 
     def snap_cleanup(self):
-        if self in _snap_windows:
-            _snap_windows.remove(self)
+        global _snap_windows
+        _snap_windows[:] = [ref for ref in _snap_windows if ref() is not None and ref() is not self]
         if self._snapped_to is not None:
-            other, _ = self._snapped_to
-            other._snapped_children = [
-                (w, s) for w, s in other._snapped_children if w is not self]
+            other_ref, _ = self._snapped_to
+            other = other_ref()
+            if other is not None:
+                other._snapped_children = [
+                    (wr, s) for wr, s in other._snapped_children
+                    if wr() is not None and wr() is not self]
             self._snapped_to = None
-        for child, _ in list(self._snapped_children):
-            child._snapped_to = None
+        for child_ref, _ in list(self._snapped_children):
+            child = child_ref()
+            if child is not None:
+                child._snapped_to = None
         self._snapped_children.clear()
 
     def snap_mouse_press(self, event):
@@ -57,32 +71,35 @@ class SnapMixin:
 
         # If snapped to another window, check detach threshold
         if self._snapped_to is not None:
-            other, side = self._snapped_to
-            snapped_pos = self._calc_snap_pos(other, side)
-            if snapped_pos is not None:
-                delta = new_pos - snapped_pos
-                if abs(delta.x()) > DETACH_DISTANCE or abs(delta.y()) > DETACH_DISTANCE:
-                    if hasattr(other, '_snapped_children'):
+            other_ref, side = self._snapped_to
+            other = other_ref()
+            if other is None:
+                self._snapped_to = None
+            else:
+                snapped_pos = self._calc_snap_pos(other, side)
+                if snapped_pos is not None:
+                    delta = new_pos - snapped_pos
+                    if abs(delta.x()) > DETACH_DISTANCE or abs(delta.y()) > DETACH_DISTANCE:
                         other._snapped_children = [
-                            (w, s) for w, s in other._snapped_children if w is not self]
-                    self._snapped_to = None
-                    self.move(new_pos)
-                    event.accept()
-                    return True
-                else:
-                    # Still snapped, don't move
-                    event.accept()
-                    return True
+                            (wr, s) for wr, s in other._snapped_children
+                            if wr() is not None and wr() is not self]
+                        self._snapped_to = None
+                        self.move(new_pos)
+                        event.accept()
+                        return True
+                    else:
+                        event.accept()
+                        return True
 
         # Free window — try snap to another
         best_snap = None
         best_dist = SNAP_DISTANCE
 
-        for other in _snap_windows:
+        for other in _live_windows():
             if other is self or not other.isVisible():
                 continue
             # Skip windows already snapped to us
-            if any(w is other for w, _ in self._snapped_children):
+            if any(wr() is other for wr, _ in self._snapped_children):
                 continue
             snap = self._find_snap(new_pos, other)
             if snap is not None:
@@ -94,10 +111,9 @@ class SnapMixin:
         if best_snap is not None:
             other, side, snap_pos = best_snap
             self.move(snap_pos)
-            self._snapped_to = (other, side)
-            children = getattr(other, '_snapped_children', None)
-            if children is not None and not any(w is self for w, _ in children):
-                children.append((self, side))
+            self._snapped_to = (weakref.ref(other), side)
+            if not any(wr() is self for wr, _ in other._snapped_children):
+                other._snapped_children.append((weakref.ref(self), side))
         else:
             self.move(new_pos)
 
@@ -111,8 +127,9 @@ class SnapMixin:
         if _visited is None:
             _visited = set()
         _visited.add(id(self))
-        for child, side in self._snapped_children:
-            if id(child) in _visited:
+        for child_ref, side in self._snapped_children:
+            child = child_ref()
+            if child is None or id(child) in _visited:
                 continue
             snap_pos = child._calc_snap_pos(self, side)
             if snap_pos is not None:
