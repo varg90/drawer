@@ -34,6 +34,15 @@ def _icon(name, color=CLR_NORMAL, size=15):
     return qta.icon(name, color=color)
 
 
+def _dpi_pixmap(icon, size):
+    """Render icon to pixmap at native screen DPI for sharp display."""
+    screen = QApplication.primaryScreen()
+    ratio = max(screen.devicePixelRatio() if screen else 2.0, 2.0)
+    pm = icon.pixmap(QSize(int(size * ratio), int(size * ratio)))
+    pm.setDevicePixelRatio(ratio)
+    return pm
+
+
 def _icon_btn(icon_name, size, parent, color=CLR_NORMAL, tooltip=""):
     btn = QPushButton(parent)
     btn.setIcon(_icon(icon_name, color))
@@ -110,10 +119,11 @@ class _GridOverlay(QWidget):
 
 
 class ViewerWindow(QWidget):
-    def __init__(self, images, settings, on_close=None):
+    def __init__(self, images, settings, on_close=None, settings_window=None):
         super().__init__()
         self.on_close = on_close
         self.settings = settings
+        self._settings_window = settings_window
         self._paused = False
         self._countdown = 0
         self._total_time = 0
@@ -206,13 +216,13 @@ class ViewerWindow(QWidget):
 
         # Side navigation (visual only — clicks handled in mousePressEvent)
         self._left_nav = QLabel(self)
-        self._left_nav.setPixmap(_icon(Icons.CARET_LEFT, CLR_DIM).pixmap(QSize(20, 20)))
+        self._left_nav.setPixmap(_dpi_pixmap(_icon(Icons.CARET_LEFT, CLR_DIM), 20))
         self._left_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._left_nav.setStyleSheet("background: transparent;")
         self._left_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._right_nav = QLabel(self)
-        self._right_nav.setPixmap(_icon(Icons.CARET_RIGHT, CLR_DIM).pixmap(QSize(20, 20)))
+        self._right_nav.setPixmap(_dpi_pixmap(_icon(Icons.CARET_RIGHT, CLR_DIM), 20))
         self._right_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._right_nav.setStyleSheet("background: transparent;")
         self._right_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -231,7 +241,7 @@ class ViewerWindow(QWidget):
         # Alarm icon (session warning)
         self._alarm_label = QLabel(self)
         self._alarm_label.setPixmap(
-            _icon(Icons.ALARM, CLR_WARNING).pixmap(QSize(20, 20)))
+            _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), 20))
         self._alarm_label.setFixedSize(20, 20)
         self._alarm_label.setStyleSheet("background: transparent;")
         self._alarm_label.hide()
@@ -239,7 +249,7 @@ class ViewerWindow(QWidget):
         # Coffee icon (always visible when paused)
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _icon(Icons.COFFEE, CLR_NORMAL).pixmap(QSize(20, 20)))
+            _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 20))
         self._coffee_label.setFixedSize(20, 20)
         self._coffee_label.setStyleSheet("background: transparent;")
         self._coffee_label.hide()
@@ -295,7 +305,7 @@ class ViewerWindow(QWidget):
     def _update_coffee(self):
         if self._paused:
             self._coffee_label.setPixmap(
-                _icon(Icons.COFFEE, CLR_NORMAL).pixmap(QSize(20, 20)))
+                _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 20))
             self._coffee_label.setFixedSize(20, 20)
             self._coffee_label.show()
         else:
@@ -518,9 +528,13 @@ class ViewerWindow(QWidget):
         self._update_display()
 
     def _open_settings(self):
-        if not self._paused:
-            self._toggle_pause()
-        if self.on_close:
+        if not self.on_close:
+            return
+        if self._settings_window and self._settings_window.isVisible():
+            self._settings_window.close()
+        else:
+            if not self._paused:
+                self._toggle_pause()
             self.on_close(return_only=True)
 
     def _finish(self):

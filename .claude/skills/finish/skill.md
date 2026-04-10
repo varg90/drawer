@@ -26,7 +26,15 @@ python -m pytest tests/ -q
 ```
 If tests fail, fix the issues before proceeding. Do not continue with failing tests.
 
-### 3. Commit Remaining Changes
+### 3. Ensure Feature Branch
+
+Check the current branch. If on `main`:
+- Create a feature branch from the changes: `git checkout -b feat/<short-description>`
+- The branch name should reflect the work done (e.g. `feat/dpi-fixes`, `fix/url-dialog-bugs`)
+
+If already on a feature branch, continue.
+
+### 4. Commit Remaining Changes
 
 Check `git status` for any uncommitted changes. If there are changes:
 - Stage relevant files (not .env, credentials, or generated files)
@@ -34,14 +42,16 @@ Check `git status` for any uncommitted changes. If there are changes:
 
 If there are no changes (everything already committed), skip this step.
 
-### 4. Push Branch
+### 5. Push Branch
 
-Push the current branch to origin:
+Push the feature branch to origin:
 ```
 git push -u origin <branch-name>
 ```
 
-### 5. Create Pull Request
+Never push directly to main.
+
+### 6. Create Pull Request
 
 Create a PR using `gh pr create` with:
 - Short title (under 70 characters) summarizing the branch's work
@@ -64,6 +74,6 @@ EOF
 )"
 ```
 
-### 6. Report
+### 7. Report
 
 Show the PR URL and a brief summary of what was shipped.

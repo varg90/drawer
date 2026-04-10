@@ -1,8 +1,9 @@
+import os
 import re
 import requests
 from core.cloud.base import CloudProvider, CloudFile
 
-API_KEY = "REDACTED_GOOGLE_API_KEY"
+API_KEY = os.environ.get("DRAWER_GOOGLE_API_KEY", "REDACTED_GOOGLE_API_KEY")
 FILES_URL = "https://www.googleapis.com/drive/v3/files"
 
 
