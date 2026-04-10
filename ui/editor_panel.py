@@ -1,5 +1,5 @@
 # ui/editor_panel.py
-"""EditorPanel — reusable image editor panel widget for RefBot.
+"""EditorPanel — reusable image editor panel widget for Drawer.
 
 Can be embedded inside a settings window (docked) or shown standalone (detached).
 """

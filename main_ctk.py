@@ -95,7 +95,7 @@ def load_session(path=None):
 class ViewerWindow(ctk.CTkToplevel):
     def __init__(self, master, images, settings):
         super().__init__(master)
-        self.title("RefBot")
+        self.title("Drawer")
         self.configure(fg_color="#000000", bg="#000000")
         self.overrideredirect(True)  # Borderless window
         self.geometry("800x600")
@@ -501,7 +501,7 @@ class SettingsWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
         # Enable drag-and-drop
-        self.title("RefBot — Настройки")
+        self.title("Drawer — Настройки")
         self.geometry("500x700")
         self.minsize(400, 500)
         ctk.set_appearance_mode("dark")

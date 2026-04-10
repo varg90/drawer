@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QPushButton, QLabel, QFileDialog, QScrollArea,
                               QSizePolicy, QApplication, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QColor
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QColor, QIcon
 from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_LIMIT_PRESETS
 from core.timer_logic import format_time
 from core.class_mode import auto_distribute, groups_to_timers, total_duration, format_group
@@ -16,7 +16,7 @@ from ui.theme import Theme
 from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import (make_icon_btn, make_start_btn, make_icon_toggle,
-                         make_centered_header, make_timer_btn)
+                         make_centered_header, make_timer_btn, timer_btn_style)
 from ui.snap import SnapMixin
 
 
@@ -31,7 +31,8 @@ class SettingsWindow(QMainWindow, SnapMixin):
     def __init__(self):
         QMainWindow.__init__(self)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setWindowTitle("RefBot")
+        self.setWindowTitle("Drawer")
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "..", "drawer.ico")))
         self.setFixedSize(S.MAIN_W, S.MAIN_H)
 
         self.images = []
@@ -96,7 +97,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._close_btn.clicked.connect(self.close)
 
         header_layout, self._title = make_centered_header(
-            "REFBOT",
+            "DRAWER",
             [self._help_btn, self._accent_btn, self._theme_btn],
             [self._topmost_btn, self._min_btn, self._close_btn],
             self.theme,
@@ -247,9 +248,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         t = self.theme
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
 
-        self._title.setStyleSheet(
-            f"color: {t.text_header}; font-size: {S.FONT_TITLE}px; "
-            f"font-weight: 500; letter-spacing: 3px;")
+        self._title.recolor(t.text_header)
 
         # Header icon buttons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
@@ -340,7 +339,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
             with open(info_path, encoding="utf-8") as f:
                 info_text = f.read().replace("\n", "<br>")
         except FileNotFoundError:
-            info_text = "RefBot 0.1.0"
+            info_text = "Drawer 0.1.0"
         lbl = QLabel(info_text)
         lbl.setStyleSheet(f"color: {t.text_primary}; font-size: 11px;")
         lbl.setWordWrap(True)
@@ -361,13 +360,21 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._refresh_editor_theme()
 
     def _pick_accent(self):
-        from PyQt6.QtWidgets import QColorDialog
-        color = QColorDialog.getColor(
-            QColor(self.theme.accent), self, "Accent color")
-        if color.isValid():
-            self.theme.accent = color.name()
-            self._apply_theme()
-            self._refresh_editor_theme()
+        from ui.accent_picker import AccentPicker
+        if hasattr(self, '_accent_picker') and self._accent_picker is not None:
+            self._accent_picker.close()
+            self._accent_picker = None
+            return
+        picker = AccentPicker(self.theme.accent, self.theme, parent=self)
+        picker.color_changed.connect(self._on_accent_changed)
+        picker.destroyed.connect(lambda: setattr(self, '_accent_picker', None))
+        picker.show_near(self._accent_btn)
+        self._accent_picker = picker
+
+    def _on_accent_changed(self, color):
+        self.theme.accent = color
+        self._apply_theme()
+        self._refresh_editor_theme()
 
     def _refresh_editor_theme(self):
         if self._editor_visible:
@@ -412,12 +419,12 @@ class SettingsWindow(QMainWindow, SnapMixin):
     def _update_mode_buttons(self):
         t = self.theme
         active_s = (
-            f"background-color: {t.bg_active}; color: {t.text_primary}; "
-            f"border: 1px solid {t.border_active}; "
-            f"font-size: {S.FONT_MODE}px; font-weight: 500; padding: 4px 8px;")
+            f"background-color: {t.start_bg}; color: {t.start_text}; "
+            f"border: none; "
+            f"font-size: {S.FONT_MODE}px; font-weight: 600; padding: 4px 8px;")
         inactive_s = (
-            f"background-color: {t.bg}; color: {t.text_secondary}; "
-            f"border: 1px solid {t.border}; "
+            f"background-color: {t.bg_button}; color: {t.text_secondary}; "
+            f"border: none; "
             f"font-size: {S.FONT_MODE}px; font-weight: 500; padding: 4px 8px;")
         if self._timer_mode == "class":
             self._class_btn.setStyleSheet(active_s)
@@ -444,19 +451,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         t = self.theme
         current_secs = TIMER_PRESETS[self._preset_index][0]
         for btn, secs in self._quick_btns:
-            is_active = secs == current_secs
-            if is_active:
-                btn.setStyleSheet(
-                    f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; "
-                    f"font-size: {S.FONT_BUTTON}px; "
-                    f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
-            else:
-                btn.setStyleSheet(
-                    f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; "
-                    f"font-size: {S.FONT_BUTTON}px; "
-                    f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
+            btn.setStyleSheet(timer_btn_style(secs == current_secs, t))
 
     def get_timer_seconds(self):
         return TIMER_PRESETS[self._preset_index][0]
@@ -516,18 +511,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
     def _update_tier_styles(self):
         t = self.theme
         for btn, secs in self._class_btns:
-            if btn.isChecked():
-                btn.setStyleSheet(
-                    f"background-color: {t.bg_active}; color: {t.text_primary}; "
-                    f"border: 1px solid {t.border_active}; "
-                    f"font-size: {S.FONT_BUTTON}px; "
-                    f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
-            else:
-                btn.setStyleSheet(
-                    f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-                    f"border: 1px solid {t.border}; "
-                    f"font-size: {S.FONT_BUTTON}px; "
-                    f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
+            btn.setStyleSheet(timer_btn_style(btn.isChecked(), t))
 
     # ------------------------------------------------------------------ Auto-distribute
 

@@ -10,7 +10,7 @@ class S:
 
     # Margins
     MARGIN = 14
-    MARGIN_TOP = 9
+    MARGIN_TOP = 14
     MARGIN_BOTTOM = 18
 
     # Icons — header row
@@ -23,6 +23,9 @@ class S:
     # Start button
     START_ICON_RATIO = 0.75
     START_RADIUS_RATIO = 0.12
+
+    # Title
+    TITLE_W = 105
 
     # Fonts (px)
     FONT_TITLE = 20
