@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drawer — Redesign v7</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Lora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+*,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  min-height: 100vh;
+  background: #d0c8b8;
+  font-family: 'Lexend', sans-serif;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 48px 24px 90px;
+}
+
+/* ═══ PAGE ═══ */
+.ph { text-align: center; margin-bottom: 56px; animation: up .6s ease-out both; }
+.ph h1 { font-family: 'Lora', serif; font-size: 34px; font-weight: 700; color: #3a3028; letter-spacing: 4px; }
+.ph p { font-size: 11px; color: #8a8070; letter-spacing: 3px; text-transform: uppercase; margin-top: 10px; font-weight: 500; }
+
+.sec { width: 100%; max-width: 740px; margin-bottom: 52px; animation: up .6s ease-out both; }
+.sec:nth-child(3){animation-delay:.08s}
+.sec:nth-child(4){animation-delay:.14s}
+.sec:nth-child(5){animation-delay:.18s}
+.sec:nth-child(6){animation-delay:.22s}
+.sec:nth-child(7){animation-delay:.26s}
+.sl { font-family: 'Lora', serif; font-size: 14px; font-weight: 600; color: #6b6050; letter-spacing: 1px; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #bab0a0; }
+.sl span { color: #4a7d74; }
+
+/* ═══ WORKSPACE ═══ */
+.ws { display: flex; justify-content: center; }
+
+/* ═══ MAIN WINDOW — rounded left, sharp right (snapped) ═══ */
+.mw {
+  width: 250px; min-height: 250px; overflow: hidden;
+  display: flex; flex-direction: column; flex-shrink: 0;
+  border-radius: 8px 0 0 8px;
+}
+.mi { padding: 12px 14px 14px; display: flex; flex-direction: column; flex: 1; }
+
+/* header */
+.hd { display: flex; align-items: center; height: 22px; }
+.hl,.hr { display: flex; align-items: center; gap: 7px; }
+.hc { flex: 1; display: flex; justify-content: center; }
+.hi {
+  width: 13px; height: 13px; font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; opacity: .3; transition: opacity .2s; line-height: 1;
+}
+.hi:hover { opacity: .6; }
+.hi.at { color: #4a7d74 !important; opacity: .7; }
+.hi.at:hover { opacity: 1; }
+.wt { font-family: 'Lora', serif; font-size: 17px; font-weight: 700; letter-spacing: 1.5px; }
+
+/* inset panel */
+.pnl { padding: 6px; margin-top: auto; margin-bottom: auto; border-radius: 6px; }
+
+/* mode tabs */
+.md { display: flex; gap: 4px; }
+.mt {
+  flex: 1; height: 28px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Lexend', sans-serif;
+  font-size: 11px; font-weight: 500; letter-spacing: .3px;
+  cursor: pointer; transition: all .18s;
+}
+
+/* timer grid */
+.tg { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; margin-top: 6px; }
+.tb {
+  height: 30px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Lexend', sans-serif;
+  font-size: 11px; font-weight: 400; letter-spacing: .2px;
+  cursor: pointer; transition: all .18s;
+}
+
+/* bottom bar */
+.bb { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 8px; }
+.su { display: flex; flex-direction: column; gap: 1px; }
+.sl1 { font-size: 10px; font-weight: 400; }
+.sr { display: flex; align-items: baseline; }
+.stt { font-size: 13px; font-weight: 500; }
+.ssp { font-size: 10px; margin: 0 4px; }
+.lm { font-size: 9px; font-weight: 400; cursor: pointer; transition: color .18s; }
+.ac { display: flex; align-items: flex-end; gap: 8px; }
+.ab {
+  width: 26px; height: 26px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; cursor: pointer; transition: all .18s;
+}
+.sb {
+  width: 52px; height: 52px; border-radius: 10px;
+  background: #4a7d74;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .25s ease;
+}
+.sb:hover { background: #578d84; transform: scale(1.03); }
+.sb .fa-pencil { font-size: 20px; }
+
+/* ═══ EDITOR — rounded right, sharp left (snapped) ═══ */
+.ew {
+  width: 250px; min-height: 250px; overflow: hidden;
+  display: flex; flex-direction: column; flex-shrink: 0;
+  border-radius: 0 8px 8px 0;
+}
+.ei { padding: 12px 14px 14px; display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+.et { display: flex; align-items: center; justify-content: space-between; height: 22px; margin-bottom: 4px; }
+.ets { display: flex; align-items: center; gap: 8px; }
+.eic { font-size: 13px; cursor: pointer; opacity: .3; transition: opacity .2s; line-height: 1; }
+.eic:hover { opacity: .6; }
+.ev { display: flex; align-items: center; gap: 5px; height: 18px; margin-bottom: 4px; }
+.evi { font-size: 12px; cursor: pointer; opacity: .28; transition: opacity .2s; line-height: 1; }
+.evi:hover { opacity: .55; }
+.evi.a { opacity: .6; }
+.evi.aa { color: #4a7d74 !important; opacity: .7; }
+.esep { width: 1px; height: 11px; margin: 0 2px; opacity: .12; }
+.el { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.egh { font-size: 10px; font-weight: 500; letter-spacing: .2px; padding: 4px 6px 2px; cursor: pointer; }
+.eit {
+  font-size: 10px; font-weight: 300; padding: 3px 6px 3px 14px;
+  cursor: pointer; transition: background .12s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-radius: 3px; margin: 0 2px;
+}
+/* grid view */
+.ed-tiles { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 2px; }
+.ed-grp { font-size: 9px; font-weight: 500; padding: 3px 2px 1px; cursor: pointer; }
+.ed-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 4px; align-content: start;
+}
+.ed-tile {
+  aspect-ratio: 1; border-radius: 3px;
+  cursor: pointer; transition: all .15s;
+}
+.ed-tile:hover { opacity: .8; }
+.ed-tile.sel { outline: 2px solid #4a7d74; outline-offset: -2px; }
+.ed-tile { position: relative; }
+.ed-pin { position: absolute; top: 2px; right: 2px; font-size: 8px; opacity: .7; pointer-events: none; }
+.dk .ed-pin { color: #ccc0ae; }
+.lt .ed-pin { color: #2a2018; }
+.dk .ed-tile:nth-child(1) { background: linear-gradient(135deg, #2a2420, #342e28); }
+.dk .ed-tile:nth-child(2) { background: linear-gradient(160deg, #1e2824, #283430); }
+.dk .ed-tile:nth-child(3) { background: linear-gradient(120deg, #302820, #3a3028); }
+.dk .ed-tile:nth-child(4) { background: linear-gradient(145deg, #242028, #2e2830); }
+.dk .ed-tile:nth-child(5) { background: linear-gradient(130deg, #282420, #322c26); }
+.dk .ed-tile:nth-child(6) { background: linear-gradient(155deg, #202824, #2a302c); }
+.dk .ed-tile:nth-child(7) { background: linear-gradient(140deg, #2c2420, #36302a); }
+.lt .ed-tile:nth-child(1) { background: linear-gradient(135deg, #b8ae9a, #c2b6a2); }
+.lt .ed-tile:nth-child(2) { background: linear-gradient(160deg, #a8b0a4, #b2bab0); }
+.lt .ed-tile:nth-child(3) { background: linear-gradient(120deg, #bfb098, #c8baa2); }
+.lt .ed-tile:nth-child(4) { background: linear-gradient(145deg, #b0a8b0, #bab2ba); }
+.lt .ed-tile:nth-child(5) { background: linear-gradient(130deg, #b4aa9a, #beb4a4); }
+.lt .ed-tile:nth-child(6) { background: linear-gradient(155deg, #a4b0a8, #aebab2); }
+.lt .ed-tile:nth-child(7) { background: linear-gradient(140deg, #baae98, #c4b8a2); }
+.eb { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 5px; }
+.eb .spacer { flex: 1; }
+.ebs { font-size: 9px; font-weight: 300; }
+
+/* ═══ DETACHED — both windows fully rounded ═══ */
+.ws.detached { gap: 20px; }
+.ws.detached .mw { border-radius: 8px; border-right: 1px solid; }
+.ws.detached .ew { border-radius: 8px; border-left: 1px solid; }
+.ws.detached .dk.mw { border-color: #120e0a; }
+.ws.detached .dk.ew { border-color: #120e0a; }
+
+/* ═══ VIEWER ═══ */
+.vw {
+  width: 100%; max-width: 502px; height: 240px;
+  position: relative; overflow: hidden; margin: 0 auto;
+  border-radius: 8px;
+}
+.vgt { position: absolute; top: 0; left: 0; right: 0; height: 70px; pointer-events: none; z-index: 5; }
+.vgb { position: absolute; bottom: 0; left: 0; right: 0; height: 70px; pointer-events: none; z-index: 5; }
+.vplay {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 56px; height: 56px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border: none; z-index: 7; transition: background .2s;
+}
+.vplay:hover { background: rgba(204,192,174,.08); }
+.vplay i { font-size: 22px; }
+.vinfo { position: absolute; top: 12px; left: 14px; z-index: 8; }
+.vtb { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 8; }
+.vt { font-size: 14px; cursor: pointer; transition: opacity .2s; line-height: 1; }
+.vt.dim { opacity: .35; }
+.vt:hover { opacity: .8; }
+.vtr { position: absolute; top: 12px; right: 14px; display: flex; gap: 8px; z-index: 8; }
+.vcdn { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); font-family: 'Lora', serif; font-size: 20px; font-weight: 400; letter-spacing: 1px; z-index: 8; }
+.vcnt { position: absolute; bottom: 16px; right: 14px; font-size: 13px; font-weight: 300; z-index: 8; }
+.vbl { position: absolute; bottom: 14px; left: 14px; display: flex; gap: 6px; z-index: 8; }
+.vbi { font-size: 15px; line-height: 1; }
+.vbi.warn { color: rgba(230,120,100,.7) !important; }
+.vnav { position: absolute; top: 50%; transform: translateY(-50%); font-size: 16px; opacity: .2; z-index: 6; }
+.vnav.l { left: 10px; }
+.vnav.r { right: 10px; }
+.vpt { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; z-index: 10; }
+.vpf { height: 100%; width: 62%; }
+/* vertical viewer */
+.vv { max-width: 280px; height: 400px; margin: 0 auto; }
+
+/* ═══ START BTN OPTIONS ═══ */
+.br { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; }
+.bo { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.bla { font-size: 10px; font-weight: 400; color: #8a8070; letter-spacing: 1px; }
+.ss {
+  width: 52px; height: 52px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .25s ease;
+}
+.ss .fa-pencil { font-size: 20px; }
+.ss.s1 { background: #4a7d74; color: #16120e; }
+.ss.s2:hover { background: #4a7d74; color: #16120e; }
+.ss.s1:hover { background: #578d84; transform: scale(1.05); }
+.ss.s2 { background: transparent; border: 2px solid #4a7d74; color: #4a7d74; }
+.ss.s2:hover { background: #4a7d74; color: #16120e; }
+.ss.s3 { background: #4a7d74; color: #16120e; box-shadow: 0 4px 20px rgba(74,125,116,.35), 0 1px 4px rgba(74,125,116,.2); }
+.ss.s3:hover { box-shadow: 0 6px 30px rgba(74,125,116,.5); transform: translateY(-2px); }
+.ss.s4 { background: linear-gradient(to bottom, #5a8d84, #3e6d64); color: #16120e; box-shadow: 0 2px 0 #2e5550; }
+.ss.s4:hover { background: linear-gradient(to bottom, #64978e, #4a7d74); transform: translateY(-1px); box-shadow: 0 3px 0 #2e5550; }
+.ss.s4:active { transform: translateY(1px); box-shadow: 0 0 0 #2e5550; }
+
+/* ═══════════════════════════
+   DARK — INK & COFFEE
+   ═══════════════════════════ */
+.dk { background: #16120e; border: 1px solid #120e0a; }
+.dk.mw { background: linear-gradient(to right, #12100c, #1c1814); box-shadow: 0 6px 24px rgba(0,0,0,.5); border-right: none; }
+.dk.ew { background: linear-gradient(to left, #12100c, #1c1814); box-shadow: 0 6px 24px rgba(0,0,0,.5); border-left: 1px solid #120e0a; }
+.dk .hi { color: #ccc0ae; }
+.dk .wt { color: #6b5e4e; text-shadow: 0 1px 0 rgba(255,250,240,.04), 0 -1px 0 rgba(0,0,0,.5); }
+.dk .pnl { background: #120e0a; box-shadow: inset 0 1px 4px rgba(0,0,0,.3), inset 0 -1px 2px rgba(0,0,0,.15); }
+.dk .mt.on { background: #4a7d74; color: #120e0a; }
+.dk .mt.off { background: #16120e; color: #7a6b5a; }
+.dk .mt.off:hover { color: #a0907e; background: #2a2420; }
+.dk .tb.off { background: #16120e; color: #7a6b5a; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.dk .tb.off:hover { background: #2c2620; color: #a0907e; box-shadow: 0 2px 4px rgba(0,0,0,.3); transform: translateY(-1px); }
+.dk .tb.on { background: #4a7d74; color: #120e0a; box-shadow: 0 2px 4px rgba(0,0,0,.3); transform: translateY(-1px); }
+.dk .sl1 { color: #7a6b5a; }
+.dk .stt { color: #ccc0ae; }
+.dk .ssp { color: #4a3e32; }
+.dk .lm { color: #4a3e32; }
+.dk .lm:hover { color: #7a6b5a; }
+.dk .ab { background: #241e18; color: #7a6b5a; border: 1px solid #30281e; }
+.dk .ab:hover { color: #a0907e; border-color: #4a4038; }
+.dk .sb { color: #16120e; }
+/* editor dk */
+.dk .eic { color: #ccc0ae; }
+.dk .evi { color: #ccc0ae; }
+.dk .esep { background: #ccc0ae; }
+.dk .egh { color: #6b9e90; }
+.dk .eit { color: #7a6b5a; }
+.dk .eit:nth-child(even) { background: rgba(255,240,220,.015); }
+.dk .eit:hover { background: rgba(74,125,116,.08); color: #a0907e; }
+.dk .eit.sel { background: rgba(74,125,116,.12); color: #4a7d74; }
+.dk .eb { border-top: 1px solid #2a2218; }
+.dk .ebs { color: #4a3e32; }
+.dk .ed-grp { color: #6b9e90; }
+
+/* viewer */
+.vw { background: linear-gradient(145deg, #16100a 0%, #1e1610 40%, #14100a 100%); border: 1px solid #120e0a; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+.vgt { background: linear-gradient(to bottom, rgba(18,14,10,.88), transparent); }
+.vgb { background: linear-gradient(to top, rgba(18,14,10,.88), transparent); }
+.vplay { background: transparent; color: rgba(204,192,174,.4); }
+.vinfo .hi { color: rgba(204,192,174,.5); font-size: 16px; opacity: .5; }
+.vtr .hi { color: rgba(204,192,174,.5); font-size: 14px; opacity: .4; }
+.vt { color: rgba(204,192,174,.5); }
+.vcdn { color: rgba(204,192,174,.7); }
+.vcnt { color: rgba(204,192,174,.4); }
+.vbl .vbi { color: rgba(204,192,174,.4); }
+.vpt { background: rgba(36,30,24,.6); }
+.vpf { background: rgba(74,125,116,.6); }
+.vnav { color: rgba(204,192,174,.2); }
+
+/* ═══════════════════════════
+   LIGHT — CRAFT PAPER
+   ═══════════════════════════ */
+.lt { background: #d8ccb8; border: 1px solid #c0b4a0; }
+.lt.mw { box-shadow: 0 6px 20px rgba(40,28,16,.12); border-right: none; }
+.lt.ew { background: #e0d6c4; box-shadow: 0 6px 20px rgba(40,28,16,.12); }
+.lt .hi { color: #2a2018; }
+.lt .wt { color: #7a6e5e; text-shadow: 0 1px 0 rgba(255,255,255,.3), 0 -1px 0 rgba(0,0,0,.06); }
+.lt .pnl { background: #c8bca4; box-shadow: inset 0 1px 3px rgba(50,30,15,.1), inset 0 -1px 2px rgba(50,30,15,.05); }
+.lt .mt.on { background: #4a7d74; color: #f0ebe2; }
+.lt .mt.off { background: #d8ccb8; color: #5a5248; }
+.lt .mt.off:hover { color: #4a4238; background: #c0b49e; }
+.lt .tb.off { background: #d8ccb8; color: #5a5248; box-shadow: 0 1px 3px rgba(50,30,15,.12); }
+.lt .tb.off:hover { background: #c0b49e; color: #4a4238; box-shadow: 0 2px 3px rgba(50,30,15,.1); transform: translateY(-1px); }
+.lt .tb.on { background: #4a7d74; color: #f0ebe2; box-shadow: 0 2px 4px rgba(50,30,15,.1); transform: translateY(-1px); }
+.lt .sl1 { color: #7a7060; }
+.lt .stt { color: #2a2018; }
+.lt .ssp { color: #a0947e; }
+.lt .lm { color: #a0947e; }
+.lt .lm:hover { color: #7a7060; }
+.lt .ab { background: #c8bca6; color: #7a7060; border: 1px solid #b4a892; }
+.lt .ab:hover { color: #4a4238; border-color: #a09480; }
+.lt .sb { color: #d8ccb8; }
+/* editor lt */
+.lt .eic { color: #2a2018; }
+.lt .evi { color: #2a2018; }
+.lt .esep { background: #2a2018; }
+.lt .egh { color: #4a7268; }
+.lt .eit { color: #7a7060; }
+.lt .eit:nth-child(even) { background: rgba(0,0,0,.02); }
+.lt .eit:hover { background: rgba(74,125,116,.07); color: #4a4238; }
+.lt .eit.sel { background: rgba(74,125,116,.1); color: #3a6a60; }
+.lt .eb { border-top: 1px solid #c0b4a0; }
+.lt .ebs { color: #a0947e; }
+.lt .ed-grp { color: #4a7268; }
+
+/* ═══ NOTES ═══ */
+.nn { max-width: 740px; width: 100%; }
+.nh { font-family: 'Lora', serif; font-size: 16px; font-weight: 700; color: #3a3028; letter-spacing: 1px; padding-bottom: 14px; margin-bottom: 28px; border-bottom: 1px solid #2a2218; }
+.ng { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 44px; }
+.nt h3 { font-size: 10px; font-weight: 600; color: #4a7d74; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
+.nt p { font-size: 12px; color: #6b6050; line-height: 1.7; font-weight: 300; }
+
+@keyframes up { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="ph">
+  <h1>Drawer</h1>
+  <p>v7b &middot; dresser panel</p>
+</div>
+
+<!-- ═══ DARK WORKSPACE — ATTACHED ═══ -->
+<div class="sec">
+  <div class="sl">attached &mdash; <span>snapped together</span></div>
+  <div class="ws">
+
+    <div class="mw dk">
+      <div class="mi">
+        <div class="hd">
+          <div class="hl">
+            <i class="ph-bold ph-info hi"></i>
+            <i class="ph-fill ph-palette hi at"></i>
+            <i class="ph-bold ph-moon hi"></i>
+          </div>
+          <div class="hc"><div class="wt">Drawer</div></div>
+          <div class="hr">
+            <i class="ph-bold ph-push-pin hi"></i>
+            <i class="ph-bold ph-minus hi"></i>
+            <i class="ph-bold ph-x hi"></i>
+          </div>
+        </div>
+        <div class="pnl">
+          <div class="md">
+            <div class="mt on">class</div>
+            <div class="mt off">quick</div>
+          </div>
+          <div class="tg">
+            <div class="tb off">30s</div>
+            <div class="tb on">1m</div>
+            <div class="tb off">3m</div>
+            <div class="tb on">5m</div>
+            <div class="tb off">10m</div>
+            <div class="tb on">15m</div>
+            <div class="tb off">30m</div>
+            <div class="tb off">1h</div>
+          </div>
+        </div>
+        <div class="bb">
+          <div class="su">
+            <div class="sl1">12 images</div>
+            <div class="sr">
+              <span class="stt">36:00</span>
+              <span class="ssp">&middot;</span>
+              <span class="lm">no limit</span>
+            </div>
+          </div>
+          <div class="ac">
+            <div class="ab"><i class="ph-fill ph-image-square"></i></div>
+            <div class="sb"><i class="fa-solid fa-pencil"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ew dk">
+      <div class="ei">
+        <div class="et">
+          <div class="ets">
+            <i class="ph-bold ph-file-plus eic"></i>
+            <i class="ph-bold ph-folder-plus eic"></i>
+            <i class="ph-bold ph-link eic"></i>
+          </div>
+          <div class="ets">
+            <i class="ph-bold ph-x eic"></i>
+          </div>
+        </div>
+        <div class="ed-tiles">
+          <div class="ed-grp">1m &middot; 4</div>
+          <div class="ed-grid">
+            <div class="ed-tile"><i class="ph-fill ph-push-pin ed-pin"></i></div>
+            <div class="ed-tile sel"></div>
+            <div class="ed-tile"><i class="ph-fill ph-push-pin ed-pin"></i></div>
+            <div class="ed-tile"></div>
+          </div>
+          <div class="ed-grp">5m &middot; 2</div>
+          <div class="ed-grid">
+            <div class="ed-tile"></div>
+            <div class="ed-tile"></div>
+          </div>
+          <div class="ed-grp">15m &middot; 1</div>
+          <div class="ed-grid">
+            <div class="ed-tile"></div>
+          </div>
+        </div>
+        <div class="eb">
+          <i class="ph-bold ph-list-bullets eic" style="font-size:11px"></i>
+          <i class="ph-bold ph-squares-four eic" style="font-size:11px;opacity:.6"></i>
+          <div class="esep"></div>
+          <i class="ph-bold ph-magnifying-glass-minus eic" style="font-size:11px"></i>
+          <i class="ph-bold ph-magnifying-glass-plus eic" style="font-size:11px"></i>
+          <div class="esep"></div>
+          <i class="ph-bold ph-shuffle eic" style="font-size:11px;color:#4a7d74;opacity:.7"></i>
+          <div style="flex:1"></div>
+          <i class="ph-bold ph-trash eic" style="font-size:11px"></i>
+          <span class="ebs">1.2 MB</span>
+          <div class="esep"></div>
+          <i class="ph-bold ph-eraser eic" style="font-size:11px"></i>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ DARK WORKSPACE — DETACHED ═══ -->
+<div class="sec">
+  <div class="sl">detached &mdash; <span>separate windows</span></div>
+  <div class="ws detached">
+
+    <div class="mw dk">
+      <div class="mi">
+        <div class="hd">
+          <div class="hl">
+            <i class="ph-bold ph-info hi"></i>
+            <i class="ph-fill ph-palette hi at"></i>
+            <i class="ph-bold ph-moon hi"></i>
+          </div>
+          <div class="hc"><div class="wt">Drawer</div></div>
+          <div class="hr">
+            <i class="ph-bold ph-push-pin hi"></i>
+            <i class="ph-bold ph-minus hi"></i>
+            <i class="ph-bold ph-x hi"></i>
+          </div>
+        </div>
+        <div class="pnl">
+          <div class="md">
+            <div class="mt on">class</div>
+            <div class="mt off">quick</div>
+          </div>
+          <div class="tg">
+            <div class="tb off">30s</div>
+            <div class="tb on">1m</div>
+            <div class="tb off">3m</div>
+            <div class="tb on">5m</div>
+            <div class="tb off">10m</div>
+            <div class="tb on">15m</div>
+            <div class="tb off">30m</div>
+            <div class="tb off">1h</div>
+          </div>
+        </div>
+        <div class="bb">
+          <div class="su">
+            <div class="sl1">12 images</div>
+            <div class="sr">
+              <span class="stt">36:00</span>
+              <span class="ssp">&middot;</span>
+              <span class="lm">no limit</span>
+            </div>
+          </div>
+          <div class="ac">
+            <div class="ab"><i class="ph-fill ph-image-square"></i></div>
+            <div class="sb"><i class="fa-solid fa-pencil"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ew dk">
+      <div class="ei">
+        <div class="et">
+          <div class="ets">
+            <i class="ph-bold ph-file-plus eic"></i>
+            <i class="ph-bold ph-folder-plus eic"></i>
+            <i class="ph-bold ph-link eic"></i>
+          </div>
+          <div class="ets">
+            <i class="ph-bold ph-x eic"></i>
+          </div>
+        </div>
+        <div class="ed-tiles">
+          <div class="ed-grp">1m &middot; 4</div>
+          <div class="ed-grid">
+            <div class="ed-tile"><i class="ph-fill ph-push-pin ed-pin"></i></div>
+            <div class="ed-tile sel"></div>
+            <div class="ed-tile"><i class="ph-fill ph-push-pin ed-pin"></i></div>
+            <div class="ed-tile"></div>
+          </div>
+          <div class="ed-grp">5m &middot; 2</div>
+          <div class="ed-grid">
+            <div class="ed-tile"></div>
+            <div class="ed-tile"></div>
+          </div>
+          <div class="ed-grp">15m &middot; 1</div>
+          <div class="ed-grid">
+            <div class="ed-tile"></div>
+          </div>
+        </div>
+        <div class="eb">
+          <i class="ph-bold ph-list-bullets eic" style="font-size:11px"></i>
+          <i class="ph-bold ph-squares-four eic" style="font-size:11px;opacity:.6"></i>
+          <div class="esep"></div>
+          <i class="ph-bold ph-magnifying-glass-minus eic" style="font-size:11px"></i>
+          <i class="ph-bold ph-magnifying-glass-plus eic" style="font-size:11px"></i>
+          <div class="esep"></div>
+          <i class="ph-bold ph-shuffle eic" style="font-size:11px;color:#4a7d74;opacity:.7"></i>
+          <div style="flex:1"></div>
+          <i class="ph-bold ph-trash eic" style="font-size:11px"></i>
+          <span class="ebs">1.2 MB</span>
+          <div class="esep"></div>
+          <i class="ph-bold ph-eraser eic" style="font-size:11px"></i>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ LIGHT WORKSPACE ═══ -->
+<div class="sec">
+  <div class="sl">workspace &mdash; <span>craft paper</span></div>
+  <div class="ws">
+
+    <div class="mw lt">
+      <div class="mi">
+        <div class="hd">
+          <div class="hl">
+            <i class="ph-bold ph-info hi"></i>
+            <i class="ph-fill ph-palette hi at"></i>
+            <i class="ph-bold ph-sun hi"></i>
+          </div>
+          <div class="hc"><div class="wt">Drawer</div></div>
+          <div class="hr">
+            <i class="ph-fill ph-push-pin hi" style="opacity:.5"></i>
+            <i class="ph-bold ph-minus hi"></i>
+            <i class="ph-bold ph-x hi"></i>
+          </div>
+        </div>
+        <div class="pnl">
+          <div class="md">
+            <div class="mt on">class</div>
+            <div class="mt off">quick</div>
+          </div>
+          <div class="tg">
+            <div class="tb off">30s</div>
+            <div class="tb on">1m</div>
+            <div class="tb off">3m</div>
+            <div class="tb on">5m</div>
+            <div class="tb off">10m</div>
+            <div class="tb on">15m</div>
+            <div class="tb off">30m</div>
+            <div class="tb off">1h</div>
+          </div>
+        </div>
+        <div class="bb">
+          <div class="su">
+            <div class="sl1">12 images</div>
+            <div class="sr">
+              <span class="stt">36:00</span>
+              <span class="ssp">&middot;</span>
+              <span class="lm">no limit</span>
+            </div>
+          </div>
+          <div class="ac">
+            <div class="ab"><i class="ph-fill ph-image-square"></i></div>
+            <div class="sb"><i class="fa-solid fa-pencil"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ew lt">
+      <div class="ei">
+        <div class="et">
+          <div class="ets">
+            <i class="ph-bold ph-file-plus eic"></i>
+            <i class="ph-bold ph-folder-plus eic"></i>
+            <i class="ph-bold ph-link eic"></i>
+          </div>
+          <div class="ets">
+            <i class="ph-bold ph-x eic"></i>
+          </div>
+        </div>
+        <div class="ed-tiles">
+          <div class="ed-grp">1m &middot; 4</div>
+          <div class="ed-grid">
+            <div class="ed-tile"><i class="ph-fill ph-push-pin ed-pin"></i></div>
+            <div class="ed-tile sel"></div>
+            <div class="ed-tile"><i class="ph-fill ph-push-pin ed-pin"></i></div>
+            <div class="ed-tile"></div>
+          </div>
+          <div class="ed-grp">5m &middot; 2</div>
+          <div class="ed-grid">
+            <div class="ed-tile"></div>
+            <div class="ed-tile"></div>
+          </div>
+          <div class="ed-grp">15m &middot; 1</div>
+          <div class="ed-grid">
+            <div class="ed-tile"></div>
+          </div>
+        </div>
+        <div class="eb">
+          <i class="ph-bold ph-list-bullets eic" style="font-size:11px"></i>
+          <i class="ph-bold ph-squares-four eic" style="font-size:11px;opacity:.6"></i>
+          <div class="esep"></div>
+          <i class="ph-bold ph-magnifying-glass-minus eic" style="font-size:11px"></i>
+          <i class="ph-bold ph-magnifying-glass-plus eic" style="font-size:11px"></i>
+          <div class="esep"></div>
+          <i class="ph-bold ph-shuffle eic" style="font-size:11px;color:#4a7d74;opacity:.7"></i>
+          <div style="flex:1"></div>
+          <i class="ph-bold ph-trash eic" style="font-size:11px"></i>
+          <span class="ebs">1.2 MB</span>
+          <div class="esep"></div>
+          <i class="ph-bold ph-eraser eic" style="font-size:11px"></i>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ VIEWER HORIZONTAL ═══ -->
+<div class="sec">
+  <div class="sl">viewer &mdash; <span>horizontal</span></div>
+  <div class="vw">
+    <div class="vgt"></div>
+    <div class="vgb"></div>
+    <div class="vinfo"><i class="ph-bold ph-info hi"></i></div>
+    <div class="vtb">
+      <i class="ph-fill ph-cloud-rain vt dim"></i>
+      <i class="ph-bold ph-grid-four vt dim"></i>
+      <i class="ph-bold ph-arrows-left-right vt dim"></i>
+      <i class="ph-bold ph-arrows-down-up vt dim"></i>
+    </div>
+    <div class="vtr">
+      <i class="ph-bold ph-dots-three-vertical vt dim"></i>
+      <i class="ph-bold ph-x vt dim"></i>
+    </div>
+    <button class="vplay"><i class="ph-fill ph-pause"></i></button>
+    <i class="ph-bold ph-caret-left vnav l"></i>
+    <i class="ph-bold ph-caret-right vnav r"></i>
+    <div class="vbl">
+      <i class="ph-fill ph-alarm vbi warn"></i>
+      <i class="ph-fill ph-coffee vbi" style="color:rgba(204,192,174,.4)"></i>
+    </div>
+    <div class="vcdn">1:47</div>
+    <div class="vcnt">3 / 10</div>
+    <div class="vpt"><div class="vpf"></div></div>
+  </div>
+</div>
+
+<!-- ═══ VIEWER VERTICAL ═══ -->
+<div class="sec">
+  <div class="sl">viewer &mdash; <span>vertical / portrait</span></div>
+  <div class="vw vv">
+    <div class="vgt"></div>
+    <div class="vgb"></div>
+    <div class="vinfo"><i class="ph-bold ph-info hi"></i></div>
+    <div class="vtb">
+      <i class="ph-fill ph-cloud-rain vt dim"></i>
+      <i class="ph-bold ph-grid-four vt dim"></i>
+      <i class="ph-bold ph-arrows-left-right vt dim"></i>
+      <i class="ph-bold ph-arrows-down-up vt dim"></i>
+    </div>
+    <div class="vtr">
+      <i class="ph-bold ph-dots-three-vertical vt dim"></i>
+      <i class="ph-bold ph-x vt dim"></i>
+    </div>
+    <button class="vplay"><i class="ph-fill ph-pause"></i></button>
+    <i class="ph-bold ph-caret-left vnav l"></i>
+    <i class="ph-bold ph-caret-right vnav r"></i>
+    <div class="vbl">
+      <i class="ph-fill ph-alarm vbi warn"></i>
+      <i class="ph-fill ph-coffee vbi" style="color:rgba(204,192,174,.4)"></i>
+    </div>
+    <div class="vcdn">1:47</div>
+    <div class="vcnt">3 / 10</div>
+    <div class="vpt"><div class="vpf"></div></div>
+  </div>
+</div>
+
+<!-- ═══ START BUTTONS ═══ -->
+<div class="sec">
+  <div class="sl">start button &mdash; <span>hover to test</span></div>
+  <div class="br">
+    <div class="bo"><div class="ss s1"><i class="fa-solid fa-pencil"></i></div><div class="bla">solid</div></div>
+    <div class="bo"><div class="ss s2"><i class="fa-solid fa-pencil"></i></div><div class="bla">outlined</div></div>
+    <div class="bo"><div class="ss s3"><i class="fa-solid fa-pencil"></i></div><div class="bla">warm glow</div></div>
+    <div class="bo"><div class="ss s4"><i class="fa-solid fa-pencil"></i></div><div class="bla">tactile</div></div>
+  </div>
+</div>
+
+<!-- ═══ NOTES ═══ -->
+<div class="sec nn">
+  <div class="nh">What's new in v7</div>
+  <div class="ng">
+
+    <div class="nt">
+      <h3>Headers aligned</h3>
+      <p>Main and editor now share the same top padding (12px) and side padding (14px). When snapped, the header icons sit at the exact same height and horizontal margin across both windows. No more visual mismatch.</p>
+    </div>
+
+    <div class="nt">
+      <h3>Rebalanced top</h3>
+      <p>With accent bar gone, the top padding increased from 10px to 12px. Gives the header breathing room from the window edge without a decorative element. The rounded corners + padding create enough visual framing on their own.</p>
+    </div>
+
+    <div class="nt">
+      <h3>Dresser panel</h3>
+      <p>2px warm border frames the recessed panel like a furniture compartment. The panel stretches to fill available space — modes and timer buttons center vertically inside. No more dead space below; the compartment absorbs it. Timer buttons = drawers in a dresser.</p>
+    </div>
+
+    <div class="nt">
+      <h3>Lexend font</h3>
+      <p>Designed for readability and dyslexia support. Wider letterforms, distinct characters (no b/d confusion), generous spacing. Warm and friendly. 300-500 weight for body, 500 for labels. Title stays Lora serif. ~60KB bundled.</p>
+    </div>
+
+    <div class="nt">
+      <h3>Rounded windows</h3>
+      <p>8px radius. When snapped: main rounds left, editor rounds right — shared flat edge. Standalone: all corners round. In PyQt6: WA_TranslucentBackground + QPainter rounded rect mask. Snap logic adjusts corners per dock state.</p>
+    </div>
+
+    <div class="nt">
+      <h3>Rounding scale</h3>
+      <p>3px editor list items, 5px buttons/tabs/add, 6px inset panel, 8px windows, 10px start button. The outlined panel at 6px sits between the button scale and the window scale — a clear visual layer.</p>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
