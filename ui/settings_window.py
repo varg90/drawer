@@ -215,12 +215,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         return QColor(self.theme.bg)
 
     def _bg_brush(self):
-        if self.theme.name == "dark":
+        t = self.theme
+        if t.bg_grad_dark:
             grad = QLinearGradient(0, 0, self.width(), 0)
-            grad.setColorAt(0.0, QColor("#12100c"))
-            grad.setColorAt(1.0, QColor("#1c1814"))
+            grad.setColorAt(0.0, QColor(t.bg_grad_dark))
+            grad.setColorAt(1.0, QColor(t.bg_grad_light))
             return grad
-        return QColor(self.theme.bg)
+        return QColor(t.bg)
 
     def paintEvent(self, event):
         self._paint_rounded(event)

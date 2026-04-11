@@ -106,12 +106,13 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         return QColor(self.theme.bg_secondary)
 
     def _bg_brush(self):
-        if self.theme.name == "dark":
+        t = self.theme
+        if t.bg_grad_dark:
             grad = QLinearGradient(0, 0, self.width(), 0)
-            grad.setColorAt(0.0, QColor("#1c1814"))  # lighter at spine (left edge)
-            grad.setColorAt(1.0, QColor("#12100c"))  # darker at outer edge (right)
+            grad.setColorAt(0.0, QColor(t.bg_grad_light))  # lighter at spine
+            grad.setColorAt(1.0, QColor(t.bg_grad_dark))   # darker at outer edge
             return grad
-        return QColor(self.theme.bg_secondary)
+        return QColor(t.bg_secondary)
 
     def paintEvent(self, event):
         self._paint_rounded(event)

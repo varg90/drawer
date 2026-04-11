@@ -78,7 +78,7 @@ class ProgressBar(QWidget):
         # Fill
         fill_w = int(w * self._progress)
         if fill_w > 0:
-            color = QColor(230, 120, 100, 200) if self._warning else QColor(74, 125, 116, 150)
+            color = CLR_WARNING if self._warning else QColor(74, 125, 116, 150)
             p.fillRect(0, 0, fill_w, h, color)
         p.end()
 
@@ -235,7 +235,7 @@ class ViewerWindow(QWidget):
 
         self._counter_label = QLabel(self)
         self._counter_label.setStyleSheet(
-            "color: rgba(204,192,174,200); font-family: Lexend; font-size: 13px; background: transparent;")
+            "color: rgba(204,192,174,200); font-family: 'Lexend'; font-size: 13px; background: transparent;")
         self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         # Alarm icon (session warning)

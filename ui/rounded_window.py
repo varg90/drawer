@@ -18,6 +18,9 @@ class RoundedWindowMixin:
 
     def rounded_init(self):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._rw_cached_path = None
+        self._rw_cached_radii = None
+        self._rw_cached_rect = None
 
     def corner_radii(self):
         """Return (top_left, top_right, bottom_right, bottom_left) radii."""
@@ -25,51 +28,57 @@ class RoundedWindowMixin:
         return (r, r, r, r)
 
     def _bg_color(self):
-        """Override to return the window background QColor."""
-        return QColor("#16120e")
+        """Must be overridden to return the window background QColor."""
+        raise NotImplementedError("Subclass must override _bg_color()")
 
     def _bg_brush(self):
         """Override to return QColor or QLinearGradient. Defaults to _bg_color()."""
         return self._bg_color()
 
-    def _paint_rounded(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        tl, tr, br, bl = self.corner_radii()
-        rect = QRectF(self.rect())
+    def _build_path(self, rect, tl, tr, br, bl):
         path = QPainterPath()
-
         if tl == tr == br == bl:
             path.addRoundedRect(rect, tl, tl)
         else:
-            # Build path with per-corner radii
-            d = 2  # diameter multiplier
             path.moveTo(rect.left() + tl, rect.top())
             path.lineTo(rect.right() - tr, rect.top())
             if tr:
-                path.arcTo(rect.right() - d*tr, rect.top(), d*tr, d*tr, 90, -90)
+                path.arcTo(rect.right() - 2*tr, rect.top(), 2*tr, 2*tr, 90, -90)
             else:
                 path.lineTo(rect.right(), rect.top())
             path.lineTo(rect.right(), rect.bottom() - br)
             if br:
-                path.arcTo(rect.right() - d*br, rect.bottom() - d*br, d*br, d*br, 0, -90)
+                path.arcTo(rect.right() - 2*br, rect.bottom() - 2*br, 2*br, 2*br, 0, -90)
             else:
                 path.lineTo(rect.right(), rect.bottom())
             path.lineTo(rect.left() + bl, rect.bottom())
             if bl:
-                path.arcTo(rect.left(), rect.bottom() - d*bl, d*bl, d*bl, -90, -90)
+                path.arcTo(rect.left(), rect.bottom() - 2*bl, 2*bl, 2*bl, -90, -90)
             else:
                 path.lineTo(rect.left(), rect.bottom())
             path.lineTo(rect.left(), rect.top() + tl)
             if tl:
-                path.arcTo(rect.left(), rect.top(), d*tl, d*tl, 180, -90)
+                path.arcTo(rect.left(), rect.top(), 2*tl, 2*tl, 180, -90)
             else:
                 path.lineTo(rect.left(), rect.top())
             path.closeSubpath()
+        return path
+
+    def _paint_rounded(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        radii = self.corner_radii()
+        rect = QRectF(self.rect())
+
+        if radii != self._rw_cached_radii or rect != self._rw_cached_rect:
+            self._rw_cached_path = self._build_path(rect, *radii)
+            self._rw_cached_radii = radii
+            self._rw_cached_rect = rect
 
         brush = self._bg_brush()
         if isinstance(brush, QLinearGradient):
-            painter.fillPath(path, QBrush(brush))
+            painter.fillPath(self._rw_cached_path, QBrush(brush))
         else:
-            painter.fillPath(path, brush)
+            painter.fillPath(self._rw_cached_path, brush)
         painter.end()

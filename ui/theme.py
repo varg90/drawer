@@ -75,6 +75,8 @@ def _accent_colors(accent, mode):
         return {
             "bg_active": _mix("#1a1610", accent, 0.15),
             "bg_panel": "#120e0a",
+            "bg_grad_dark": "#12100c",
+            "bg_grad_light": "#1c1814",
             "border_active": accent,
             "text_header": "#6b5e4e",
             "text_button": _mix(accent, "#ccc0ae", 0.4),
@@ -84,6 +86,8 @@ def _accent_colors(accent, mode):
         return {
             "bg_active": _lighten(accent, 0.65),
             "bg_panel": "#c8bca4",
+            "bg_grad_dark": "",
+            "bg_grad_light": "",
             "border_active": accent,
             "text_header": "#7a6e5e",
             "text_button": _darken(accent, 0.15),
@@ -119,6 +123,8 @@ class Theme:
             base = dict(_BASES[self._name])
             base.update(_accent_colors(self._accent, self._name))
             for k in list(base):
+                if not base[k]:
+                    continue
                 r, g, b = _hex_to_rgb(base[k])
                 base[k + "_rgb"] = f"{r}, {g}, {b}"
             self._cache = base
