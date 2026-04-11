@@ -174,10 +174,8 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             f"font-family: 'Lexend';"
         )
         self._panel.setStyleSheet(
-            f"QWidget#insetPanel {{ "
             f"background-color: {t.bg_panel}; "
-            f"border-radius: {S.PANEL_RADIUS}px; "
-            f"}}"
+            f"border-radius: {S.PANEL_RADIUS}px;"
         )
 
         self._title.recolor(t.text_header)

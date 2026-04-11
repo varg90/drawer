@@ -16,7 +16,7 @@ logging.basicConfig(
 log = logging.getLogger("refbot")
 
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QFontDatabase
+from PyQt6.QtGui import QFont, QFontDatabase
 from ui.settings_window import SettingsWindow
 
 
@@ -43,6 +43,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     load_fonts()
+    app.setFont(QFont("Lexend"))
     window = SettingsWindow()
     window.show()
     sys.exit(app.exec())
