@@ -144,8 +144,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
                 if getattr(img, "pinned", False):
                     continue
                 img.timer = timers[i] if i < len(timers) else timers[-1]
-        if self._editor_visible:
-            self.editor.refresh(self.images)
 
     def _update_summary(self):
         n = len(self.images)
