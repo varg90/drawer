@@ -175,7 +175,7 @@ class EditorPanel(QWidget):
     def _build_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(6)
+        root.setSpacing(0)
 
         # --- Stacked widget: list / grid ---
         self._stack = QStackedWidget()
@@ -310,9 +310,11 @@ class EditorPanel(QWidget):
         bottom.addSpacing(2)
         bottom.addWidget(self._clear_btn)
 
-        self._bottom_widget = QWidget()
-        self._bottom_widget.setLayout(bottom)
-        root.addWidget(self._bottom_widget)
+        self._bottom_sep = QWidget()
+        self._bottom_sep.setFixedHeight(1)
+        root.addWidget(self._bottom_sep)
+        root.addSpacing(5)
+        root.addLayout(bottom)
 
         self._update_bottom_controls()
 
@@ -381,10 +383,9 @@ class EditorPanel(QWidget):
             f"width: 12px; margin: -4px 0; }}"
         )
 
-        self._bottom_widget.setStyleSheet(
-            f"border-top: 1px solid {t.border}; background: transparent; padding-top: 4px;")
+        self._bottom_sep.setStyleSheet(f"background-color: {t.border};")
         self._cache_size_label.setStyleSheet(
-            f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px; border: none;")
+            f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
 
         # Refresh icon colors — muted to match mockup
         for btn, icon in [
