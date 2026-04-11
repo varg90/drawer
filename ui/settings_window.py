@@ -6,7 +6,9 @@ import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QFileDialog, QScrollArea, QLabel)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon
+from PyQt6.QtGui import (QColor, QLinearGradient, QPainter, QPainterPath,
+                         QDragEnterEvent, QDropEvent, QIcon)
+from PyQt6.QtCore import QRectF
 from core.constants import SUPPORTED_FORMATS
 from core.class_mode import groups_to_timers
 from core.file_utils import filter_image_files, scan_folder
@@ -18,11 +20,33 @@ from ui.icons import Icons
 from ui.widgets import (make_icon_btn, make_icon_toggle,
                          make_centered_header)
 from ui.snap import SnapMixin
+from ui.rounded_window import RoundedWindowMixin
 from ui.timer_panel import TimerPanel
 from ui.bottom_bar import BottomBar
 
 
-class SettingsWindow(QMainWindow, SnapMixin):
+class _InsetPanel(QWidget):
+    """Panel with rounded background."""
+
+    def __init__(self, bg_color="#120e0a", radius=6, parent=None):
+        super().__init__(parent)
+        self._bg = QColor(bg_color)
+        self._radius = radius
+
+    def set_bg(self, color_hex):
+        self._bg = QColor(color_hex)
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(self.rect()), self._radius, self._radius)
+        p.fillPath(path, self._bg)
+        p.end()
+
+
+class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     images_changed = pyqtSignal()
 
     def __init__(self):
@@ -43,6 +67,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._build_ui()
         self._apply_theme()
         SnapMixin.__init__(self)
+        self.rounded_init()
         self._restore_session()
         self.setAcceptDrops(True)
 
@@ -88,21 +113,27 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._close_btn.clicked.connect(self.close)
 
         header_layout, self._title = make_centered_header(
-            "DRAWER",
+            "Drawer",
             [self._help_btn, self._accent_btn, self._theme_btn],
             [self._topmost_btn, self._min_btn, self._close_btn],
             self.theme,
         )
         root.addLayout(header_layout)
-        root.addStretch()
 
-        # ── 2. TimerPanel ──────────────────────────────────────────────────
-        self._timer_panel = TimerPanel(self.theme, parent=self)
+        # ── 2. Inset panel wraps the timer section ─────────────────────────
+        self._panel = _InsetPanel(self.theme.bg_panel, S.PANEL_RADIUS)
+        panel_lay = QVBoxLayout(self._panel)
+        panel_lay.setContentsMargins(S.PANEL_PADDING, S.PANEL_PADDING,
+                                      S.PANEL_PADDING, S.PANEL_PADDING)
+        panel_lay.setSpacing(0)
+
+        self._timer_panel = TimerPanel(self.theme, parent=self._panel)
         self._timer_panel.timer_config_changed.connect(self._on_timer_config_changed)
-        root.addWidget(self._timer_panel)
-        root.addSpacing(S.SPACING_SUMMARY)
+        panel_lay.addWidget(self._timer_panel)
 
-        # ── 3. Stretch ────────────────────────────────────────────────────
+        # Panel centered between header and bottom bar
+        root.addStretch()
+        root.addWidget(self._panel)
         root.addStretch()
 
         # ── 4. BottomBar ──────────────────────────────────────────────────
@@ -157,14 +188,18 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
     def _apply_theme(self):
         t = self.theme
-        self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
+        self.setStyleSheet(
+            f"background-color: transparent; color: {t.text_primary}; "
+            f"font-family: 'Lexend';"
+        )
+        self._panel.set_bg(t.bg_panel)
 
         self._title.recolor(t.text_header)
 
         # Header icons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
         _topmost_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
-        _topmost_color = t.accent if self._topmost else t.text_hint
+        _topmost_color = t.text_secondary if self._topmost else t.text_hint
         self._topmost_btn.setIcon(qta.icon(_topmost_icon, color=_topmost_color))
         _theme_icon = Icons.THEME_DARK if t.name == "dark" else Icons.THEME_LIGHT
         self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
@@ -179,6 +214,35 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._bottom_bar.apply_theme()
 
         self._dismiss_help()
+        self.update()
+
+    # ------------------------------------------------------------------ Rounded painting
+
+    def corner_radii(self):
+        r = S.WINDOW_RADIUS
+        # When editor is snapped to our right, round left corners only
+        if self._snapped_children:
+            return (r, 0, 0, r)
+        return (r, r, r, r)
+
+    def _bg_color(self):
+        return QColor(self.theme.bg)
+
+    def _border_color(self):
+        return QColor(self.theme.border)
+
+    def _bg_brush(self):
+        t = self.theme
+        if t.bg_grad_dark:
+            grad = QLinearGradient(0, 0, self.width(), 0)
+            grad.setSpread(QLinearGradient.Spread.PadSpread)
+            grad.setColorAt(0.0, QColor(t.bg_grad_light))
+            grad.setColorAt(1.0, QColor(t.bg_grad_dark))
+            return grad
+        return QColor(t.bg)
+
+    def paintEvent(self, event):
+        self._paint_rounded(event)
 
     # ------------------------------------------------------------------ Window dragging
 
@@ -283,7 +347,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._topmost = not self._topmost
         t = self.theme
         _icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
-        _color = t.accent if self._topmost else t.text_hint
+        _color = t.text_secondary if self._topmost else t.text_hint
         self._topmost_btn.setIcon(qta.icon(_icon, color=_color))
 
     # ------------------------------------------------------------------ Image management
@@ -328,11 +392,14 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self.editor.show()
         self.editor._snapped_to = (weakref.ref(self), "right")
         self._snapped_children.append((weakref.ref(self.editor), "right"))
+        self.update()  # repaint with snapped corner radii
+        self.editor.update()
 
     def _on_editor_close(self):
         if self.editor is not None:
             self._last_editor_view = self.editor._view_mode
         self.editor = None
+        self.update()  # repaint with all corners rounded
 
     def _on_shuffle_changed(self, value):
         self._shuffle = value

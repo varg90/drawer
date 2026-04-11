@@ -68,7 +68,7 @@ class BottomBar(QWidget):
 
         # Start button (right side)
         self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
-                                      size=22, tooltip="Add files")
+                                      size=26, tooltip="Add files")
         self._add_btn.clicked.connect(self.add_clicked.emit)
 
         self._start_btn = make_start_btn(self.theme)
@@ -108,11 +108,13 @@ class BottomBar(QWidget):
             self._limit_btn.setText("no limit")
             self._limit_btn.setStyleSheet(
                 f"color: {t.text_hint}; font-size: 9px; font-weight: 500; "
+                f"font-family: 'Lexend'; "
                 f"background: transparent; border: none; padding: 0;")
         else:
             self._limit_btn.setText(f"limit: {label}")
             self._limit_btn.setStyleSheet(
                 f"color: {t.accent}; font-size: 9px; font-weight: 500; "
+                f"font-family: 'Lexend'; "
                 f"background: transparent; border: none; padding: 0; "
                 f"text-decoration: underline;")
 
@@ -165,13 +167,18 @@ class BottomBar(QWidget):
     def apply_theme(self):
         t = self.theme
         self._groups_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_HINT}px; font-weight: 500;")
+            f"color: {t.text_secondary}; font-size: {S.FONT_HINT}px; font-weight: 500; "
+            f"font-family: 'Lexend';")
         self._total_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500;")
-        self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px;")
+            f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500; "
+            f"font-family: 'Lexend';")
+        self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px; font-family: 'Lexend';")
         self._update_limit_display()
 
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
+        self._add_btn.setStyleSheet(
+            f"background-color: {t.bg_button}; border: 1px solid {t.border}; "
+            f"border-radius: 5px;")
         self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
