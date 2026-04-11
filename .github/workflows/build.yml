@@ -11,6 +11,7 @@ on:
       - "fonts/**"
       - "*.ico"
       - "*.txt"
+      - "*.iss"
 
 concurrency:
   group: build-${{ github.ref }}
@@ -66,22 +67,48 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pyinstaller
 
-      - name: Install UPX (Windows)
+      - name: Install UPX and Inno Setup (Windows)
         if: runner.os == 'Windows'
-        run: choco install upx -y
+        run: choco install upx innosetup -y
 
-      - name: Build (Windows)
+      - name: Build portable exe (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           pyinstaller --noconfirm --onefile --windowed \
             --name Drawer --icon drawer.ico --strip \
+            --distpath dist/portable \
             --add-data "info_main.txt;." \
             --add-data "info_viewer.txt;." \
             --add-data "drawer.ico;." \
             --add-data "fonts;fonts" \
             $PYINSTALLER_EXCLUDES \
             main.py
+
+      - name: Build app directory (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          pyinstaller --noconfirm --onedir --windowed \
+            --name Drawer --icon drawer.ico --strip \
+            --distpath dist/onedir \
+            --add-data "info_main.txt;." \
+            --add-data "info_viewer.txt;." \
+            --add-data "drawer.ico;." \
+            --add-data "fonts;fonts" \
+            $PYINSTALLER_EXCLUDES \
+            main.py
+
+      - name: Build installer (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="dev"
+          fi
+          iscc "//DAppVersion=$VERSION" installer.iss
 
       - name: Build (macOS)
         if: runner.os == 'macOS'
@@ -98,18 +125,25 @@ jobs:
             -srcfolder dist/Drawer.app \
             -ov -format UDZO dist/Drawer.dmg
 
-      - name: Upload artifact (Windows)
+      - name: Upload portable exe
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: dist/Drawer.exe
+          name: Drawer-Windows-Portable
+          path: dist/portable/Drawer.exe
 
-      - name: Upload artifact (macOS)
+      - name: Upload installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Drawer-Windows-Setup
+          path: dist/Drawer_Setup.exe
+
+      - name: Upload macOS dmg
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
+          name: Drawer-macOS
           path: dist/Drawer.dmg
 
   release:
@@ -122,7 +156,12 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Drawer-Windows
+          name: Drawer-Windows-Portable
+          path: artifacts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Drawer-Windows-Setup
           path: artifacts
 
       - uses: actions/download-artifact@v4
@@ -133,7 +172,8 @@ jobs:
       - name: Rename with version
         run: |
           V=${GITHUB_REF_NAME#v}
-          mv artifacts/Drawer.exe "artifacts/Drawer_${V}_Windows.exe"
+          mv artifacts/Drawer.exe "artifacts/Drawer_${V}_Portable.exe"
+          mv artifacts/Drawer_Setup.exe "artifacts/Drawer_${V}_Setup.exe"
           mv artifacts/Drawer.dmg "artifacts/Drawer_${V}_macOS.dmg"
 
       - name: Create GitHub Release
