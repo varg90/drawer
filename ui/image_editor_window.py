@@ -112,8 +112,9 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         t = self.theme
         if t.bg_grad_dark:
             grad = QLinearGradient(0, 0, self.width(), 0)
-            grad.setColorAt(0.0, QColor(t.bg_grad_light))  # lighter at spine
-            grad.setColorAt(1.0, QColor(t.bg_grad_dark))   # darker at outer edge
+            grad.setSpread(QLinearGradient.Spread.PadSpread)
+            grad.setColorAt(0.0, QColor(t.bg_grad_dark))   # darker at spine
+            grad.setColorAt(1.0, QColor(t.bg_grad_light))  # lighter at outer edge
             return grad
         return QColor(t.bg_secondary)
 
