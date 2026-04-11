@@ -178,7 +178,7 @@ class EditorPanel(QWidget):
         self._list_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._list_scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._list_scroll.setAcceptDrops(True)
         self._list_scroll.dragEnterEvent = self._drag_enter
         self._list_scroll.dropEvent = self._drop_event
@@ -199,7 +199,7 @@ class EditorPanel(QWidget):
         self._grid_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._grid_scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._grid_scroll.setAcceptDrops(True)
         self._grid_scroll.dragEnterEvent = self._drag_enter
         self._grid_scroll.dropEvent = self._drop_event
@@ -319,9 +319,17 @@ class EditorPanel(QWidget):
         self._grid_scroll.setObjectName("editorGridScroll")
         self._list_container.setObjectName("editorListContainer")
         self._grid_container.setObjectName("editorGridContainer")
+        scrollbar_s = (
+            f"QScrollBar:vertical {{ background: transparent; width: 4px; margin: 0; }}"
+            f"QScrollBar::handle:vertical {{ background: {t.text_hint}; "
+            f"min-height: 20px; border-radius: 2px; }}"
+            f"QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}"
+            f"QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}"
+        )
         scroll_s = (
             f"QScrollArea#editorListScroll, QScrollArea#editorGridScroll {{ "
             f"background-color: {t.bg_secondary}; border: 1px dashed {t.border}; }}"
+            f" {scrollbar_s}"
         )
         container_s = (
             f"QWidget#editorListContainer, QWidget#editorGridContainer {{ "
@@ -360,7 +368,7 @@ class EditorPanel(QWidget):
         )
 
         self._cache_size_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px;")
+            f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
 
         # Refresh icon colors
         for btn, icon in [
