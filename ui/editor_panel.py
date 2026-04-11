@@ -174,6 +174,7 @@ class EditorPanel(QWidget):
         self._list_scroll = QScrollArea()
         self._list_scroll.setWidgetResizable(True)
         self._list_scroll.installEventFilter(self)
+        self._list_scroll.viewport().installEventFilter(self)
         self._list_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._list_scroll.setAcceptDrops(True)
@@ -192,6 +193,7 @@ class EditorPanel(QWidget):
         self._grid_scroll = QScrollArea()
         self._grid_scroll.setWidgetResizable(True)
         self._grid_scroll.installEventFilter(self)
+        self._grid_scroll.viewport().installEventFilter(self)
         self._grid_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._grid_scroll.setAcceptDrops(True)
