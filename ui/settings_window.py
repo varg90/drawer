@@ -365,7 +365,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._topmost = not self._topmost
         t = self.theme
         _icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
-        _color = t.accent if self._topmost else t.text_hint
+        _color = t.text_secondary if self._topmost else t.text_hint
         self._topmost_btn.setIcon(qta.icon(_icon, color=_color))
 
     # ------------------------------------------------------------------ Image management

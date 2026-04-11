@@ -230,15 +230,16 @@ class EditorPanel(QWidget):
         bottom.setContentsMargins(0, 0, 0, 0)
 
         # List/grid toggle
+        bs = S.EDITOR_BTN_BOTTOM
         self._list_btn = make_icon_btn(
             Icons.LIST, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="List view",
+            size=bs, tooltip="List view",
         )
         self._list_btn.clicked.connect(lambda: self._set_view_mode("list"))
 
         self._grid_btn = make_icon_btn(
             Icons.GRID, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Grid view",
+            size=bs, tooltip="Grid view",
         )
         self._grid_btn.clicked.connect(lambda: self._set_view_mode("grid"))
 
@@ -256,11 +257,11 @@ class EditorPanel(QWidget):
         # Zoom icon buttons (grid mode only)
         self._zoom_out_btn = make_icon_btn(
             Icons.ZOOM_OUT, self.theme.text_hint,
-            size=S.EDITOR_BTN, tooltip="Zoom out",
+            size=bs, tooltip="Zoom out",
         )
         self._zoom_in_btn = make_icon_btn(
             Icons.ZOOM_IN, self.theme.text_hint,
-            size=S.EDITOR_BTN, tooltip="Zoom in",
+            size=bs, tooltip="Zoom in",
         )
 
         self._zoom_out_btn.clicked.connect(
@@ -277,22 +278,22 @@ class EditorPanel(QWidget):
         # Shuffle
         self._shuffle_btn = make_icon_btn(
             Icons.SHUFFLE, self.theme.accent if self._shuffle else self.theme.text_hint,
-            size=S.EDITOR_BTN, tooltip="Shuffle on start",
+            size=bs, tooltip="Shuffle on start",
         )
         self._shuffle_btn.clicked.connect(self._toggle_shuffle)
 
         # Cache trash + size
         self._cache_btn = make_icon_btn(
-            Icons.TRASH, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Clear cache",
+            Icons.TRASH, self.theme.text_hint,
+            size=bs, tooltip="Clear cache",
         )
         self._cache_btn.clicked.connect(self._clear_cache)
         self._cache_size_label = QLabel("")
 
         # Clear all
         self._clear_btn = make_icon_btn(
-            Icons.ERASER, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Clear all",
+            Icons.ERASER, self.theme.text_hint,
+            size=bs, tooltip="Clear all",
         )
         self._clear_btn.clicked.connect(self._clear)
 
@@ -311,6 +312,7 @@ class EditorPanel(QWidget):
         bottom.addWidget(self._clear_btn)
 
         self._bottom_sep = QWidget()
+        self._bottom_sep.setObjectName("editorSep")
         self._bottom_sep.setFixedHeight(1)
         root.addWidget(self._bottom_sep)
         root.addSpacing(5)
@@ -383,7 +385,8 @@ class EditorPanel(QWidget):
             f"width: 12px; margin: -4px 0; }}"
         )
 
-        self._bottom_sep.setStyleSheet(f"background-color: {t.text_secondary};")
+        self._bottom_sep.setStyleSheet(
+            f"QWidget#editorSep {{ background-color: {t.text_secondary}; }}")
         self._cache_size_label.setStyleSheet(
             f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
 
