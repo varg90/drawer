@@ -6,7 +6,7 @@ import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QFileDialog, QScrollArea, QLabel)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon
+from PyQt6.QtGui import QColor, QDragEnterEvent, QDropEvent, QIcon
 from core.constants import SUPPORTED_FORMATS
 from core.class_mode import groups_to_timers
 from core.file_utils import filter_image_files, scan_folder
@@ -18,11 +18,12 @@ from ui.icons import Icons
 from ui.widgets import (make_icon_btn, make_icon_toggle,
                          make_centered_header)
 from ui.snap import SnapMixin
+from ui.rounded_window import RoundedWindowMixin
 from ui.timer_panel import TimerPanel
 from ui.bottom_bar import BottomBar
 
 
-class SettingsWindow(QMainWindow, SnapMixin):
+class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     images_changed = pyqtSignal()
 
     def __init__(self):
@@ -43,6 +44,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._build_ui()
         self._apply_theme()
         SnapMixin.__init__(self)
+        self.rounded_init()
         self._restore_session()
         self.setAcceptDrops(True)
 
@@ -159,7 +161,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
     def _apply_theme(self):
         t = self.theme
-        self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
+        self.setStyleSheet(f"background-color: transparent; color: {t.text_primary};")
 
         self._title.recolor(t.text_header)
 
@@ -181,6 +183,22 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._bottom_bar.apply_theme()
 
         self._dismiss_help()
+        self.update()
+
+    # ------------------------------------------------------------------ Rounded painting
+
+    def corner_radii(self):
+        r = S.WINDOW_RADIUS
+        # When editor is snapped to our right, round left corners only
+        if self._snapped_children:
+            return (r, 0, 0, r)
+        return (r, r, r, r)
+
+    def _bg_color(self):
+        return QColor(self.theme.bg)
+
+    def paintEvent(self, event):
+        self._paint_rounded(event)
 
     # ------------------------------------------------------------------ Window dragging
 
