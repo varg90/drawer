@@ -6,7 +6,7 @@ import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QFileDialog, QScrollArea, QLabel)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QDragEnterEvent, QDropEvent, QIcon
+from PyQt6.QtGui import QColor, QLinearGradient, QDragEnterEvent, QDropEvent, QIcon
 from core.constants import SUPPORTED_FORMATS
 from core.class_mode import groups_to_timers
 from core.file_utils import filter_image_files, scan_folder
@@ -212,6 +212,14 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         return (r, r, r, r)
 
     def _bg_color(self):
+        return QColor(self.theme.bg)
+
+    def _bg_brush(self):
+        if self.theme.name == "dark":
+            grad = QLinearGradient(0, 0, self.width(), 0)
+            grad.setColorAt(0.0, QColor("#12100c"))
+            grad.setColorAt(1.0, QColor("#1c1814"))
+            return grad
         return QColor(self.theme.bg)
 
     def paintEvent(self, event):

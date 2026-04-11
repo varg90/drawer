@@ -1,7 +1,7 @@
 """Mixin for painting frameless windows with rounded corners."""
 
 from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtGui import QPainter, QPainterPath, QColor, QLinearGradient
+from PyQt6.QtGui import QPainter, QPainterPath, QBrush, QColor, QLinearGradient
 from PyQt6.QtWidgets import QWidget
 
 from ui.scales import S
@@ -67,5 +67,9 @@ class RoundedWindowMixin:
                 path.lineTo(rect.left(), rect.top())
             path.closeSubpath()
 
-        painter.fillPath(path, self._bg_brush())
+        brush = self._bg_brush()
+        if isinstance(brush, QLinearGradient):
+            painter.fillPath(path, QBrush(brush))
+        else:
+            painter.fillPath(path, brush)
         painter.end()
