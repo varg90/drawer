@@ -87,8 +87,8 @@ def make_start_btn(theme):
     btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setStyleSheet(
-        f"background-color: {theme.start_bg}; border: none; "
-        f"border-radius: {radius}px;")
+        f"background-color: {theme.start_bg}; "
+        f"border-radius: {radius}px; border: none;")
     return btn
 
 
@@ -107,10 +107,11 @@ class TitleLabel(QLabel):
                  target_width=None, parent=None):
         super().__init__(text, parent)
         self._color = color
-        font = QFont()
+        font = QFont("Lora")
         font.setPixelSize(font_size)
         font.setWeight(QFont.Weight(weight))
-        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
+        if spacing:
+            font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
         self.setFont(font)
         self.setStyleSheet(f"color: {color}; background: transparent;")
         self.setContentsMargins(0, 0, 0, 0)
@@ -145,17 +146,18 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
     return header, title
 
 
-def timer_btn_style(is_active, theme):
+def timer_btn_style(active, theme):
     """Return stylesheet for active/inactive timer button."""
-    if is_active:
-        return (f"background-color: {theme.start_bg}; color: {theme.start_text}; "
-                f"border: none; "
-                f"font-size: {S.FONT_BUTTON}px; font-weight: 600; "
-                f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
-    return (f"background-color: {theme.bg_button}; color: {theme.text_secondary}; "
-            f"border: none; "
-            f"font-size: {S.FONT_BUTTON}px; "
-            f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
+    if active:
+        bg, fg, fw = theme.start_bg, theme.start_text, 600
+    else:
+        bg, fg, fw = theme.bg_button, theme.text_secondary, 500
+    return (
+        f"background-color: {bg}; color: {fg}; "
+        f"font-family: 'Lexend'; font-size: {S.FONT_BUTTON}px; font-weight: {fw}; "
+        f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px; "
+        f"border-radius: {S.TIMER_BTN_RADIUS}px; border: none;"
+    )
 
 
 def make_timer_btn(label, is_active, theme):
@@ -163,3 +165,4 @@ def make_timer_btn(label, is_active, theme):
     btn = QPushButton(label)
     btn.setStyleSheet(timer_btn_style(is_active, theme))
     return btn
+
