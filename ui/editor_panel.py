@@ -310,7 +310,9 @@ class EditorPanel(QWidget):
         bottom.addSpacing(2)
         bottom.addWidget(self._clear_btn)
 
-        root.addLayout(bottom)
+        self._bottom_widget = QWidget()
+        self._bottom_widget.setLayout(bottom)
+        root.addWidget(self._bottom_widget)
 
         self._update_bottom_controls()
 
@@ -379,15 +381,17 @@ class EditorPanel(QWidget):
             f"width: 12px; margin: -4px 0; }}"
         )
 
+        self._bottom_widget.setStyleSheet(
+            f"border-top: 1px solid {t.border}; background: transparent; padding-top: 4px;")
         self._cache_size_label.setStyleSheet(
-            f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
+            f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px; border: none;")
 
-        # Refresh icon colors
+        # Refresh icon colors — muted to match mockup
         for btn, icon in [
             (self._clear_btn, Icons.ERASER),
             (self._cache_btn, Icons.TRASH),
         ]:
-            btn.setIcon(qta.icon(icon, color=t.text_secondary))
+            btn.setIcon(qta.icon(icon, color=t.text_hint))
 
         self._zoom_out_btn.setIcon(qta.icon(Icons.ZOOM_OUT, color=t.text_hint))
         self._zoom_in_btn.setIcon(qta.icon(Icons.ZOOM_IN, color=t.text_hint))
@@ -414,8 +418,8 @@ class EditorPanel(QWidget):
 
     def _update_view_buttons(self):
         t = self.theme
-        active_color = t.text_primary
-        inactive_color = t.text_secondary
+        active_color = t.text_secondary
+        inactive_color = t.text_hint
         list_color = active_color if self._view_mode == "list" else inactive_color
         grid_color = active_color if self._view_mode == "grid" else inactive_color
         self._list_btn.setIcon(qta.icon(Icons.LIST, color=list_color))
