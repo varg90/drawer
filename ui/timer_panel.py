@@ -2,8 +2,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtCore import Qt, pyqtSignal
 from core.constants import TIMER_PRESETS
-from core.class_mode import auto_distribute, groups_to_timers, total_duration
-from core.timer_logic import format_time
+from core.class_mode import auto_distribute
 from ui.scales import S
 from ui.widgets import make_timer_btn, timer_btn_style
 
