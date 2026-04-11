@@ -2,7 +2,7 @@ import os
 import weakref
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QLinearGradient
 import qtawesome as qta
 from ui.editor_panel import EditorPanel
 from ui.icons import Icons
@@ -103,6 +103,14 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         return (r, r, r, r)
 
     def _bg_color(self):
+        return QColor(self.theme.bg_secondary)
+
+    def _bg_brush(self):
+        if self.theme.name == "dark":
+            grad = QLinearGradient(0, 0, self.width(), 0)
+            grad.setColorAt(0.0, QColor("#1c1814"))  # lighter at spine (left edge)
+            grad.setColorAt(1.0, QColor("#12100c"))  # darker at outer edge (right)
+            return grad
         return QColor(self.theme.bg_secondary)
 
     def paintEvent(self, event):
