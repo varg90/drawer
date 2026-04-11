@@ -28,6 +28,14 @@ from ui.widgets import make_icon_btn
 GRID_MIN = 48
 GRID_MAX = 256
 GRID_DEFAULT = 80
+ZOOM_STEP = 16
+
+
+def _sort_group_items(items):
+    """Sort items so pinned come first, preserving relative order within each group."""
+    pinned = [i for i in items if getattr(i[1], "pinned", False)]
+    unpinned = [i for i in items if not getattr(i[1], "pinned", False)]
+    return pinned + unpinned
 
 
 # ---------------------------------------------------------------------------
@@ -216,21 +224,44 @@ class EditorPanel(QWidget):
         )
         self._grid_btn.clicked.connect(lambda: self._set_view_mode("grid"))
 
-        bottom.addWidget(self._list_btn)
-        bottom.addWidget(self._grid_btn)
-
-        # Zoom slider (grid mode only)
+        # Zoom slider — hidden, used as internal state holder
         self._zoom_label = QLabel("Zoom:")
-        bottom.addWidget(self._zoom_label)
+        self._zoom_label.hide()
 
         self._zoom_slider = QSlider(Qt.Orientation.Horizontal)
         self._zoom_slider.setRange(GRID_MIN, GRID_MAX)
         self._zoom_slider.setValue(GRID_DEFAULT)
         self._zoom_slider.setFixedWidth(90)
         self._zoom_slider.valueChanged.connect(self._on_zoom)
-        bottom.addWidget(self._zoom_slider)
+        self._zoom_slider.hide()
 
-        bottom.addStretch()
+        # Zoom icon buttons (grid mode only)
+        self._zoom_out_btn = make_icon_btn(
+            Icons.ZOOM_OUT, self.theme.text_hint,
+            size=S.EDITOR_BTN, tooltip="Zoom out",
+        )
+        self._zoom_in_btn = make_icon_btn(
+            Icons.ZOOM_IN, self.theme.text_hint,
+            size=S.EDITOR_BTN, tooltip="Zoom in",
+        )
+
+        self._zoom_out_btn.clicked.connect(
+            lambda: self._zoom_slider.setValue(
+                max(self._zoom_slider.value() - ZOOM_STEP, self._zoom_slider.minimum())
+            )
+        )
+        self._zoom_in_btn.clicked.connect(
+            lambda: self._zoom_slider.setValue(
+                min(self._zoom_slider.value() + ZOOM_STEP, self._zoom_slider.maximum())
+            )
+        )
+
+        # Shuffle
+        self._shuffle_btn = make_icon_btn(
+            Icons.SHUFFLE, self.theme.accent if self._shuffle else self.theme.text_hint,
+            size=S.EDITOR_BTN, tooltip="Shuffle on start",
+        )
+        self._shuffle_btn.clicked.connect(self._toggle_shuffle)
 
         # Cache trash + size
         self._cache_btn = make_icon_btn(
@@ -239,21 +270,26 @@ class EditorPanel(QWidget):
         )
         self._cache_btn.clicked.connect(self._clear_cache)
         self._cache_size_label = QLabel("")
+
+        # Clear all
         self._clear_btn = make_icon_btn(
             Icons.ERASER, self.theme.text_secondary,
             size=S.EDITOR_BTN, tooltip="Clear all",
         )
         self._clear_btn.clicked.connect(self._clear)
 
-        self._shuffle_btn = make_icon_btn(
-            Icons.SHUFFLE, self.theme.accent if self._shuffle else self.theme.text_hint,
-            size=S.EDITOR_BTN, tooltip="Shuffle on start",
-        )
-        self._shuffle_btn.clicked.connect(self._toggle_shuffle)
-
+        # Layout order: [List][Grid] | [ZoomOut][ZoomIn] | [Shuffle] <stretch> [Cache][CacheSize] | [Clear]
+        bottom.addWidget(self._list_btn)
+        bottom.addWidget(self._grid_btn)
+        bottom.addSpacing(4)
+        bottom.addWidget(self._zoom_out_btn)
+        bottom.addWidget(self._zoom_in_btn)
+        bottom.addSpacing(4)
+        bottom.addWidget(self._shuffle_btn)
+        bottom.addStretch()
         bottom.addWidget(self._cache_btn)
         bottom.addWidget(self._cache_size_label)
-        bottom.addWidget(self._shuffle_btn)
+        bottom.addSpacing(2)
         bottom.addWidget(self._clear_btn)
 
         root.addLayout(bottom)
@@ -325,6 +361,9 @@ class EditorPanel(QWidget):
         ]:
             btn.setIcon(qta.icon(icon, color=t.text_secondary))
 
+        self._zoom_out_btn.setIcon(qta.icon(Icons.ZOOM_OUT, color=t.text_hint))
+        self._zoom_in_btn.setIcon(qta.icon(Icons.ZOOM_IN, color=t.text_hint))
+
         _shuf_color = t.accent if self._shuffle else t.text_hint
         self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=_shuf_color))
 
@@ -356,8 +395,8 @@ class EditorPanel(QWidget):
 
     def _update_bottom_controls(self):
         is_grid = self._view_mode == "grid"
-        self._zoom_label.setVisible(is_grid)
-        self._zoom_slider.setVisible(is_grid)
+        self._zoom_out_btn.setVisible(is_grid)
+        self._zoom_in_btn.setVisible(is_grid)
 
     # ------------------------------------------------------------------
     # Rebuild
@@ -398,6 +437,7 @@ class EditorPanel(QWidget):
 
         insert_pos = 0
         for timer_val, items in ordered:
+            items = _sort_group_items(items)
             is_reserve = timer_val == 0
             if is_reserve:
                 header_text = f"Reserve — {len(items)}"
@@ -483,6 +523,7 @@ class EditorPanel(QWidget):
         t = self.theme
 
         for timer_val, items in ordered:
+            items = _sort_group_items(items)
             is_reserve = timer_val == 0
             if is_reserve:
                 header_text = f"Reserve — {len(items)}"
@@ -521,6 +562,16 @@ class EditorPanel(QWidget):
                     lbl.setStyleSheet(f"border: 1px dashed {t.text_hint};")
                 else:
                     lbl.setStyleSheet("border: none;")
+
+                # Pin icon overlay for pinned tiles
+                if pinned:
+                    pin_overlay = QLabel(lbl)
+                    pin_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+                    pin_overlay.setFixedSize(12, 12)
+                    pin_overlay.move(2, 2)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_secondary)
+                    pin_overlay.setPixmap(pin_icon.pixmap(10, 10))
+                    pin_overlay.setStyleSheet("border: none; background: transparent;")
 
                 labels.append(lbl)
 
@@ -986,6 +1037,18 @@ class EditorPanel(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._reflow_grid()
+
+    def wheelEvent(self, event):
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            step = ZOOM_STEP if delta > 0 else -ZOOM_STEP
+            slider = self._zoom_slider
+            slider.setValue(
+                max(slider.minimum(), min(slider.value() + step, slider.maximum()))
+            )
+            event.accept()
+        else:
+            super().wheelEvent(event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Delete:
