@@ -75,8 +75,8 @@ def _accent_colors(accent, mode):
         return {
             "bg_active": _mix("#1a1610", accent, 0.15),
             "bg_panel": "#120e0a",
-            "bg_grad_dark": "#12100c",
-            "bg_grad_light": "#1c1814",
+            "bg_grad_dark": "#0e0c08",
+            "bg_grad_light": "#201c16",
             "border_active": accent,
             "text_header": "#6b5e4e",
             "text_button": _mix(accent, "#ccc0ae", 0.4),
