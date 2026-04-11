@@ -121,7 +121,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         root.addLayout(header_layout)
 
         # ── 2. Inset panel wraps the timer section ─────────────────────────
-        self._panel = _InsetPanel(self.theme.text_secondary, S.PANEL_RADIUS)
+        self._panel = _InsetPanel(self.theme.bg_panel, S.PANEL_RADIUS)
         panel_lay = QVBoxLayout(self._panel)
         panel_lay.setContentsMargins(S.PANEL_PADDING, S.PANEL_PADDING,
                                       S.PANEL_PADDING, S.PANEL_PADDING)
@@ -194,7 +194,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             f"background-color: transparent; color: {t.text_primary}; "
             f"font-family: 'Lexend';"
         )
-        self._panel.set_bg(t.text_secondary)
+        self._panel.set_bg(t.bg_panel)
 
         self._title.recolor(t.text_header)
 
