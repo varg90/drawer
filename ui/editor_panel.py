@@ -474,12 +474,12 @@ class EditorPanel(QWidget):
                 header_text = f"{_short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
-            header = QPushButton(header_text)
+            header = QPushButton(header_text, self._list_container)
             header.setStyleSheet(header_style)
             header.setCursor(Qt.CursorShape.PointingHandCursor)
             header.setCheckable(False)
 
-            lw = QListWidget()
+            lw = QListWidget(self._list_container)
             lw.setDragDropMode(QListWidget.DragDropMode.InternalMove)
             lw.setDefaultDropAction(Qt.DropAction.MoveAction)
             lw.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
@@ -560,11 +560,11 @@ class EditorPanel(QWidget):
                 header_text = f"{_short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
-            header = QPushButton(header_text)
+            header = QPushButton(header_text, self._grid_container)
             header.setStyleSheet(header_style)
             header.setCursor(Qt.CursorShape.PointingHandCursor)
 
-            grid = QWidget()
+            grid = QWidget(self._grid_container)
             labels = []
             for idx, img in items:
                 lbl = ClickableLabel(grid)
