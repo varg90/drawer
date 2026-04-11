@@ -41,12 +41,12 @@ class TimerPanel(QWidget):
         mode_row.setContentsMargins(0, 0, 0, 0)
 
         self._class_btn = QPushButton("Class")
-        self._class_btn.setFixedHeight(34)
+        self._class_btn.setFixedHeight(28)
         self._class_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._class_btn.clicked.connect(lambda: self.set_timer_mode("class"))
 
         self._quick_btn = QPushButton("Quick")
-        self._quick_btn.setFixedHeight(34)
+        self._quick_btn.setFixedHeight(28)
         self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._quick_btn.clicked.connect(lambda: self.set_timer_mode("quick"))
 
@@ -121,12 +121,14 @@ class TimerPanel(QWidget):
         t = self.theme
         active_s = (
             f"background-color: {t.start_bg}; color: {t.start_text}; "
-            f"border: none; "
-            f"font-size: {S.FONT_MODE}px; font-weight: 600; padding: 4px 8px;")
+            f"font-family: 'Lexend'; font-size: {S.FONT_MODE}px; font-weight: 600; "
+            f"border-radius: {S.MODE_BTN_RADIUS}px; border: none; "
+            f"padding: 4px 8px;")
         inactive_s = (
             f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-            f"border: none; "
-            f"font-size: {S.FONT_MODE}px; font-weight: 500; padding: 4px 8px;")
+            f"font-family: 'Lexend'; font-size: {S.FONT_MODE}px; font-weight: 500; "
+            f"border-radius: {S.MODE_BTN_RADIUS}px; border: none; "
+            f"padding: 4px 8px;")
         if self._timer_mode == "class":
             self._class_btn.setStyleSheet(active_s)
             self._quick_btn.setStyleSheet(inactive_s)
