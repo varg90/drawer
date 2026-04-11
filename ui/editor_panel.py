@@ -320,7 +320,7 @@ class EditorPanel(QWidget):
 
     def _apply_theme(self):
         t = self.theme
-        self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
+        self.setStyleSheet(f"background-color: transparent; color: {t.text_primary};")
 
 
         # Scroll area backgrounds + dashed drop-target border
