@@ -587,23 +587,25 @@ class EditorPanel(QWidget):
                 lbl.setProperty("img_idx", idx)
                 lbl.setToolTip(os.path.basename(img.path))
 
-                # Border style per state
+                # Border style per state — all tiles get rounded corners
                 pinned = getattr(img, "pinned", False)
+                radius = 3
                 if pinned:
-                    lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
+                    lbl.setStyleSheet(f"border: 2px solid {t.border_active}; border-radius: {radius}px;")
                 elif is_reserve:
-                    lbl.setStyleSheet(f"border: 1px dashed {t.text_hint};")
+                    lbl.setStyleSheet(f"border: 1px dashed {t.text_hint}; border-radius: {radius}px;")
                 else:
-                    lbl.setStyleSheet("border: none;")
+                    lbl.setStyleSheet(f"border: none; border-radius: {radius}px;")
 
-                # Pin icon overlay for pinned tiles
+                # Pin icon overlay — right side, scales with tile size
                 if pinned:
+                    pin_sz = max(8, min(20, int(sz * 0.18)))
                     pin_overlay = QLabel(lbl)
                     pin_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-                    pin_overlay.setFixedSize(12, 12)
-                    pin_overlay.move(2, 2)
-                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.accent)
-                    pin_overlay.setPixmap(pin_icon.pixmap(10, 10))
+                    pin_overlay.setFixedSize(pin_sz + 2, pin_sz + 2)
+                    pin_overlay.move(sz - pin_sz - 4, 2)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_primary)
+                    pin_overlay.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
                     pin_overlay.setStyleSheet("border: none; background: transparent;")
 
                 labels.append(lbl)

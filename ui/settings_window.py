@@ -217,7 +217,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         # Header icons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
         _topmost_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
-        _topmost_color = t.accent if self._topmost else t.text_hint
+        _topmost_color = t.text_secondary if self._topmost else t.text_hint
         self._topmost_btn.setIcon(qta.icon(_topmost_icon, color=_topmost_color))
         _theme_icon = Icons.THEME_DARK if t.name == "dark" else Icons.THEME_LIGHT
         self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
