@@ -129,7 +129,7 @@ class TitleLabel(QLabel):
 def make_centered_header(title_text, left_widgets, right_widgets, theme):
     """Header row: title label, all items aligned to top margin."""
     title = TitleLabel(title_text, theme.text_header, S.FONT_TITLE,
-                       target_width=S.TITLE_W)
+                       weight=700, spacing=1.5, target_width=S.TITLE_W)
 
     header = QHBoxLayout()
     header.setContentsMargins(0, 0, 0, 0)

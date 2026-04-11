@@ -177,6 +177,8 @@ class EditorPanel(QWidget):
         self._list_scroll.viewport().installEventFilter(self)
         self._list_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._list_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._list_scroll.setAcceptDrops(True)
         self._list_scroll.dragEnterEvent = self._drag_enter
         self._list_scroll.dropEvent = self._drop_event
@@ -195,6 +197,8 @@ class EditorPanel(QWidget):
         self._grid_scroll.installEventFilter(self)
         self._grid_scroll.viewport().installEventFilter(self)
         self._grid_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._grid_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._grid_scroll.setAcceptDrops(True)
         self._grid_scroll.dragEnterEvent = self._drag_enter

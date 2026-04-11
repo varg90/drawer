@@ -96,7 +96,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             self.theme,
         )
         root.addLayout(header_layout)
-        root.addStretch()
 
         # ── 2. Inset panel wraps the timer section ─────────────────────────
         self._panel = QWidget()
@@ -110,7 +109,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._timer_panel.timer_config_changed.connect(self._on_timer_config_changed)
         panel_lay.addWidget(self._timer_panel)
 
-        # Panel centered vertically — free space becomes air above and below
+        # Panel centered between header and bottom bar
         root.addStretch()
         root.addWidget(self._panel)
         root.addStretch()
