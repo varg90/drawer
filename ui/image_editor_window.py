@@ -43,7 +43,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
+        root.setContentsMargins(S.MARGIN, S.MARGIN_TOP, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
 
         # Title bar — add buttons left, close/minimize right
@@ -86,7 +86,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
 
     def _apply_theme(self):
         t = self.theme
-        self.setStyleSheet("background-color: transparent;")
+        self.setStyleSheet("background-color: transparent; font-family: 'Lexend';")
         self.update()
         self._add_files_btn.setIcon(qta.icon(Icons.ADD_FILE, color=t.text_hint))
         self._add_folder_btn.setIcon(qta.icon(Icons.ADD_FOLDER, color=t.text_hint))
