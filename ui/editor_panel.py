@@ -573,7 +573,7 @@ class EditorPanel(QWidget):
                     pin_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
                     pin_overlay.setFixedSize(12, 12)
                     pin_overlay.move(2, 2)
-                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_secondary)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.accent)
                     pin_overlay.setPixmap(pin_icon.pixmap(10, 10))
                     pin_overlay.setStyleSheet("border: none; background: transparent;")
 
