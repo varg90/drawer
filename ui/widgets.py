@@ -174,12 +174,11 @@ def timer_btn_style(active, theme):
         bg, fg, fw = theme.start_bg, theme.bg_panel, 500
     else:
         bg, fg, fw = theme.bg_button, theme.text_secondary, 400
-    border = f"border: 1px solid rgba(0,0,0,0.15); border-top: none;"
     return (
         f"background-color: {bg}; color: {fg}; "
         f"font-family: 'Lexend'; font-size: {S.FONT_BUTTON}px; font-weight: {fw}; "
         f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px; "
-        f"border-radius: {S.TIMER_BTN_RADIUS}px; {border}"
+        f"border-radius: {S.TIMER_BTN_RADIUS}px; border: none;"
     )
 
 
