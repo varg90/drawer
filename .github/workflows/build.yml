@@ -172,9 +172,9 @@ jobs:
       - name: Rename with version
         run: |
           V=${GITHUB_REF_NAME#v}
-          mv artifacts/Drawer.exe "artifacts/Drawer_${V}_Portable.exe"
-          mv artifacts/Drawer_Setup.exe "artifacts/Drawer_${V}_Setup.exe"
-          mv artifacts/Drawer.dmg "artifacts/Drawer_${V}_macOS.dmg"
+          mv artifacts/Drawer.exe "artifacts/Drawer-${V}.exe"
+          mv artifacts/Drawer_Setup.exe "artifacts/Drawer-${V}-setup.exe"
+          mv artifacts/Drawer.dmg "artifacts/Drawer-${V}.dmg"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
