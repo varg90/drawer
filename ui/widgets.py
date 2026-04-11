@@ -87,8 +87,8 @@ def make_start_btn(theme):
     btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setStyleSheet(
-        f"background-color: {theme.start_bg}; border: none; "
-        f"border-radius: {radius}px;")
+        f"background-color: {theme.start_bg}; "
+        f"border-radius: {radius}px; border: none;")
     return btn
 
 
@@ -102,33 +102,56 @@ def make_icon_toggle(icon_on, icon_off, is_on, theme, size=S.ICON_HEADER):
 
 
 class TitleLabel(QLabel):
-    """Title rendered natively by Qt font engine — sharp at any DPI."""
+    """Title with embossed text effect — light highlight above, dark shadow below."""
     def __init__(self, text, color, font_size, weight=500, spacing=3,
                  target_width=None, parent=None):
         super().__init__(text, parent)
-        self._color = color
-        font = QFont()
+        self._color = QColor(color)
+        self._text = text
+        font = QFont("Lora")
         font.setPixelSize(font_size)
         font.setWeight(QFont.Weight(weight))
-        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
+        if spacing:
+            font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
         self.setFont(font)
-        self.setStyleSheet(f"color: {color}; background: transparent;")
+        self.setStyleSheet("color: transparent; background: transparent;")
         self.setContentsMargins(0, 0, 0, 0)
         if target_width:
             self.setFixedWidth(target_width)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def recolor(self, color):
-        if color == self._color:
+        c = QColor(color)
+        if c == self._color:
             return
-        self._color = color
-        self.setStyleSheet(f"color: {color}; background: transparent;")
+        self._color = c
+        self.update()
+
+    def paintEvent(self, event):
+        from PyQt6.QtGui import QPainter
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+        p.setFont(self.font())
+        rect = self.rect()
+        flags = self.alignment() | Qt.TextFlag.TextSingleLine
+        # Shadow above (dark, pressed-in look)
+        p.setPen(QColor(0, 0, 0, 128))
+        shadow_rect = rect.adjusted(0, -1, 0, -1)
+        p.drawText(shadow_rect, flags, self._text)
+        # Highlight below (subtle light edge)
+        p.setPen(QColor(255, 250, 240, 10))
+        highlight_rect = rect.adjusted(0, 1, 0, 1)
+        p.drawText(highlight_rect, flags, self._text)
+        # Main text
+        p.setPen(self._color)
+        p.drawText(rect, flags, self._text)
+        p.end()
 
 
 def make_centered_header(title_text, left_widgets, right_widgets, theme):
     """Header row: title label, all items aligned to top margin."""
     title = TitleLabel(title_text, theme.text_header, S.FONT_TITLE,
-                       target_width=S.TITLE_W)
+                       weight=500, spacing=1.5, target_width=S.TITLE_W)
 
     header = QHBoxLayout()
     header.setContentsMargins(0, 0, 0, 0)
@@ -145,21 +168,23 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
     return header, title
 
 
-def timer_btn_style(is_active, theme):
+def timer_btn_style(active, theme):
     """Return stylesheet for active/inactive timer button."""
-    if is_active:
-        return (f"background-color: {theme.start_bg}; color: {theme.start_text}; "
-                f"border: none; "
-                f"font-size: {S.FONT_BUTTON}px; font-weight: 600; "
-                f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
-    return (f"background-color: {theme.bg_button}; color: {theme.text_secondary}; "
-            f"border: none; "
-            f"font-size: {S.FONT_BUTTON}px; "
-            f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px;")
+    if active:
+        bg, fg, fw = theme.start_bg, theme.bg_panel, 500
+    else:
+        bg, fg, fw = theme.bg_button, theme.text_secondary, 400
+    return (
+        f"background-color: {bg}; color: {fg}; "
+        f"font-family: 'Lexend'; font-size: {S.FONT_BUTTON}px; font-weight: {fw}; "
+        f"padding: {S.TIMER_BTN_PADDING_V}px {S.TIMER_BTN_PADDING_H}px; "
+        f"border-radius: {S.TIMER_BTN_RADIUS}px; border: none;"
+    )
 
 
-def make_timer_btn(label, is_active, theme):
+def make_timer_btn(label, is_active, theme, parent=None):
     """Timer preset or tier button."""
-    btn = QPushButton(label)
+    btn = QPushButton(label, parent)
     btn.setStyleSheet(timer_btn_style(is_active, theme))
     return btn
+

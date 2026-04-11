@@ -50,3 +50,7 @@ class Icons:
     # View modes
     LIST = "ph.list-bullets-bold"
     GRID = "ph.squares-four-bold"
+
+    # Zoom controls (grid view)
+    ZOOM_IN = "ph.magnifying-glass-plus-bold"
+    ZOOM_OUT = "ph.magnifying-glass-minus-bold"
