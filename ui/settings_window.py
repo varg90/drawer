@@ -246,6 +246,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     def _bg_color(self):
         return QColor(self.theme.bg)
 
+    def _border_color(self):
+        return QColor(self.theme.border)
+
     def _bg_brush(self):
         t = self.theme
         if t.bg_grad_dark:

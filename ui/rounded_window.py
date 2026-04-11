@@ -35,6 +35,10 @@ class RoundedWindowMixin:
         """Override to return QColor or QLinearGradient. Defaults to _bg_color()."""
         return self._bg_color()
 
+    def _border_color(self):
+        """Override to return border QColor, or None for no border."""
+        return None
+
     def _build_path(self, rect, tl, tr, br, bl):
         path = QPainterPath()
         if tl == tr == br == bl:
@@ -81,4 +85,11 @@ class RoundedWindowMixin:
             painter.fillPath(self._rw_cached_path, QBrush(brush))
         else:
             painter.fillPath(self._rw_cached_path, brush)
+
+        border = self._border_color()
+        if border:
+            from PyQt6.QtGui import QPen
+            painter.setPen(QPen(border, 1))
+            painter.drawPath(self._rw_cached_path)
+
         painter.end()

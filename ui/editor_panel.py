@@ -383,7 +383,7 @@ class EditorPanel(QWidget):
             f"width: 12px; margin: -4px 0; }}"
         )
 
-        self._bottom_sep.setStyleSheet(f"background-color: {t.border};")
+        self._bottom_sep.setStyleSheet(f"background-color: {t.text_secondary};")
         self._cache_size_label.setStyleSheet(
             f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
 
@@ -599,13 +599,10 @@ class EditorPanel(QWidget):
 
                 # Border style per state — all tiles get rounded corners
                 pinned = getattr(img, "pinned", False)
-                radius = 3
-                if pinned:
-                    lbl.setStyleSheet(f"border: 2px solid {t.border_active}; border-radius: {radius}px;")
-                elif is_reserve:
-                    lbl.setStyleSheet(f"border: 1px dashed {t.text_hint}; border-radius: {radius}px;")
+                if is_reserve:
+                    lbl.setStyleSheet(f"border: 1px dashed {t.text_hint};")
                 else:
-                    lbl.setStyleSheet(f"border: none; border-radius: {radius}px;")
+                    lbl.setStyleSheet("border: none;")
 
                 # Pin icon overlay — right side, scales with tile size
                 if pinned:
