@@ -6,7 +6,9 @@ import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QFileDialog, QScrollArea, QLabel)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QLinearGradient, QDragEnterEvent, QDropEvent, QIcon
+from PyQt6.QtGui import (QColor, QLinearGradient, QPainter, QPainterPath,
+                         QDragEnterEvent, QDropEvent, QIcon)
+from PyQt6.QtCore import QRectF
 from core.constants import SUPPORTED_FORMATS
 from core.class_mode import groups_to_timers
 from core.file_utils import filter_image_files, scan_folder
@@ -21,6 +23,43 @@ from ui.snap import SnapMixin
 from ui.rounded_window import RoundedWindowMixin
 from ui.timer_panel import TimerPanel
 from ui.bottom_bar import BottomBar
+
+
+class _InsetPanel(QWidget):
+    """Panel with painted inset shadow for recessed look."""
+
+    def __init__(self, bg_color="#120e0a", radius=6, parent=None):
+        super().__init__(parent)
+        self._bg = QColor(bg_color)
+        self._radius = radius
+
+    def set_bg(self, color_hex):
+        self._bg = QColor(color_hex)
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rect = QRectF(self.rect())
+        r = self._radius
+
+        # Fill rounded background
+        path = QPainterPath()
+        path.addRoundedRect(rect, r, r)
+        p.fillPath(path, self._bg)
+
+        # Inset shadow — dark line at top, subtle light at bottom
+        p.setClipPath(path)
+        p.setPen(QColor(0, 0, 0, 80))
+        p.drawLine(int(rect.left() + r), int(rect.top()),
+                   int(rect.right() - r), int(rect.top()))
+        p.setPen(QColor(0, 0, 0, 40))
+        p.drawLine(int(rect.left() + r), int(rect.top() + 1),
+                   int(rect.right() - r), int(rect.top() + 1))
+        p.setPen(QColor(255, 255, 255, 8))
+        p.drawLine(int(rect.left() + r), int(rect.bottom() - 1),
+                   int(rect.right() - r), int(rect.bottom() - 1))
+        p.end()
 
 
 class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
@@ -98,8 +137,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         root.addLayout(header_layout)
 
         # ── 2. Inset panel wraps the timer section ─────────────────────────
-        self._panel = QWidget()
-        self._panel.setObjectName("insetPanel")
+        self._panel = _InsetPanel(self.theme.bg_panel, S.PANEL_RADIUS)
         panel_lay = QVBoxLayout(self._panel)
         panel_lay.setContentsMargins(S.PANEL_PADDING, S.PANEL_PADDING,
                                       S.PANEL_PADDING, S.PANEL_PADDING)
@@ -172,10 +210,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             f"background-color: transparent; color: {t.text_primary}; "
             f"font-family: 'Lexend';"
         )
-        self._panel.setStyleSheet(
-            f"background-color: {t.bg_panel}; "
-            f"border-radius: {S.PANEL_RADIUS}px;"
-        )
+        self._panel.set_bg(t.bg_panel)
 
         self._title.recolor(t.text_header)
 

@@ -120,8 +120,8 @@ class TimerPanel(QWidget):
     def _update_mode_styles(self):
         t = self.theme
         active_s = (
-            f"background-color: {t.start_bg}; color: {t.start_text}; "
-            f"font-family: 'Lexend'; font-size: {S.FONT_MODE}px; font-weight: 600; "
+            f"background-color: {t.start_bg}; color: {t.bg_panel}; "
+            f"font-family: 'Lexend'; font-size: {S.FONT_MODE}px; font-weight: 500; "
             f"border-radius: {S.MODE_BTN_RADIUS}px; border: none; "
             f"padding: 4px 8px;")
         inactive_s = (
