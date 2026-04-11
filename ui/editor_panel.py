@@ -29,6 +29,19 @@ from ui.widgets import make_icon_btn
 GRID_MIN = 48
 
 
+class _ColorLine(QWidget):
+    """1px line that paints its own color, immune to stylesheet inheritance."""
+    def __init__(self, color, parent=None):
+        super().__init__(parent)
+        self._color = color
+        self.setFixedHeight(1)
+    def set_color(self, color):
+        self._color = color
+        self.update()
+    def paintEvent(self, event):
+        QPainter(self).fillRect(self.rect(), self._color)
+
+
 def _short_label(secs):
     """Convert seconds to compact label: 30→'30s', 60→'1m', 3600→'1h'."""
     if secs >= 3600 and secs % 3600 == 0:
@@ -311,9 +324,7 @@ class EditorPanel(QWidget):
         bottom.addSpacing(2)
         bottom.addWidget(self._clear_btn)
 
-        self._bottom_sep = QWidget()
-        self._bottom_sep.setObjectName("editorSep")
-        self._bottom_sep.setFixedHeight(1)
+        self._bottom_sep = _ColorLine(QColor(self.theme.text_secondary))
         root.addWidget(self._bottom_sep)
         root.addSpacing(5)
         root.addLayout(bottom)
@@ -385,10 +396,7 @@ class EditorPanel(QWidget):
             f"width: 12px; margin: -4px 0; }}"
         )
 
-        self._bottom_sep.setAutoFillBackground(True)
-        pal = self._bottom_sep.palette()
-        pal.setColor(pal.ColorRole.Window, QColor(t.text_secondary))
-        self._bottom_sep.setPalette(pal)
+        self._bottom_sep.set_color(QColor(t.text_secondary))
         self._cache_size_label.setStyleSheet(
             f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
 
