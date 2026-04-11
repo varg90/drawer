@@ -4,30 +4,30 @@
 DEFAULT_ACCENT = "#4a7d74"
 
 _DARK_BASE = {
-    "bg": "#191919",
-    "bg_secondary": "#171717",
-    "bg_row_even": "#1f1f1f",
-    "bg_row_odd": "#252525",
-    "bg_button": "#222222",
-    "border": "#303030",
-    "text_primary": "#ddd",
-    "text_secondary": "#606060",
-    "text_hint": "#454545",
-    "start_text": "#252525",
+    "bg": "#16120e",
+    "bg_secondary": "#120e0a",
+    "bg_row_even": "#1a1610",
+    "bg_row_odd": "#1e1a14",
+    "bg_button": "#16120e",
+    "border": "#120e0a",
+    "text_primary": "#ccc0ae",
+    "text_secondary": "#7a6b5a",
+    "text_hint": "#4a3e32",
+    "start_text": "#16120e",
     "warning": "#cc5555",
 }
 
 _LIGHT_BASE = {
-    "bg": "#d4d4d4",
-    "bg_secondary": "#dddddd",
-    "bg_row_even": "#d8d8d8",
-    "bg_row_odd": "#d2d2d2",
-    "bg_button": "#c6c6c6",
-    "border": "#a5a5a5",
-    "text_primary": "#222",
-    "text_secondary": "#5a5a5a",
-    "text_hint": "#858585",
-    "start_text": "#c4c4c4",
+    "bg": "#d8ccb8",
+    "bg_secondary": "#e0d6c4",
+    "bg_row_even": "#d4c8b4",
+    "bg_row_odd": "#d0c4ae",
+    "bg_button": "#d8ccb8",
+    "border": "#c0b4a0",
+    "text_primary": "#2a2018",
+    "text_secondary": "#5a5248",
+    "text_hint": "#a0947e",
+    "start_text": "#d8ccb8",
     "warning": "#cc4444",
 }
 
@@ -73,17 +73,19 @@ def _accent_colors(accent, mode):
     """Derive accent-dependent colors from a single accent hex."""
     if mode == "dark":
         return {
-            "bg_active": _mix("#303030", accent, 0.15),
+            "bg_active": _mix("#1a1610", accent, 0.15),
+            "bg_panel": "#120e0a",
             "border_active": accent,
-            "text_header": _mix(accent, "#ddd", 0.4),
-            "text_button": _mix(accent, "#ddd", 0.4),
+            "text_header": "#6b5e4e",
+            "text_button": _mix(accent, "#ccc0ae", 0.4),
             "start_bg": accent,
         }
     else:
         return {
             "bg_active": _lighten(accent, 0.65),
+            "bg_panel": "#c8bca4",
             "border_active": accent,
-            "text_header": _darken(accent, 0.15),
+            "text_header": "#7a6e5e",
             "text_button": _darken(accent, 0.15),
             "start_bg": accent,
         }
