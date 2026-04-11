@@ -1,29 +1,25 @@
+"""SettingsWindow — main app window, composes TimerPanel + BottomBar."""
 import os
 import random
 import weakref
 import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                              QPushButton, QLabel, QFileDialog, QScrollArea,
-                              QSizePolicy, QApplication, QFrame)
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QColor, QIcon
-from core.constants import SUPPORTED_FORMATS, TIMER_PRESETS, SESSION_LIMIT_PRESETS
-from core.timer_logic import format_time
-from core.class_mode import auto_distribute, groups_to_timers, total_duration, format_group
+                              QFileDialog, QScrollArea, QLabel)
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon
+from core.constants import SUPPORTED_FORMATS
+from core.class_mode import groups_to_timers
 from core.file_utils import filter_image_files, scan_folder
 from core.session import save_session, load_session
 from core.models import ImageItem
 from ui.theme import Theme
 from ui.scales import S
 from ui.icons import Icons
-from ui.widgets import (make_icon_btn, make_start_btn, make_icon_toggle,
-                         make_centered_header, make_timer_btn, timer_btn_style)
+from ui.widgets import (make_icon_btn, make_icon_toggle,
+                         make_centered_header)
 from ui.snap import SnapMixin
-
-
-ALL_TIERS = [(30, "30s"), (60, "1m"), (180, "3m"),
-             (300, "5m"), (600, "10m"), (900, "15m"),
-             (1800, "30m"), (3600, "1h")]
+from ui.timer_panel import TimerPanel
+from ui.bottom_bar import BottomBar
 
 
 class SettingsWindow(QMainWindow, SnapMixin):
@@ -40,12 +36,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self.viewer = None
         self.editor = None
         self.theme = Theme("dark")
-
-        # "quick" replaces old "standard", "class" replaces old "session"
-        self._timer_mode = "quick"
-        self._preset_index = 3   # default 5min
-        self._session_limit_index = 0  # default: no limit
-        self._class_groups = []
 
         self._topmost = False
         self._shuffle = True
@@ -106,142 +96,64 @@ class SettingsWindow(QMainWindow, SnapMixin):
         root.addLayout(header_layout)
         root.addStretch()
 
-        # ── 2. Mode row + image count ──────────────────────────────────────
-        mode_row = QHBoxLayout()
-        mode_row.setSpacing(0)
-        mode_row.setContentsMargins(0, 0, 0, 0)
-
-        self._class_btn = QPushButton("Class")
-        self._class_btn.setFixedHeight(34)
-        self._class_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._class_btn.clicked.connect(lambda: self._set_timer_mode("class"))
-
-        self._quick_btn = QPushButton("Quick")
-        self._quick_btn.setFixedHeight(34)
-        self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._quick_btn.clicked.connect(lambda: self._set_timer_mode("quick"))
-
-        self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
-                                      size=22, tooltip="Add files")
-        self._add_btn.clicked.connect(self._open_editor)
-
-        mode_row.addWidget(self._class_btn, 1)
-        mode_row.addSpacing(4)
-        mode_row.addWidget(self._quick_btn, 1)
-        root.addLayout(mode_row)
-        root.addSpacing(S.SPACING_MODE)
-
-        # ── 3. Timer buttons (2 rows × 4) ──────────────────────────────────
-        self._timer_buttons = []  # list of (btn, secs)
-
-        # Quick mode uses TIMER_PRESETS, Class mode uses ALL_TIERS.
-        # We build both sets and swap visibility on mode change.
-        # Both use identical grid positions — only labels/behavior differ.
-        # We build ONE set of 8 buttons per mode and show the right set.
-
-        self._quick_btns = []   # [(btn, secs), ...]
-        self._class_btns = []   # [(btn, secs), ...]
-
-        timer_grid = QVBoxLayout()
-        timer_grid.setSpacing(S.SPACING_TIERS)
-        timer_grid.setContentsMargins(0, 0, 0, 0)
-
-        for row_idx in range(2):
-            row_layout = QHBoxLayout()
-            row_layout.setSpacing(S.SPACING_TIERS)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            for col_idx in range(4):
-                global_idx = row_idx * 4 + col_idx
-                q_secs, q_label = TIMER_PRESETS[global_idx]
-                c_secs, c_label = ALL_TIERS[global_idx]
-
-                q_active = (global_idx == self._preset_index)
-                q_btn = make_timer_btn(q_label, q_active, self.theme)
-                q_btn.clicked.connect(lambda checked, s=q_secs: self._select_preset_by_secs(s))
-
-                c_btn = make_timer_btn(c_label, False, self.theme)
-                c_btn.setCheckable(True)
-                c_btn.clicked.connect(lambda checked, s=c_secs: self._on_tier_clicked(s))
-
-                self._quick_btns.append((q_btn, q_secs))
-                self._class_btns.append((c_btn, c_secs))
-
-                # Stack them in a stacked container widget
-                cell = QWidget()
-                cell_layout = QHBoxLayout(cell)
-                cell_layout.setContentsMargins(0, 0, 0, 0)
-                cell_layout.addWidget(q_btn)
-                cell_layout.addWidget(c_btn)
-                c_btn.hide()  # class buttons hidden by default (quick is default mode)
-
-                row_layout.addWidget(cell)
-
-            timer_grid.addLayout(row_layout)
-
-        root.addLayout(timer_grid)
+        # ── 2. TimerPanel ──────────────────────────────────────────────────
+        self._timer_panel = TimerPanel(self.theme, parent=self)
+        self._timer_panel.timer_config_changed.connect(self._on_timer_config_changed)
+        root.addWidget(self._timer_panel)
         root.addSpacing(S.SPACING_SUMMARY)
 
-        # ── 4. Stretch — separates upper (config) and lower (summary+start)
+        # ── 3. Stretch ────────────────────────────────────────────────────
         root.addStretch()
 
-        # ── 5. Bottom group: summary left + start right ──────────────────
-        bottom_row = QHBoxLayout()
-        bottom_row.setSpacing(0)
-        bottom_row.setContentsMargins(0, 0, 0, 0)
-
-        # Summary info (left side) — wrapped in a widget for AlignBottom
-        summary_widget = QWidget()
-        summary_col = QVBoxLayout(summary_widget)
-        summary_col.setSpacing(0)
-        summary_col.setContentsMargins(0, 0, 0, 0)
-
-        self._groups_label = QLabel("")
-        self._groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._groups_label.setWordWrap(True)
-        summary_col.addWidget(self._groups_label)
-
-        summary_time = QHBoxLayout()
-        summary_time.setSpacing(4)
-        summary_time.setContentsMargins(0, 0, 0, 0)
-
-        self._total_label = QLabel("")
-        self._total_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
-        self._limit_sep = QLabel("\u00b7")
-        self._limit_sep.hide()
-
-        self._limit_btn = QPushButton("no limit")
-        self._limit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._limit_btn.setToolTip("Session time limit")
-        self._limit_btn.clicked.connect(self._next_limit)
-        self._limit_btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self._limit_btn.customContextMenuRequested.connect(self._prev_limit)
-        self._limit_btn.hide()
-
-        summary_time.addWidget(self._total_label)
-        summary_time.addWidget(self._limit_sep)
-        summary_time.addWidget(self._limit_btn)
-        summary_time.addStretch()
-
-        summary_col.addLayout(summary_time)
-
-        # Start button (right side)
-        self._start_btn = make_start_btn(self.theme)
-        self._start_btn.clicked.connect(self._start_slideshow)
-
-        bottom_row.addWidget(summary_widget, 0, Qt.AlignmentFlag.AlignBottom)
-        bottom_row.addStretch()
-        bottom_row.addWidget(self._add_btn, 0, Qt.AlignmentFlag.AlignBottom)
-        bottom_row.addSpacing(8)
-        bottom_row.addWidget(self._start_btn, 0, Qt.AlignmentFlag.AlignBottom)
-
-        root.addLayout(bottom_row)
+        # ── 4. BottomBar ──────────────────────────────────────────────────
+        self._bottom_bar = BottomBar(self.theme, parent=self)
+        self._bottom_bar.start_clicked.connect(self._start_slideshow)
+        self._bottom_bar.add_clicked.connect(self._open_editor)
+        root.addWidget(self._bottom_bar)
 
         # ── Initialize display ─────────────────────────────────────────────
-        self._update_mode_buttons()
-        self._update_preset_styles()
         self._update_summary()
 
+    # ------------------------------------------------------------------ Proxy for editor_panel compatibility
+
+    def get_timer_seconds(self):
+        return self._timer_panel.get_timer_seconds()
+
+    # ------------------------------------------------------------------ Signal handlers
+
+    def _on_timer_config_changed(self):
+        """TimerPanel changed mode, preset, or tiers — update images and summary."""
+        mode = self._timer_panel.timer_mode
+        if mode == "quick":
+            timer = self._timer_panel.get_timer_seconds()
+            for img in self.images:
+                img.timer = timer
+        else:
+            if self.images:
+                self._timer_panel.auto_distribute(len(self.images))
+                self._apply_class_timers()
+        self._update_summary()
+        if self._editor_visible:
+            self.editor.refresh(self.images)
+
+    def _apply_class_timers(self):
+        groups = self._timer_panel.class_groups
+        if groups:
+            timers = groups_to_timers(groups)
+            for i, img in enumerate(self.images):
+                if getattr(img, "pinned", False):
+                    continue
+                img.timer = timers[i] if i < len(timers) else timers[-1]
+        if self._editor_visible:
+            self.editor.refresh(self.images)
+
+    def _update_summary(self):
+        n = len(self.images)
+        mode = self._timer_panel.timer_mode
+        if mode == "quick":
+            self._bottom_bar.update_summary_quick(n, self._timer_panel.get_timer_seconds())
+        else:
+            self._bottom_bar.update_summary_class(n, self._timer_panel.class_groups)
 
     # ------------------------------------------------------------------ Theme
 
@@ -251,7 +163,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
         self._title.recolor(t.text_header)
 
-        # Header icon buttons
+        # Header icons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
         _topmost_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
         _topmost_color = t.accent if self._topmost else t.text_hint
@@ -262,29 +174,11 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
         self._accent_btn.setIcon(qta.icon(Icons.PALETTE, color=t.accent))
 
-        # Mode buttons
-        self._update_mode_buttons()
-
-        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
-
-        # Timer buttons
-        self._update_preset_styles()
-        self._update_tier_styles()
-
-        # Summary
-        self._groups_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_HINT}px; font-weight: 500;")
-        self._total_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500;")
-        self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px;")
-        self._update_limit_display()
-
-        # Bottom bar
-        # Refresh start button
-        self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
-        self._start_btn.setStyleSheet(
-            f"background-color: {t.start_bg}; border: none; "
-            f"border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
+        # Composed widgets
+        self._timer_panel.theme = t
+        self._timer_panel.apply_theme()
+        self._bottom_bar.theme = t
+        self._bottom_bar.apply_theme()
 
         self._dismiss_help()
 
@@ -394,201 +288,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         _color = t.accent if self._topmost else t.text_hint
         self._topmost_btn.setIcon(qta.icon(_icon, color=_color))
 
-    # ------------------------------------------------------------------ Mode
-
-    def _set_timer_mode(self, mode):
-        self._timer_mode = mode
-        if mode == "quick":
-            for btn, _ in self._quick_btns:
-                btn.show()
-            for btn, _ in self._class_btns:
-                btn.hide()
-            timer = self.get_timer_seconds()
-            for img in self.images:
-                img.timer = timer
-        else:
-            for btn, _ in self._quick_btns:
-                btn.hide()
-            for btn, _ in self._class_btns:
-                btn.show()
-        self._update_mode_buttons()
-        self._update_summary()
-        self._apply_theme()
-        if self._editor_visible:
-            self.editor.refresh(self.images)
-
-    def _update_mode_buttons(self):
-        t = self.theme
-        active_s = (
-            f"background-color: {t.start_bg}; color: {t.start_text}; "
-            f"border: none; "
-            f"font-size: {S.FONT_MODE}px; font-weight: 600; padding: 4px 8px;")
-        inactive_s = (
-            f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-            f"border: none; "
-            f"font-size: {S.FONT_MODE}px; font-weight: 500; padding: 4px 8px;")
-        if self._timer_mode == "class":
-            self._class_btn.setStyleSheet(active_s)
-            self._quick_btn.setStyleSheet(inactive_s)
-        else:
-            self._class_btn.setStyleSheet(inactive_s)
-            self._quick_btn.setStyleSheet(active_s)
-
-    # ------------------------------------------------------------------ Quick timer (presets)
-
-    def _select_preset_by_secs(self, secs):
-        for i, (s, _) in enumerate(TIMER_PRESETS):
-            if s == secs:
-                self._preset_index = i
-                for img in self.images:
-                    img.timer = s
-                self._update_preset_styles()
-                self._update_summary()
-                if self._editor_visible:
-                    self.editor.refresh(self.images)
-                return
-
-    def _update_preset_styles(self):
-        t = self.theme
-        current_secs = TIMER_PRESETS[self._preset_index][0]
-        for btn, secs in self._quick_btns:
-            btn.setStyleSheet(timer_btn_style(secs == current_secs, t))
-
-    def get_timer_seconds(self):
-        return TIMER_PRESETS[self._preset_index][0]
-
-    # ------------------------------------------------------------------ Session limit
-
-    def _next_limit(self):
-        self._session_limit_index = (self._session_limit_index + 1) % len(SESSION_LIMIT_PRESETS)
-        self._update_limit_display()
-
-    def _prev_limit(self, pos=None):
-        self._session_limit_index = (self._session_limit_index - 1) % len(SESSION_LIMIT_PRESETS)
-        self._update_limit_display()
-
-    def _get_session_limit(self):
-        return SESSION_LIMIT_PRESETS[self._session_limit_index][0]
-
-    def _update_limit_display(self):
-        secs, label = SESSION_LIMIT_PRESETS[self._session_limit_index]
-        t = self.theme
-        if secs is None:
-            self._limit_btn.setText("no limit")
-            self._limit_btn.setStyleSheet(
-                f"color: {t.text_hint}; font-size: 9px; font-weight: 500; "
-                f"background: transparent; border: none; padding: 0;")
-        else:
-            self._limit_btn.setText(f"limit: {label}")
-            self._limit_btn.setStyleSheet(
-                f"color: {t.accent}; font-size: 9px; font-weight: 500; "
-                f"background: transparent; border: none; padding: 0; "
-                f"text-decoration: underline;")
-
-    # ------------------------------------------------------------------ Tiers (class mode)
-
-    def _on_tier_clicked(self, secs):
-        """Handle tier button click — update active state and trigger auto-distribute."""
-        # Find the button and sync its internal checked state
-        for btn, s in self._class_btns:
-            if s == secs:
-                # isChecked() already toggled by Qt (button is checkable)
-                break
-        self._update_tier_styles()
-        if self.images:
-            self._auto_distribute()
-
-    def _get_selected_tiers(self):
-        tiers = []
-        for btn, secs in self._class_btns:
-            if btn.isChecked():
-                # find label from ALL_TIERS
-                for s, label in ALL_TIERS:
-                    if s == secs:
-                        tiers.append((secs, label))
-                        break
-        return tiers if tiers else None
-
-    def _update_tier_styles(self):
-        t = self.theme
-        for btn, secs in self._class_btns:
-            btn.setStyleSheet(timer_btn_style(btn.isChecked(), t))
-
-    # ------------------------------------------------------------------ Auto-distribute
-
-    def _apply_class_timers(self):
-        if self._class_groups:
-            timers = groups_to_timers(self._class_groups)
-            for i, img in enumerate(self.images):
-                if getattr(img, "pinned", False):
-                    continue
-                img.timer = timers[i] if i < len(timers) else timers[-1]
-        if self._editor_visible:
-            self.editor.refresh(self.images)
-
-    def _auto_distribute(self):
-        if not self.images:
-            return
-        self._class_groups = auto_distribute(
-            len(self.images), custom_tiers=self._get_selected_tiers())
-        self._apply_class_timers()
-        self._update_groups_display()
-        self._update_summary()
-
-    def _update_groups_display(self):
-        if not self._class_groups:
-            self._groups_label.setText("")
-            self._total_label.setText("")
-            self._limit_sep.hide()
-            self._limit_btn.hide()
-            return
-        parts = []
-        for count, timer in self._class_groups:
-            if timer >= 3600:
-                t = f"{timer // 3600}h"
-            elif timer >= 60:
-                t = f"{timer // 60}m"
-            else:
-                t = f"{timer}s"
-            parts.append(f"{count}x{t}")
-        self._groups_label.setText("  ".join(parts))
-        dur = total_duration(self._class_groups)
-        self._total_label.setText(format_time(dur))
-        self._limit_sep.show()
-        self._limit_btn.show()
-        self._update_limit_display()
-
-    # ------------------------------------------------------------------ Summary
-
-    def _update_summary(self):
-        n = len(self.images)
-        if self._timer_mode == "quick":
-            if n == 0:
-                self._groups_label.setText("")
-                self._total_label.setText("")
-                self._limit_sep.hide()
-                self._limit_btn.hide()
-            else:
-                total = n * self.get_timer_seconds()
-                self._groups_label.setText(f"{n} images")
-                self._total_label.setText(format_time(total))
-                self._limit_sep.show()
-                self._limit_btn.show()
-                self._update_limit_display()
-        else:
-            if n == 0:
-                self._groups_label.setText("")
-                self._total_label.setText("")
-                self._limit_sep.hide()
-                self._limit_btn.hide()
-            elif self._class_groups:
-                self._update_groups_display()
-            else:
-                self._groups_label.setText(f"{n} images")
-                self._total_label.setText("")
-                self._limit_sep.hide()
-                self._limit_btn.hide()
-
     # ------------------------------------------------------------------ Image management
 
     def _add_files(self):
@@ -598,26 +297,24 @@ class SettingsWindow(QMainWindow, SnapMixin):
             f"Images ({exts});;All files (*)"
         )
         if paths:
-            timer = self.get_timer_seconds()
+            timer = self._timer_panel.get_timer_seconds()
             for p in filter_image_files(paths):
                 self.images.append(ImageItem(path=p, timer=timer))
             self._on_images_changed()
 
     def _add_folder(self, folder):
-        timer = self.get_timer_seconds()
+        timer = self._timer_panel.get_timer_seconds()
         for p in scan_folder(folder):
             self.images.append(ImageItem(path=p, timer=timer))
         self._on_images_changed()
 
     def _on_images_changed(self):
-
         self._update_summary()
         self.images_changed.emit()
         if self._editor_visible:
             self.editor.refresh(self.images)
 
     def _open_editor(self):
-        """Toggle editor — open if closed, close if open."""
         if self._editor_visible:
             self.editor.close()
             return
@@ -627,17 +324,14 @@ class SettingsWindow(QMainWindow, SnapMixin):
             self.images, self.theme, parent=self, view_mode=view, shuffle=self._shuffle)
         self.editor.images_updated.connect(self._on_editor_update)
         self.editor.shuffle_changed.connect(self._on_shuffle_changed)
-        # Position to the right and auto-snap
         pos = self.geometry()
         self.editor.move(pos.right() + 1, pos.top())
         self.editor.resize(S.EDITOR_W, S.MAIN_H)
         self.editor.show()
-        # Establish snap relationship
         self.editor._snapped_to = (weakref.ref(self), "right")
         self._snapped_children.append((weakref.ref(self.editor), "right"))
 
     def _on_editor_close(self):
-        """Called when the editor window is closed."""
         if self.editor is not None:
             self._last_editor_view = self.editor._view_mode
         self.editor = None
@@ -647,7 +341,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
 
     def _on_editor_update(self, images):
         self.images = list(images)
-
         self._update_summary()
 
     # ------------------------------------------------------------------ Drag and drop
@@ -659,7 +352,7 @@ class SettingsWindow(QMainWindow, SnapMixin):
     def dropEvent(self, event: QDropEvent):
         urls = event.mimeData().urls()
         paths = [u.toLocalFile() for u in urls]
-        timer = self.get_timer_seconds()
+        timer = self._timer_panel.get_timer_seconds()
         added = 0
         for p in paths:
             if os.path.isdir(p):
@@ -679,7 +372,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         if not self.images:
             return
 
-        # Shuffle unpinned images for variety (if enabled), then assign timers
         if self._shuffle:
             pinned = [img for img in self.images if img.pinned]
             unpinned = [img for img in self.images if not img.pinned]
@@ -688,33 +380,32 @@ class SettingsWindow(QMainWindow, SnapMixin):
         else:
             show_images = list(self.images)
 
-        if self._timer_mode == "quick":
-            timer = self.get_timer_seconds()
+        mode = self._timer_panel.timer_mode
+        if mode == "quick":
+            timer = self._timer_panel.get_timer_seconds()
             for img in show_images:
                 if not img.pinned:
                     img.timer = timer
-        elif self._class_groups:
-            timers = groups_to_timers(self._class_groups)
+        elif self._timer_panel.class_groups:
+            timers = groups_to_timers(self._timer_panel.class_groups)
             idx = 0
             for img in show_images:
                 if not img.pinned and idx < len(timers):
                     img.timer = timers[idx]
                     idx += 1
-            # Sort by timer so slideshow goes from short to long poses
             show_images.sort(key=lambda img: img.timer)
 
         settings = {
             "order": "sequential",
             "topmost": self._topmost,
             "viewer_size": getattr(self, "_last_viewer_size", None),
-            "session_limit": self._get_session_limit(),
+            "session_limit": self._bottom_bar.get_session_limit(),
         }
         from ui.viewer_window import ViewerWindow
         self.viewer = ViewerWindow(show_images, settings,
                                    on_close=self._on_viewer_closed,
                                    settings_window=self)
         self.viewer.show()
-        # Hide editor window too
         if self._editor_visible:
             self.editor.hide()
         self.hide()
@@ -727,7 +418,6 @@ class SettingsWindow(QMainWindow, SnapMixin):
         else:
             self.viewer = None
             self.show()
-        # Restore editor if it was hidden
         if self.editor is not None and not self._editor_visible:
             self.editor.show()
 
@@ -741,38 +431,14 @@ class SettingsWindow(QMainWindow, SnapMixin):
         self.images = [ImageItem.from_dict(d) for d in images_data]
         self.images = [img for img in self.images if os.path.isfile(img.path)]
 
-        timer_secs = data.get("timer_seconds", 300)
-        for i, (s, _) in enumerate(TIMER_PRESETS):
-            if s == timer_secs:
-                self._preset_index = i
-                break
-        self._preset_index = min(self._preset_index, len(TIMER_PRESETS) - 1)
-
-        # Map old session file mode names to new names
-        _MODE_MAP = {"standard": "quick", "session": "class", "class": "class"}
-        self._timer_mode = _MODE_MAP.get(data.get("timer_mode", "quick"), "quick")
-
-        session_limit = data.get("session_limit")
-        if session_limit is not None:
-            for i, (s, _) in enumerate(SESSION_LIMIT_PRESETS):
-                if s == session_limit:
-                    self._session_limit_index = i
-                    break
-        self._session_limit_index = min(self._session_limit_index,
-                                        len(SESSION_LIMIT_PRESETS) - 1)
-
         self._topmost = data.get("topmost", False)
         self._shuffle = data.get("shuffle", True)
-
-        saved_tiers = data.get("tiers")
-        if saved_tiers is not None:
-            for btn, secs in self._class_btns:
-                active = secs in saved_tiers
-                btn.setChecked(active)
-            self._update_tier_styles()
-
         self._last_editor_view = data.get("editor_view", "list")
         self._last_viewer_size = data.get("viewer_size")
+
+        # Restore composed widgets
+        self._timer_panel.restore_state(data)
+        self._bottom_bar.restore_state(data)
 
         theme_name = data.get("theme", "dark")
         accent = data.get("accent")
@@ -782,31 +448,27 @@ class SettingsWindow(QMainWindow, SnapMixin):
             self.theme.toggle()
 
         self._apply_theme()
-        self._update_preset_styles()
-        self._set_timer_mode(self._timer_mode)
+
         # Rebuild class-mode groups so images get proper timers
-        if self._timer_mode == "class" and self.images:
-            self._auto_distribute()
+        if self._timer_panel.timer_mode == "class" and self.images:
+            self._timer_panel.auto_distribute(len(self.images))
+            self._apply_class_timers()
 
         self._update_summary()
 
     def _save_session(self):
-        # Map new mode names back to the canonical storage keys
-        if self._timer_mode == "class":
-            saved_mode = "class"
-        else:
-            saved_mode = "standard"
+        # Collect state from composed widgets
+        timer_state = self._timer_panel.save_state()
+        bottom_state = self._bottom_bar.save_state()
 
         data = {
             "images": [img.to_dict() for img in self.images],
-            "timer_seconds": self.get_timer_seconds(),
-            "timer_mode": saved_mode,
-            "session_limit": self._get_session_limit(),
+            **timer_state,
+            **bottom_state,
             "topmost": self._topmost,
             "shuffle": self._shuffle,
             "theme": self.theme.name,
             "accent": self.theme.accent,
-            "tiers": [secs for btn, secs in self._class_btns if btn.isChecked()],
             "editor_view": (
                 self.editor._view_mode if self._editor_visible
                 else getattr(self, "_last_editor_view", "list")
