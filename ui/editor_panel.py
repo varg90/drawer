@@ -467,8 +467,8 @@ class EditorPanel(QWidget):
     def _rebuild_list(self):
         # Clear existing groups
         for header, lw in self._list_groups:
-            header.setParent(None)
-            lw.setParent(None)
+            header.hide()
+            lw.hide()
             header.deleteLater()
             lw.deleteLater()
         self._list_groups = []
@@ -551,8 +551,8 @@ class EditorPanel(QWidget):
     def _rebuild_grid(self):
         self._selected_tiles.clear()
         for header, grid in self._grid_groups:
-            header.setParent(None)
-            grid.setParent(None)
+            header.hide()
+            grid.hide()
             header.deleteLater()
             grid.deleteLater()
         self._grid_groups = []
