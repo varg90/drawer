@@ -173,6 +173,7 @@ class EditorPanel(QWidget):
         # List scroll
         self._list_scroll = QScrollArea()
         self._list_scroll.setWidgetResizable(True)
+        self._list_scroll.installEventFilter(self)
         self._list_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._list_scroll.setAcceptDrops(True)
@@ -190,6 +191,7 @@ class EditorPanel(QWidget):
         # Grid scroll
         self._grid_scroll = QScrollArea()
         self._grid_scroll.setWidgetResizable(True)
+        self._grid_scroll.installEventFilter(self)
         self._grid_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._grid_scroll.setAcceptDrops(True)
@@ -1038,17 +1040,17 @@ class EditorPanel(QWidget):
         super().resizeEvent(event)
         self._reflow_grid()
 
-    def wheelEvent(self, event):
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+    def eventFilter(self, obj, event):
+        if (event.type() == event.Type.Wheel
+                and event.modifiers() & Qt.KeyboardModifier.ControlModifier):
             delta = event.angleDelta().y()
             step = ZOOM_STEP if delta > 0 else -ZOOM_STEP
             slider = self._zoom_slider
             slider.setValue(
                 max(slider.minimum(), min(slider.value() + step, slider.maximum()))
             )
-            event.accept()
-        else:
-            super().wheelEvent(event)
+            return True  # consumed — don't let scroll area scroll
+        return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Delete:
