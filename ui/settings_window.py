@@ -374,11 +374,14 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.editor.show()
         self.editor._snapped_to = (weakref.ref(self), "right")
         self._snapped_children.append((weakref.ref(self.editor), "right"))
+        self.update()  # repaint with snapped corner radii
+        self.editor.update()
 
     def _on_editor_close(self):
         if self.editor is not None:
             self._last_editor_view = self.editor._view_mode
         self.editor = None
+        self.update()  # repaint with all corners rounded
 
     def _on_shuffle_changed(self, value):
         self._shuffle = value
