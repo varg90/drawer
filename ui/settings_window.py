@@ -26,7 +26,7 @@ from ui.bottom_bar import BottomBar
 
 
 class _InsetPanel(QWidget):
-    """Panel with painted inset shadow for recessed look."""
+    """Panel with rounded background."""
 
     def __init__(self, bg_color="#120e0a", radius=6, parent=None):
         super().__init__(parent)
@@ -40,25 +40,9 @@ class _InsetPanel(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect = QRectF(self.rect())
-        r = self._radius
-
-        # Fill rounded background
         path = QPainterPath()
-        path.addRoundedRect(rect, r, r)
+        path.addRoundedRect(QRectF(self.rect()), self._radius, self._radius)
         p.fillPath(path, self._bg)
-
-        # Inset shadow — dark line at top, subtle light at bottom
-        p.setClipPath(path)
-        p.setPen(QColor(0, 0, 0, 80))
-        p.drawLine(int(rect.left() + r), int(rect.top()),
-                   int(rect.right() - r), int(rect.top()))
-        p.setPen(QColor(0, 0, 0, 40))
-        p.drawLine(int(rect.left() + r), int(rect.top() + 1),
-                   int(rect.right() - r), int(rect.top() + 1))
-        p.setPen(QColor(255, 255, 255, 8))
-        p.drawLine(int(rect.left() + r), int(rect.bottom() - 1),
-                   int(rect.right() - r), int(rect.bottom() - 1))
         p.end()
 
 
@@ -137,7 +121,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         root.addLayout(header_layout)
 
         # ── 2. Inset panel wraps the timer section ─────────────────────────
-        self._panel = _InsetPanel(self.theme.bg_panel, S.PANEL_RADIUS)
+        self._panel = _InsetPanel(self.theme.text_secondary, S.PANEL_RADIUS)
         panel_lay = QVBoxLayout(self._panel)
         panel_lay.setContentsMargins(S.PANEL_PADDING, S.PANEL_PADDING,
                                       S.PANEL_PADDING, S.PANEL_PADDING)
@@ -210,7 +194,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             f"background-color: transparent; color: {t.text_primary}; "
             f"font-family: 'Lexend';"
         )
-        self._panel.set_bg(t.bg_panel)
+        self._panel.set_bg(t.text_secondary)
 
         self._title.recolor(t.text_header)
 
