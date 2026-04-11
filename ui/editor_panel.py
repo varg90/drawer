@@ -20,12 +20,22 @@ from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
 from core.models import ImageItem
 from core.timer_logic import format_time
+from ui.theme import _mix, _darken
 from core.cloud.cache import CacheManager
 from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import make_icon_btn
 
 GRID_MIN = 48
+
+
+def _short_label(secs):
+    """Convert seconds to compact label: 30→'30s', 60→'1m', 3600→'1h'."""
+    if secs >= 3600 and secs % 3600 == 0:
+        return f"{secs // 3600}h"
+    if secs >= 60 and secs % 60 == 0:
+        return f"{secs // 60}m"
+    return f"{secs}s"
 GRID_MAX = 256
 GRID_DEFAULT = 80
 ZOOM_STEP = 16
@@ -328,12 +338,12 @@ class EditorPanel(QWidget):
         )
         scroll_s = (
             f"QScrollArea#editorListScroll, QScrollArea#editorGridScroll {{ "
-            f"background-color: {t.bg_secondary}; border: 1px dashed {t.border}; }}"
+            f"background-color: transparent; border: none; }}"
             f" {scrollbar_s}"
         )
         container_s = (
             f"QWidget#editorListContainer, QWidget#editorGridContainer {{ "
-            f"background-color: {t.bg_secondary}; }}"
+            f"background-color: transparent; }}"
         )
         self._list_scroll.setStyleSheet(scroll_s)
         self._grid_scroll.setStyleSheet(scroll_s)
@@ -342,20 +352,22 @@ class EditorPanel(QWidget):
 
         # Styles stored for reuse in rebuild
         self._list_style = (
-            f"QListWidget {{ background-color: {t.bg_secondary}; border: none; "
-            f"font-size: {S.FONT_BUTTON}px; color: {t.text_primary}; }}"
+            f"QListWidget {{ background-color: transparent; border: none; "
+            f"font-family: 'Lexend'; font-size: {S.FONT_BUTTON}px; color: {t.text_primary}; }}"
             f"QListWidget::item {{ padding: 2px; }}"
             f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}"
         )
+        # Mockup: plain text, accent-tinted, no bg/border
+        _accent_header = _mix(t.accent, t.text_primary, 0.4) if t.name == "dark" else _darken(t.accent, 0.1)
         self._header_style = (
-            f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-            f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; "
-            f"font-weight: 500; padding: 2px 8px; text-align: left;"
+            f"background-color: transparent; color: {_accent_header}; "
+            f"border: none; font-family: 'Lexend'; font-size: {S.FONT_LABEL}px; "
+            f"font-weight: 500; padding: 3px 2px 1px; text-align: left;"
         )
         self._header_reserve_style = (
-            f"background-color: {t.bg_button}; color: {t.text_hint}; "
-            f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; "
-            f"font-weight: 500; padding: 2px 8px; text-align: left;"
+            f"background-color: transparent; color: {t.text_hint}; "
+            f"border: none; font-family: 'Lexend'; font-size: {S.FONT_LABEL}px; "
+            f"font-weight: 500; padding: 3px 2px 1px; text-align: left;"
         )
 
         # Zoom slider
@@ -456,10 +468,10 @@ class EditorPanel(QWidget):
             items = _sort_group_items(items)
             is_reserve = timer_val == 0
             if is_reserve:
-                header_text = f"Reserve — {len(items)}"
+                header_text = f"Reserve · {len(items)}"
                 header_style = self._header_reserve_style
             else:
-                header_text = f"{format_time(timer_val)} — {len(items)}"
+                header_text = f"{_short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
             header = QPushButton(header_text)
@@ -542,10 +554,10 @@ class EditorPanel(QWidget):
             items = _sort_group_items(items)
             is_reserve = timer_val == 0
             if is_reserve:
-                header_text = f"Reserve — {len(items)}"
+                header_text = f"Reserve · {len(items)}"
                 header_style = self._header_reserve_style
             else:
-                header_text = f"{format_time(timer_val)} — {len(items)}"
+                header_text = f"{_short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
             header = QPushButton(header_text)
