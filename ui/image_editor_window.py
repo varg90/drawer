@@ -2,15 +2,17 @@ import os
 import weakref
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtGui import QColor, QLinearGradient
 import qtawesome as qta
 from ui.editor_panel import EditorPanel
 from ui.icons import Icons
 from ui.scales import S
 from ui.widgets import make_icon_btn
 from ui.snap import SnapMixin
+from ui.rounded_window import RoundedWindowMixin
 
 
-class ImageEditorWindow(QWidget, SnapMixin):
+class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
     """Editor window — always a separate window with magnetic snap."""
     images_updated = pyqtSignal(list)
 
@@ -36,11 +38,12 @@ class ImageEditorWindow(QWidget, SnapMixin):
         self._build_ui()
         self._apply_theme()
         SnapMixin.__init__(self)
+        self.rounded_init()
         self.setMouseTracking(True)
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(S.MARGIN, S.MARGIN, S.MARGIN, S.MARGIN_BOTTOM)
+        root.setContentsMargins(S.MARGIN, S.MARGIN_TOP, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
 
         # Title bar — add buttons left, close/minimize right
@@ -83,11 +86,41 @@ class ImageEditorWindow(QWidget, SnapMixin):
 
     def _apply_theme(self):
         t = self.theme
-        self.setStyleSheet(f"background-color: {t.bg};")
+        self.setStyleSheet("background-color: transparent; font-family: 'Lexend';")
+        self.update()
         self._add_files_btn.setIcon(qta.icon(Icons.ADD_FILE, color=t.text_hint))
         self._add_folder_btn.setIcon(qta.icon(Icons.ADD_FOLDER, color=t.text_hint))
         self._add_url_btn.setIcon(qta.icon(Icons.ADD_URL, color=t.text_hint))
         self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
+
+    # ------------------------------------------------------------------ Rounded painting
+
+    def corner_radii(self):
+        r = S.WINDOW_RADIUS
+        # When snapped to main window (on its right side), round right corners only
+        if self._snapped_to is not None:
+            return (0, r, r, 0)
+        return (r, r, r, r)
+
+    def _bg_color(self):
+        return QColor(self.theme.bg_secondary)
+
+    def _border_color(self):
+        return QColor(self.theme.border)
+
+    def _bg_brush(self):
+        t = self.theme
+        if t.bg_grad_dark:
+            grad = QLinearGradient(0, 0, self.width(), 0)
+            grad.setSpread(QLinearGradient.Spread.PadSpread)
+            grad.setColorAt(0.0, QColor(t.bg_grad_light))  # lighter at spine
+            grad.setColorAt(1.0, QColor(t.bg_grad_dark))   # darker at outer edge
+            return grad
+        return QColor(t.bg_secondary)
+
+    def paintEvent(self, event):
+        self._paint_rounded(event)
+        # Don't call super — we handle all painting
 
     def _on_panel_update(self, images):
         self.images = images

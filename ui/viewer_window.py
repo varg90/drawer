@@ -3,7 +3,7 @@ import random
 import qtawesome as qta
 from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QGraphicsOpacityEffect,
                               QApplication)
-from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon, QTransform, QImage
+from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon, QTransform, QImage, QFont
 from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
                            QEasingCurve)
 from core.timer_logic import format_time, auto_warn_seconds
@@ -23,10 +23,10 @@ SC_V = 47
 FADE_MS = 200
 
 # Icon colors
-CLR_NORMAL = QColor(255, 255, 255, 255)
-CLR_HOVER = QColor(255, 255, 255, 255)
-CLR_DIM = QColor(255, 255, 255, 255)
-CLR_WARNING = QColor(255, 85, 85, 255)
+CLR_NORMAL = QColor(204, 192, 174, 255)
+CLR_HOVER = QColor(204, 192, 174, 200)
+CLR_DIM = QColor(204, 192, 174, 100)
+CLR_WARNING = QColor(230, 120, 100, 200)
 
 
 def _icon(name, color=CLR_NORMAL, size=15):
@@ -74,11 +74,11 @@ class ProgressBar(QWidget):
         p = QPainter(self)
         w, h = self.width(), self.height()
         # Background
-        p.fillRect(0, 0, w, h, QColor(255, 255, 255, 20))
+        p.fillRect(0, 0, w, h, QColor(36, 30, 24, 150))
         # Fill
         fill_w = int(w * self._progress)
         if fill_w > 0:
-            color = QColor(255, 85, 85, 200) if self._warning else QColor(255, 255, 255, 90)
+            color = CLR_WARNING if self._warning else QColor(74, 125, 116, 150)
             p.fillRect(0, 0, fill_w, h, color)
         p.end()
 
@@ -93,12 +93,12 @@ class _GradientOverlay(QWidget):
         top_h = max(1, h // 4)
         for i in range(top_h):
             alpha = int(200 * (1 - i / top_h) ** 1.2)
-            p.fillRect(0, i, w, 1, QColor(0, 0, 0, alpha))
+            p.fillRect(0, i, w, 1, QColor(18, 14, 10, alpha))
         # Bottom gradient (25% of height)
         bot_h = max(1, h // 4)
         for i in range(bot_h):
             alpha = int(200 * (i / bot_h) ** 1.2)
-            p.fillRect(0, h - bot_h + i, w, 1, QColor(0, 0, 0, alpha))
+            p.fillRect(0, h - bot_h + i, w, 1, QColor(18, 14, 10, alpha))
         p.end()
 
 
@@ -230,12 +230,12 @@ class ViewerWindow(QWidget):
         # Bottom: timer + counter
         self._timer_label = QLabel(self)
         self._timer_label.setStyleSheet(
-            "color: white; font-size: 20px; background: transparent;")
+            "color: rgba(204,192,174,255); font-family: Lora; font-size: 20px; background: transparent;")
         self._timer_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._counter_label = QLabel(self)
         self._counter_label.setStyleSheet(
-            "color: white; font-size: 20px; background: transparent;")
+            "color: rgba(204,192,174,200); font-family: 'Lexend'; font-size: 13px; background: transparent;")
         self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         # Alarm icon (session warning)
@@ -416,14 +416,14 @@ class ViewerWindow(QWidget):
         idx = self._hover_widgets.index(self._timer_label)
         # Only change color, not font-size (font-size managed by resizeEvent)
         if self._is_warning:
-            self._timer_color = "rgba(255,85,85,200)"
+            self._timer_color = "rgba(230,120,100,200)"
             self._opacity_effects[idx].setOpacity(1.0)
         else:
-            self._timer_color = "white"
+            self._timer_color = "rgba(204,192,174,255)"
             if not self._controls_visible:
                 self._opacity_effects[idx].setOpacity(0.0)
         self._timer_label.setStyleSheet(
-            f"color: {self._timer_color}; font-size: 20px; background: transparent;")
+            f"color: {self._timer_color}; font-family: Lora; font-size: 20px; background: transparent;")
         self._timer_label.setText(t)
 
         self._update_coffee()

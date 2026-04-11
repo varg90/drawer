@@ -13,21 +13,52 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QFileDialog, QSlider,
     QScrollArea, QStackedWidget, QMessageBox, QSizePolicy,
 )
-from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer, QThread
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPainterPath, QPalette
+from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread
 
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
 from core.models import ImageItem
 from core.timer_logic import format_time
+from ui.theme import _mix, _darken
 from core.cloud.cache import CacheManager
 from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import make_icon_btn
 
 GRID_MIN = 48
+
+
+class _ColorLine(QWidget):
+    """1px line that paints its own color, immune to stylesheet inheritance."""
+    def __init__(self, color, parent=None):
+        super().__init__(parent)
+        self._color = color
+        self.setFixedHeight(1)
+    def set_color(self, color):
+        self._color = color
+        self.update()
+    def paintEvent(self, event):
+        QPainter(self).fillRect(self.rect(), self._color)
+
+
+def _short_label(secs):
+    """Convert seconds to compact label: 30→'30s', 60→'1m', 3600→'1h'."""
+    if secs >= 3600 and secs % 3600 == 0:
+        return f"{secs // 3600}h"
+    if secs >= 60 and secs % 60 == 0:
+        return f"{secs // 60}m"
+    return f"{secs}s"
 GRID_MAX = 256
 GRID_DEFAULT = 80
+ZOOM_STEP = 16
+
+
+def _sort_group_items(items):
+    """Sort items so pinned come first, preserving relative order within each group."""
+    pinned = [i for i in items if getattr(i[1], "pinned", False)]
+    unpinned = [i for i in items if not getattr(i[1], "pinned", False)]
+    return pinned + unpinned
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +188,7 @@ class EditorPanel(QWidget):
     def _build_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(6)
+        root.setSpacing(0)
 
         # --- Stacked widget: list / grid ---
         self._stack = QStackedWidget()
@@ -165,8 +196,12 @@ class EditorPanel(QWidget):
         # List scroll
         self._list_scroll = QScrollArea()
         self._list_scroll.setWidgetResizable(True)
+        self._list_scroll.installEventFilter(self)
+        self._list_scroll.viewport().installEventFilter(self)
         self._list_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._list_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._list_scroll.setAcceptDrops(True)
         self._list_scroll.dragEnterEvent = self._drag_enter
         self._list_scroll.dropEvent = self._drop_event
@@ -182,8 +217,12 @@ class EditorPanel(QWidget):
         # Grid scroll
         self._grid_scroll = QScrollArea()
         self._grid_scroll.setWidgetResizable(True)
+        self._grid_scroll.installEventFilter(self)
+        self._grid_scroll.viewport().installEventFilter(self)
         self._grid_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._grid_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._grid_scroll.setAcceptDrops(True)
         self._grid_scroll.dragEnterEvent = self._drag_enter
         self._grid_scroll.dropEvent = self._drop_event
@@ -204,58 +243,89 @@ class EditorPanel(QWidget):
         bottom.setContentsMargins(0, 0, 0, 0)
 
         # List/grid toggle
+        bs = S.EDITOR_BTN_BOTTOM
         self._list_btn = make_icon_btn(
             Icons.LIST, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="List view",
+            size=bs, tooltip="List view",
         )
         self._list_btn.clicked.connect(lambda: self._set_view_mode("list"))
 
         self._grid_btn = make_icon_btn(
             Icons.GRID, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Grid view",
+            size=bs, tooltip="Grid view",
         )
         self._grid_btn.clicked.connect(lambda: self._set_view_mode("grid"))
 
-        bottom.addWidget(self._list_btn)
-        bottom.addWidget(self._grid_btn)
-
-        # Zoom slider (grid mode only)
+        # Zoom slider — hidden, used as internal state holder
         self._zoom_label = QLabel("Zoom:")
-        bottom.addWidget(self._zoom_label)
+        self._zoom_label.hide()
 
         self._zoom_slider = QSlider(Qt.Orientation.Horizontal)
         self._zoom_slider.setRange(GRID_MIN, GRID_MAX)
         self._zoom_slider.setValue(GRID_DEFAULT)
         self._zoom_slider.setFixedWidth(90)
         self._zoom_slider.valueChanged.connect(self._on_zoom)
-        bottom.addWidget(self._zoom_slider)
+        self._zoom_slider.hide()
 
-        bottom.addStretch()
-
-        # Cache trash + size
-        self._cache_btn = make_icon_btn(
-            Icons.TRASH, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Clear cache",
+        # Zoom icon buttons (grid mode only)
+        self._zoom_out_btn = make_icon_btn(
+            Icons.ZOOM_OUT, self.theme.text_hint,
+            size=bs, tooltip="Zoom out",
         )
-        self._cache_btn.clicked.connect(self._clear_cache)
-        self._cache_size_label = QLabel("")
-        self._clear_btn = make_icon_btn(
-            Icons.ERASER, self.theme.text_secondary,
-            size=S.EDITOR_BTN, tooltip="Clear all",
+        self._zoom_in_btn = make_icon_btn(
+            Icons.ZOOM_IN, self.theme.text_hint,
+            size=bs, tooltip="Zoom in",
         )
-        self._clear_btn.clicked.connect(self._clear)
 
+        self._zoom_out_btn.clicked.connect(
+            lambda: self._zoom_slider.setValue(
+                max(self._zoom_slider.value() - ZOOM_STEP, self._zoom_slider.minimum())
+            )
+        )
+        self._zoom_in_btn.clicked.connect(
+            lambda: self._zoom_slider.setValue(
+                min(self._zoom_slider.value() + ZOOM_STEP, self._zoom_slider.maximum())
+            )
+        )
+
+        # Shuffle
         self._shuffle_btn = make_icon_btn(
             Icons.SHUFFLE, self.theme.accent if self._shuffle else self.theme.text_hint,
-            size=S.EDITOR_BTN, tooltip="Shuffle on start",
+            size=bs, tooltip="Shuffle on start",
         )
         self._shuffle_btn.clicked.connect(self._toggle_shuffle)
 
+        # Cache trash + size
+        self._cache_btn = make_icon_btn(
+            Icons.TRASH, self.theme.text_hint,
+            size=bs, tooltip="Clear cache",
+        )
+        self._cache_btn.clicked.connect(self._clear_cache)
+        self._cache_size_label = QLabel("")
+
+        # Clear all
+        self._clear_btn = make_icon_btn(
+            Icons.ERASER, self.theme.text_hint,
+            size=bs, tooltip="Clear all",
+        )
+        self._clear_btn.clicked.connect(self._clear)
+
+        # Layout order: [List][Grid] | [ZoomOut][ZoomIn] | [Shuffle] <stretch> [Cache][CacheSize] | [Clear]
+        bottom.addWidget(self._list_btn)
+        bottom.addWidget(self._grid_btn)
+        bottom.addSpacing(4)
+        bottom.addWidget(self._zoom_out_btn)
+        bottom.addWidget(self._zoom_in_btn)
+        bottom.addSpacing(4)
+        bottom.addWidget(self._shuffle_btn)
+        bottom.addStretch()
         bottom.addWidget(self._cache_btn)
         bottom.addWidget(self._cache_size_label)
-        bottom.addWidget(self._shuffle_btn)
+        bottom.addSpacing(2)
         bottom.addWidget(self._clear_btn)
 
+        root.addSpacing(5)
+        root.addSpacing(5)
         root.addLayout(bottom)
 
         self._update_bottom_controls()
@@ -266,7 +336,7 @@ class EditorPanel(QWidget):
 
     def _apply_theme(self):
         t = self.theme
-        self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
+        self.setStyleSheet(f"background-color: transparent; color: {t.text_primary};")
 
 
         # Scroll area backgrounds + dashed drop-target border
@@ -275,13 +345,21 @@ class EditorPanel(QWidget):
         self._grid_scroll.setObjectName("editorGridScroll")
         self._list_container.setObjectName("editorListContainer")
         self._grid_container.setObjectName("editorGridContainer")
+        scrollbar_s = (
+            f"QScrollBar:vertical {{ background: transparent; width: 4px; margin: 0; }}"
+            f"QScrollBar::handle:vertical {{ background: {t.text_hint}; "
+            f"min-height: 20px; border-radius: 2px; }}"
+            f"QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}"
+            f"QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}"
+        )
         scroll_s = (
             f"QScrollArea#editorListScroll, QScrollArea#editorGridScroll {{ "
-            f"background-color: {t.bg_secondary}; border: 1px dashed {t.border}; }}"
+            f"background-color: transparent; border: none; }}"
+            f" {scrollbar_s}"
         )
         container_s = (
             f"QWidget#editorListContainer, QWidget#editorGridContainer {{ "
-            f"background-color: {t.bg_secondary}; }}"
+            f"background-color: transparent; }}"
         )
         self._list_scroll.setStyleSheet(scroll_s)
         self._grid_scroll.setStyleSheet(scroll_s)
@@ -290,20 +368,22 @@ class EditorPanel(QWidget):
 
         # Styles stored for reuse in rebuild
         self._list_style = (
-            f"QListWidget {{ background-color: {t.bg_secondary}; border: none; "
-            f"font-size: {S.FONT_BUTTON}px; color: {t.text_primary}; }}"
+            f"QListWidget {{ background-color: transparent; border: none; "
+            f"font-family: 'Lexend'; font-size: {S.FONT_BUTTON}px; color: {t.text_primary}; }}"
             f"QListWidget::item {{ padding: 2px; }}"
             f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}"
         )
+        # Mockup: plain text, accent-tinted, no bg/border
+        _accent_header = _mix(t.accent, t.text_primary, 0.4) if t.name == "dark" else _darken(t.accent, 0.1)
         self._header_style = (
-            f"background-color: {t.bg_button}; color: {t.text_secondary}; "
-            f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; "
-            f"font-weight: 500; padding: 2px 8px; text-align: left;"
+            f"background-color: transparent; color: {_accent_header}; "
+            f"border: none; font-family: 'Lexend'; font-size: {S.FONT_LABEL}px; "
+            f"font-weight: 500; padding: 3px 2px 1px; text-align: left;"
         )
         self._header_reserve_style = (
-            f"background-color: {t.bg_button}; color: {t.text_hint}; "
-            f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; "
-            f"font-weight: 500; padding: 2px 8px; text-align: left;"
+            f"background-color: transparent; color: {t.text_hint}; "
+            f"border: none; font-family: 'Lexend'; font-size: {S.FONT_LABEL}px; "
+            f"font-weight: 500; padding: 3px 2px 1px; text-align: left;"
         )
 
         # Zoom slider
@@ -316,14 +396,17 @@ class EditorPanel(QWidget):
         )
 
         self._cache_size_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px;")
+            f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
 
-        # Refresh icon colors
+        # Refresh icon colors — muted to match mockup
         for btn, icon in [
             (self._clear_btn, Icons.ERASER),
             (self._cache_btn, Icons.TRASH),
         ]:
-            btn.setIcon(qta.icon(icon, color=t.text_secondary))
+            btn.setIcon(qta.icon(icon, color=t.text_hint))
+
+        self._zoom_out_btn.setIcon(qta.icon(Icons.ZOOM_OUT, color=t.text_hint))
+        self._zoom_in_btn.setIcon(qta.icon(Icons.ZOOM_IN, color=t.text_hint))
 
         _shuf_color = t.accent if self._shuffle else t.text_hint
         self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=_shuf_color))
@@ -347,8 +430,8 @@ class EditorPanel(QWidget):
 
     def _update_view_buttons(self):
         t = self.theme
-        active_color = t.text_primary
-        inactive_color = t.text_secondary
+        active_color = t.text_secondary
+        inactive_color = t.text_hint
         list_color = active_color if self._view_mode == "list" else inactive_color
         grid_color = active_color if self._view_mode == "grid" else inactive_color
         self._list_btn.setIcon(qta.icon(Icons.LIST, color=list_color))
@@ -356,8 +439,8 @@ class EditorPanel(QWidget):
 
     def _update_bottom_controls(self):
         is_grid = self._view_mode == "grid"
-        self._zoom_label.setVisible(is_grid)
-        self._zoom_slider.setVisible(is_grid)
+        self._zoom_out_btn.setVisible(is_grid)
+        self._zoom_in_btn.setVisible(is_grid)
 
     # ------------------------------------------------------------------
     # Rebuild
@@ -384,8 +467,8 @@ class EditorPanel(QWidget):
     def _rebuild_list(self):
         # Clear existing groups
         for header, lw in self._list_groups:
-            header.setParent(None)
-            lw.setParent(None)
+            header.hide()
+            lw.hide()
             header.deleteLater()
             lw.deleteLater()
         self._list_groups = []
@@ -398,20 +481,21 @@ class EditorPanel(QWidget):
 
         insert_pos = 0
         for timer_val, items in ordered:
+            items = _sort_group_items(items)
             is_reserve = timer_val == 0
             if is_reserve:
-                header_text = f"Reserve — {len(items)}"
+                header_text = f"Reserve · {len(items)}"
                 header_style = self._header_reserve_style
             else:
-                header_text = f"{format_time(timer_val)} — {len(items)}"
+                header_text = f"{_short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
-            header = QPushButton(header_text)
+            header = QPushButton(header_text, self._list_container)
             header.setStyleSheet(header_style)
             header.setCursor(Qt.CursorShape.PointingHandCursor)
             header.setCheckable(False)
 
-            lw = QListWidget()
+            lw = QListWidget(self._list_container)
             lw.setDragDropMode(QListWidget.DragDropMode.InternalMove)
             lw.setDefaultDropAction(Qt.DropAction.MoveAction)
             lw.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
@@ -467,8 +551,8 @@ class EditorPanel(QWidget):
     def _rebuild_grid(self):
         self._selected_tiles.clear()
         for header, grid in self._grid_groups:
-            header.setParent(None)
-            grid.setParent(None)
+            header.hide()
+            grid.hide()
             header.deleteLater()
             grid.deleteLater()
         self._grid_groups = []
@@ -483,19 +567,20 @@ class EditorPanel(QWidget):
         t = self.theme
 
         for timer_val, items in ordered:
+            items = _sort_group_items(items)
             is_reserve = timer_val == 0
             if is_reserve:
-                header_text = f"Reserve — {len(items)}"
+                header_text = f"Reserve · {len(items)}"
                 header_style = self._header_reserve_style
             else:
-                header_text = f"{format_time(timer_val)} — {len(items)}"
+                header_text = f"{_short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
-            header = QPushButton(header_text)
+            header = QPushButton(header_text, self._grid_container)
             header.setStyleSheet(header_style)
             header.setCursor(Qt.CursorShape.PointingHandCursor)
 
-            grid = QWidget()
+            grid = QWidget(self._grid_container)
             labels = []
             for idx, img in items:
                 lbl = ClickableLabel(grid)
@@ -508,24 +593,51 @@ class EditorPanel(QWidget):
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation,
                     )
-                    lbl.setPixmap(scaled)
+                    # Clip to rounded rect
+                    rounded = QPixmap(scaled.size())
+                    rounded.fill(QColor(0, 0, 0, 0))
+                    rp = QPainter(rounded)
+                    rp.setRenderHint(QPainter.RenderHint.Antialiasing)
+                    rpath = QPainterPath()
+                    rpath.addRoundedRect(QRectF(rounded.rect()), 3, 3)
+                    rp.setClipPath(rpath)
+                    rp.drawPixmap(0, 0, scaled)
+                    rp.end()
+                    lbl.setPixmap(rounded)
 
                 lbl.setProperty("img_idx", idx)
                 lbl.setToolTip(os.path.basename(img.path))
 
-                # Border style per state
+                # Border style per state — all tiles get rounded corners
                 pinned = getattr(img, "pinned", False)
-                if pinned:
-                    lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
-                elif is_reserve:
+                if is_reserve:
                     lbl.setStyleSheet(f"border: 1px dashed {t.text_hint};")
                 else:
                     lbl.setStyleSheet("border: none;")
+
+                # Pin icon overlay — right side, scales with tile size
+                if pinned:
+                    pin_sz = max(8, min(20, int(sz * 0.18)))
+                    pin_overlay = QLabel(lbl)
+                    pin_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+                    pin_overlay.setFixedSize(pin_sz + 2, pin_sz + 2)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_primary)
+                    pin_overlay.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
+                    pin_overlay.setStyleSheet("border: none; background: transparent;")
+                    # Position after label is sized by flow layout
+                    lbl._pin_overlay = pin_overlay
+                    lbl._pin_sz = pin_sz
 
                 labels.append(lbl)
 
             w = max(self._grid_scroll.viewport().width(), 200)
             h = _flow_position(labels, w, sz)
+            # Position pin overlays now that labels are sized
+            for lbl in labels:
+                po = getattr(lbl, '_pin_overlay', None)
+                if po:
+                    psz = lbl._pin_sz
+                    po.move(lbl.width() - psz - 4, 2)
             grid.setFixedHeight(h)
             grid._labels = labels
 
@@ -648,9 +760,33 @@ class EditorPanel(QWidget):
                             Qt.AspectRatioMode.KeepAspectRatio,
                             Qt.TransformationMode.SmoothTransformation,
                         )
-                        lbl.setPixmap(scaled)
+                        # Clip to rounded rect
+                        rounded = QPixmap(scaled.size())
+                        rounded.fill(QColor(0, 0, 0, 0))
+                        rp = QPainter(rounded)
+                        rp.setRenderHint(QPainter.RenderHint.Antialiasing)
+                        rpath = QPainterPath()
+                        rpath.addRoundedRect(QRectF(rounded.rect()), 3, 3)
+                        rp.setClipPath(rpath)
+                        rp.drawPixmap(0, 0, scaled)
+                        rp.end()
+                        lbl.setPixmap(rounded)
+                # Update pin overlay size and position
+                po = getattr(lbl, '_pin_overlay', None)
+                if po:
+                    pin_sz = max(8, min(20, int(value * 0.18)))
+                    t = self.theme
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_primary)
+                    po.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
+                    po.setFixedSize(pin_sz + 2, pin_sz + 2)
+                    lbl._pin_sz = pin_sz
             h = _flow_position(labels, w, value)
             grid.setFixedHeight(h)
+            # Reposition pins after flow
+            for lbl in labels:
+                po = getattr(lbl, '_pin_overlay', None)
+                if po:
+                    po.move(lbl.width() - lbl._pin_sz - 4, 2)
 
     def _reflow_grid(self):
         if self._view_mode != "grid" or not self._grid_groups:
@@ -662,6 +798,11 @@ class EditorPanel(QWidget):
             if labels and grid.isVisible():
                 h = _flow_position(labels, w, sz)
                 grid.setFixedHeight(h)
+                for lbl in labels:
+                    po = getattr(lbl, '_pin_overlay', None)
+                    if po:
+                        psz = lbl._pin_sz
+                        po.move(lbl.width() - psz - 4, 2)
 
     # ------------------------------------------------------------------
     # Grid tile selection
@@ -689,9 +830,7 @@ class EditorPanel(QWidget):
             t = self.theme
             pinned = getattr(img, "pinned", False)
             is_reserve = img.timer == 0
-            if pinned:
-                lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
-            elif is_reserve:
+            if is_reserve:
                 lbl.setStyleSheet(f"border: 1px dashed {t.text_hint};")
             else:
                 lbl.setStyleSheet("border: none;")
@@ -986,6 +1125,18 @@ class EditorPanel(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._reflow_grid()
+
+    def eventFilter(self, obj, event):
+        if (event.type() == event.Type.Wheel
+                and event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            delta = event.angleDelta().y()
+            step = ZOOM_STEP if delta > 0 else -ZOOM_STEP
+            slider = self._zoom_slider
+            slider.setValue(
+                max(slider.minimum(), min(slider.value() + step, slider.maximum()))
+            )
+            return True  # consumed — don't let scroll area scroll
+        return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Delete:

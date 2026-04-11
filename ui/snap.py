@@ -85,6 +85,8 @@ class SnapMixin:
                             if wr() is not None and wr() is not self]
                         self._snapped_to = None
                         self.move(new_pos)
+                        self.update()
+                        other.update()
                         event.accept()
                         return True
                     else:
@@ -114,6 +116,8 @@ class SnapMixin:
             self._snapped_to = (weakref.ref(other), side)
             if not any(wr() is self for wr, _ in other._snapped_children):
                 other._snapped_children.append((weakref.ref(self), side))
+            self.update()
+            other.update()
         else:
             self.move(new_pos)
 
