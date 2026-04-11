@@ -50,5 +50,6 @@ class S:
     PANEL_RADIUS = 6
     PANEL_PADDING = 6
 
-    # Editor toolbar buttons
-    EDITOR_BTN = 15
+    # Editor
+    EDITOR_BTN = 15       # header toolbar icons
+    EDITOR_BTN_BOTTOM = 11  # bottom bar icons (smaller per mockup)
