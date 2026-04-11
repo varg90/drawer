@@ -13,8 +13,8 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QFileDialog, QSlider,
     QScrollArea, QStackedWidget, QMessageBox, QSizePolicy,
 )
-from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer, QThread
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPainterPath
+from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread
 
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
@@ -582,7 +582,17 @@ class EditorPanel(QWidget):
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation,
                     )
-                    lbl.setPixmap(scaled)
+                    # Clip to rounded rect
+                    rounded = QPixmap(scaled.size())
+                    rounded.fill(QColor(0, 0, 0, 0))
+                    rp = QPainter(rounded)
+                    rp.setRenderHint(QPainter.RenderHint.Antialiasing)
+                    rpath = QPainterPath()
+                    rpath.addRoundedRect(QRectF(rounded.rect()), 3, 3)
+                    rp.setClipPath(rpath)
+                    rp.drawPixmap(0, 0, scaled)
+                    rp.end()
+                    lbl.setPixmap(rounded)
 
                 lbl.setProperty("img_idx", idx)
                 lbl.setToolTip(os.path.basename(img.path))
@@ -603,15 +613,23 @@ class EditorPanel(QWidget):
                     pin_overlay = QLabel(lbl)
                     pin_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
                     pin_overlay.setFixedSize(pin_sz + 2, pin_sz + 2)
-                    pin_overlay.move(sz - pin_sz - 4, 2)
                     pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_primary)
                     pin_overlay.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
                     pin_overlay.setStyleSheet("border: none; background: transparent;")
+                    # Position after label is sized by flow layout
+                    lbl._pin_overlay = pin_overlay
+                    lbl._pin_sz = pin_sz
 
                 labels.append(lbl)
 
             w = max(self._grid_scroll.viewport().width(), 200)
             h = _flow_position(labels, w, sz)
+            # Position pin overlays now that labels are sized
+            for lbl in labels:
+                po = getattr(lbl, '_pin_overlay', None)
+                if po:
+                    psz = lbl._pin_sz
+                    po.move(lbl.width() - psz - 4, 2)
             grid.setFixedHeight(h)
             grid._labels = labels
 
@@ -748,6 +766,11 @@ class EditorPanel(QWidget):
             if labels and grid.isVisible():
                 h = _flow_position(labels, w, sz)
                 grid.setFixedHeight(h)
+                for lbl in labels:
+                    po = getattr(lbl, '_pin_overlay', None)
+                    if po:
+                        psz = lbl._pin_sz
+                        po.move(lbl.width() - psz - 4, 2)
 
     # ------------------------------------------------------------------
     # Grid tile selection
