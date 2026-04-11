@@ -164,9 +164,6 @@ class TimerPanel(QWidget):
     # ------------------------------------------------------------------ Class tiers
 
     def _on_tier_clicked(self, secs):
-        for btn, s in self._class_btns:
-            if s == secs:
-                break
         self._update_tier_styles()
         self.timer_config_changed.emit()
 
