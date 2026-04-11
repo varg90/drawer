@@ -40,12 +40,12 @@ class TimerPanel(QWidget):
         mode_row.setSpacing(0)
         mode_row.setContentsMargins(0, 0, 0, 0)
 
-        self._class_btn = QPushButton("class")
+        self._class_btn = QPushButton("class", self)
         self._class_btn.setFixedHeight(28)
         self._class_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._class_btn.clicked.connect(lambda: self.set_timer_mode("class"))
 
-        self._quick_btn = QPushButton("quick")
+        self._quick_btn = QPushButton("quick", self)
         self._quick_btn.setFixedHeight(28)
         self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._quick_btn.clicked.connect(lambda: self.set_timer_mode("quick"))
@@ -74,17 +74,17 @@ class TimerPanel(QWidget):
                 c_secs, c_label = ALL_TIERS[global_idx]
 
                 q_active = (global_idx == self._preset_index)
-                q_btn = make_timer_btn(q_label, q_active, self.theme)
+                q_btn = make_timer_btn(q_label, q_active, self.theme, parent=self)
                 q_btn.clicked.connect(lambda checked, s=q_secs: self._select_preset(s))
 
-                c_btn = make_timer_btn(c_label, False, self.theme)
+                c_btn = make_timer_btn(c_label, False, self.theme, parent=self)
                 c_btn.setCheckable(True)
                 c_btn.clicked.connect(lambda checked, s=c_secs: self._on_tier_clicked(s))
 
                 self._quick_btns.append((q_btn, q_secs))
                 self._class_btns.append((c_btn, c_secs))
 
-                cell = QWidget()
+                cell = QWidget(self)
                 cell_layout = QHBoxLayout(cell)
                 cell_layout.setContentsMargins(0, 0, 0, 0)
                 cell_layout.addWidget(q_btn)

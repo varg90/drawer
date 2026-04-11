@@ -182,9 +182,9 @@ def timer_btn_style(active, theme):
     )
 
 
-def make_timer_btn(label, is_active, theme):
+def make_timer_btn(label, is_active, theme, parent=None):
     """Timer preset or tier button."""
-    btn = QPushButton(label)
+    btn = QPushButton(label, parent)
     btn.setStyleSheet(timer_btn_style(is_active, theme))
     return btn
 
