@@ -324,8 +324,7 @@ class EditorPanel(QWidget):
         bottom.addSpacing(2)
         bottom.addWidget(self._clear_btn)
 
-        self._bottom_sep = _ColorLine(QColor(self.theme.text_secondary))
-        root.addWidget(self._bottom_sep)
+        root.addSpacing(5)
         root.addSpacing(5)
         root.addLayout(bottom)
 
@@ -396,7 +395,6 @@ class EditorPanel(QWidget):
             f"width: 12px; margin: -4px 0; }}"
         )
 
-        self._bottom_sep.set_color(QColor(t.text_secondary))
         self._cache_size_label.setStyleSheet(
             f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
 
