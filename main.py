@@ -23,7 +23,7 @@ from ui.settings_window import SettingsWindow
 def load_fonts() -> None:
     """Register custom fonts with Qt. Logs a warning if any file is missing."""
     font_files = [
-        os.path.join(APP_DIR, "fonts", "Lora-Bold.ttf"),
+        os.path.join(APP_DIR, "fonts", "Lora[wght].ttf"),
         os.path.join(APP_DIR, "fonts", "Lexend[wght].ttf"),
     ]
     for path in font_files:
