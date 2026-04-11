@@ -68,7 +68,7 @@ class BottomBar(QWidget):
 
         # Start button (right side)
         self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
-                                      size=22, tooltip="Add files")
+                                      size=26, tooltip="Add files")
         self._add_btn.clicked.connect(self.add_clicked.emit)
 
         self._start_btn = make_start_btn(self.theme)
