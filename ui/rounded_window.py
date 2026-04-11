@@ -1,10 +1,36 @@
 """Mixin for painting frameless windows with rounded corners."""
 
-from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtGui import QPainter, QPainterPath, QBrush, QColor, QLinearGradient
+import random
+
+from PyQt6.QtCore import Qt, QRectF, QRect
+from PyQt6.QtGui import (QPainter, QPainterPath, QBrush, QColor, QPen,
+                         QLinearGradient, QImage, QPixmap)
 from PyQt6.QtWidgets import QWidget
 
 from ui.scales import S
+
+
+def _dithered_gradient(width, height, grad):
+    """Render gradient to QPixmap with per-pixel noise to eliminate banding."""
+    img = QImage(width, height, QImage.Format.Format_ARGB32_Premultiplied)
+
+    # Paint the gradient onto the image
+    p = QPainter(img)
+    p.fillRect(0, 0, width, height, QBrush(grad))
+    p.end()
+
+    # Add subtle noise to break banding — vary each pixel by ±2
+    # Only process a sparse grid (every 2nd pixel) for performance
+    for y in range(0, height, 2):
+        for x in range(0, width, 2):
+            c = img.pixelColor(x, y)
+            noise = random.randint(-2, 2)
+            r = max(0, min(255, c.red() + noise))
+            g = max(0, min(255, c.green() + noise))
+            b = max(0, min(255, c.blue() + noise))
+            img.setPixelColor(x, y, QColor(r, g, b, c.alpha()))
+
+    return QPixmap.fromImage(img)
 
 
 class RoundedWindowMixin:
@@ -21,6 +47,8 @@ class RoundedWindowMixin:
         self._rw_cached_path = None
         self._rw_cached_radii = None
         self._rw_cached_rect = None
+        self._rw_cached_grad_pm = None
+        self._rw_cached_grad_size = None
 
     def corner_radii(self):
         """Return (top_left, top_right, bottom_right, bottom_left) radii."""
@@ -81,14 +109,23 @@ class RoundedWindowMixin:
             self._rw_cached_rect = rect
 
         brush = self._bg_brush()
+        painter.setClipPath(self._rw_cached_path)
+
         if isinstance(brush, QLinearGradient):
-            painter.fillPath(self._rw_cached_path, QBrush(brush))
+            w, h = self.width(), self.height()
+            size = (w, h)
+            if self._rw_cached_grad_pm is None or self._rw_cached_grad_size != size:
+                brush.setSpread(QLinearGradient.Spread.PadSpread)
+                self._rw_cached_grad_pm = _dithered_gradient(w, h, brush)
+                self._rw_cached_grad_size = size
+            painter.drawPixmap(0, 0, self._rw_cached_grad_pm)
         else:
             painter.fillPath(self._rw_cached_path, brush)
 
+        painter.setClipping(False)
+
         border = self._border_color()
         if border:
-            from PyQt6.QtGui import QPen
             painter.setPen(QPen(border, 1))
             painter.drawPath(self._rw_cached_path)
 
