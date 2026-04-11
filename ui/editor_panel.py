@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QFileDialog, QSlider,
     QScrollArea, QStackedWidget, QMessageBox, QSizePolicy,
 )
-from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPainterPath
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPainterPath, QPalette
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread
 
 from core.constants import SUPPORTED_FORMATS
@@ -385,8 +385,10 @@ class EditorPanel(QWidget):
             f"width: 12px; margin: -4px 0; }}"
         )
 
-        self._bottom_sep.setStyleSheet(
-            f"QWidget#editorSep {{ background-color: {t.text_secondary}; }}")
+        self._bottom_sep.setAutoFillBackground(True)
+        pal = self._bottom_sep.palette()
+        pal.setColor(pal.ColorRole.Window, QColor(t.text_secondary))
+        self._bottom_sep.setPalette(pal)
         self._cache_size_label.setStyleSheet(
             f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
 
@@ -752,9 +754,33 @@ class EditorPanel(QWidget):
                             Qt.AspectRatioMode.KeepAspectRatio,
                             Qt.TransformationMode.SmoothTransformation,
                         )
-                        lbl.setPixmap(scaled)
+                        # Clip to rounded rect
+                        rounded = QPixmap(scaled.size())
+                        rounded.fill(QColor(0, 0, 0, 0))
+                        rp = QPainter(rounded)
+                        rp.setRenderHint(QPainter.RenderHint.Antialiasing)
+                        rpath = QPainterPath()
+                        rpath.addRoundedRect(QRectF(rounded.rect()), 3, 3)
+                        rp.setClipPath(rpath)
+                        rp.drawPixmap(0, 0, scaled)
+                        rp.end()
+                        lbl.setPixmap(rounded)
+                # Update pin overlay size and position
+                po = getattr(lbl, '_pin_overlay', None)
+                if po:
+                    pin_sz = max(8, min(20, int(value * 0.18)))
+                    t = self.theme
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_primary)
+                    po.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
+                    po.setFixedSize(pin_sz + 2, pin_sz + 2)
+                    lbl._pin_sz = pin_sz
             h = _flow_position(labels, w, value)
             grid.setFixedHeight(h)
+            # Reposition pins after flow
+            for lbl in labels:
+                po = getattr(lbl, '_pin_overlay', None)
+                if po:
+                    po.move(lbl.width() - lbl._pin_sz - 4, 2)
 
     def _reflow_grid(self):
         if self._view_mode != "grid" or not self._grid_groups:
@@ -798,9 +824,7 @@ class EditorPanel(QWidget):
             t = self.theme
             pinned = getattr(img, "pinned", False)
             is_reserve = img.timer == 0
-            if pinned:
-                lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
-            elif is_reserve:
+            if is_reserve:
                 lbl.setStyleSheet(f"border: 1px dashed {t.text_hint};")
             else:
                 lbl.setStyleSheet("border: none;")
