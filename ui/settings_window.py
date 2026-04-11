@@ -90,7 +90,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._close_btn.clicked.connect(self.close)
 
         header_layout, self._title = make_centered_header(
-            "DRAWER",
+            "Drawer",
             [self._help_btn, self._accent_btn, self._theme_btn],
             [self._topmost_btn, self._min_btn, self._close_btn],
             self.theme,
@@ -98,13 +98,21 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         root.addLayout(header_layout)
         root.addStretch()
 
-        # ── 2. TimerPanel ──────────────────────────────────────────────────
-        self._timer_panel = TimerPanel(self.theme, parent=self)
-        self._timer_panel.timer_config_changed.connect(self._on_timer_config_changed)
-        root.addWidget(self._timer_panel)
-        root.addSpacing(S.SPACING_SUMMARY)
+        # ── 2. Inset panel wraps the timer section ─────────────────────────
+        self._panel = QWidget()
+        self._panel.setObjectName("insetPanel")
+        panel_lay = QVBoxLayout(self._panel)
+        panel_lay.setContentsMargins(S.PANEL_PADDING, S.PANEL_PADDING,
+                                      S.PANEL_PADDING, S.PANEL_PADDING)
+        panel_lay.setSpacing(0)
 
-        # ── 3. Stretch ────────────────────────────────────────────────────
+        self._timer_panel = TimerPanel(self.theme, parent=self._panel)
+        self._timer_panel.timer_config_changed.connect(self._on_timer_config_changed)
+        panel_lay.addWidget(self._timer_panel)
+
+        # Panel centered vertically — free space becomes air above and below
+        root.addStretch()
+        root.addWidget(self._panel)
         root.addStretch()
 
         # ── 4. BottomBar ──────────────────────────────────────────────────
@@ -161,7 +169,16 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _apply_theme(self):
         t = self.theme
-        self.setStyleSheet(f"background-color: transparent; color: {t.text_primary};")
+        self.setStyleSheet(
+            f"background-color: transparent; color: {t.text_primary}; "
+            f"font-family: 'Lexend';"
+        )
+        self._panel.setStyleSheet(
+            f"QWidget#insetPanel {{ "
+            f"background-color: {t.bg_panel}; "
+            f"border-radius: {S.PANEL_RADIUS}px; "
+            f"}}"
+        )
 
         self._title.recolor(t.text_header)
 
