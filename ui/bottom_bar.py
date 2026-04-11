@@ -108,11 +108,13 @@ class BottomBar(QWidget):
             self._limit_btn.setText("no limit")
             self._limit_btn.setStyleSheet(
                 f"color: {t.text_hint}; font-size: 9px; font-weight: 500; "
+                f"font-family: 'Lexend'; "
                 f"background: transparent; border: none; padding: 0;")
         else:
             self._limit_btn.setText(f"limit: {label}")
             self._limit_btn.setStyleSheet(
                 f"color: {t.accent}; font-size: 9px; font-weight: 500; "
+                f"font-family: 'Lexend'; "
                 f"background: transparent; border: none; padding: 0; "
                 f"text-decoration: underline;")
 
@@ -165,13 +167,17 @@ class BottomBar(QWidget):
     def apply_theme(self):
         t = self.theme
         self._groups_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_HINT}px; font-weight: 500;")
+            f"color: {t.text_secondary}; font-size: {S.FONT_HINT}px; font-weight: 500; "
+            f"font-family: 'Lexend';")
         self._total_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500;")
-        self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px;")
+            f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500; "
+            f"font-family: 'Lexend';")
+        self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px; font-family: 'Lexend';")
         self._update_limit_display()
 
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
+        self._add_btn.setStyleSheet(
+            f"background: transparent; border: none; border-radius: 5px;")
         self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
