@@ -68,7 +68,7 @@ class BottomBar(QWidget):
 
         # Add button (right side)
         self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
-                                      size=26, tooltip="Add files")
+                                      size=S.VIEWER_ICON_BTN, tooltip="Add files")
         self._add_btn.clicked.connect(self.add_clicked.emit)
 
         self._start_btn = make_start_btn(self.theme)
@@ -178,7 +178,7 @@ class BottomBar(QWidget):
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
         self._add_btn.setStyleSheet(
             f"background-color: {t.bg_button}; border: 1px solid {t.border}; "
-            f"border-radius: 5px;")
+            f"border-radius: {S.TIMER_BTN_RADIUS}px;")
         self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
