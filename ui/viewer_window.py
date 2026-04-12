@@ -665,16 +665,16 @@ class ViewerWindow(QWidget):
         tr_w = btn_sz * 2 + gap
         tr_x = w - tr_w - margin
 
-        # Hide center tools if they'd overlap with left or right groups
+        # If centered tools would overlap, push them left after info button
         tl_right = margin + btn_sz + gap
         if tc_x < tl_right or tc_x + tc_w > tr_x - gap:
-            self._top_center.setGeometry(0, 0, 0, 0)
-        else:
-            self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
-            self._bw_btn.setGeometry(0, 0, btn_sz, btn_sz)
-            self._grid_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
-            self._fliph_btn.setGeometry(2 * (btn_sz + gap), 0, btn_sz, btn_sz)
-            self._flipv_btn.setGeometry(3 * (btn_sz + gap), 0, btn_sz, btn_sz)
+            tc_x = tl_right
+
+        self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
+        self._bw_btn.setGeometry(0, 0, btn_sz, btn_sz)
+        self._grid_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
+        self._fliph_btn.setGeometry(2 * (btn_sz + gap), 0, btn_sz, btn_sz)
+        self._flipv_btn.setGeometry(3 * (btn_sz + gap), 0, btn_sz, btn_sz)
 
         self._top_right.setGeometry(tr_x, margin, tr_w, btn_sz)
         self._settings_btn.setGeometry(0, 0, btn_sz, btn_sz)
