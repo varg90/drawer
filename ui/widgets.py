@@ -3,7 +3,7 @@ import qtawesome as qta
 from PyQt6.QtWidgets import QPushButton, QLabel, QHBoxLayout, QWidget
 from PyQt6.QtCore import Qt, QSize, QRect, pyqtSignal
 from PyQt6.QtGui import QPainter, QFont, QColor, QPixmap, QImage
-from ui.scales import S
+from ui.scales import S, TEXT_SHADOW_OFFSET
 from ui.icons import Icons
 
 
@@ -179,11 +179,11 @@ class TitleLabel(QLabel):
         flags = self.alignment() | Qt.TextFlag.TextSingleLine
         # Shadow above (dark, pressed-in look)
         p.setPen(QColor(0, 0, 0, 128))
-        shadow_rect = rect.adjusted(0, -S.TEXT_SHADOW_OFFSET, 0, -S.TEXT_SHADOW_OFFSET)
+        shadow_rect = rect.adjusted(0, -TEXT_SHADOW_OFFSET, 0, -TEXT_SHADOW_OFFSET)
         p.drawText(shadow_rect, flags, self._text)
         # Highlight below (subtle light edge)
         p.setPen(QColor(255, 250, 240, 10))
-        highlight_rect = rect.adjusted(0, S.TEXT_SHADOW_OFFSET, 0, S.TEXT_SHADOW_OFFSET)
+        highlight_rect = rect.adjusted(0, TEXT_SHADOW_OFFSET, 0, TEXT_SHADOW_OFFSET)
         p.drawText(highlight_rect, flags, self._text)
         # Main text
         p.setPen(self._color)
