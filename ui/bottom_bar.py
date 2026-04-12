@@ -7,7 +7,7 @@ from core.timer_logic import format_time
 from core.class_mode import total_duration
 from ui.scales import S
 from ui.icons import Icons
-from ui.widgets import make_start_btn, RoundedIconButton
+from ui.widgets import make_icon_btn, make_start_btn
 
 
 class BottomBar(QWidget):
@@ -67,10 +67,8 @@ class BottomBar(QWidget):
         summary_col.addLayout(summary_time)
 
         # Add button (right side)
-        self._add_btn = RoundedIconButton(
-            Icons.PLUS, self.theme.bg_button, self.theme.text_hint,
-            S.ICON_START)
-        self._add_btn.setToolTip("Add files")
+        self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
+                                      size=26, tooltip="Add files")
         self._add_btn.clicked.connect(self.add_clicked.emit)
 
         self._start_btn = make_start_btn(self.theme)
@@ -177,8 +175,10 @@ class BottomBar(QWidget):
         self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: {S.FONT_LIMIT_SEP}px; font-family: 'Lexend';")
         self._update_limit_display()
 
-        self._add_btn.set_icon(Icons.PLUS, t.bg_button)
-        self._add_btn.set_bg(t.text_hint)
+        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
+        self._add_btn.setStyleSheet(
+            f"background-color: {t.bg_button}; border: 1px solid {t.border}; "
+            f"border-radius: 5px;")
         self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
