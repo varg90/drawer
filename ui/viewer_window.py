@@ -151,6 +151,8 @@ class ViewerWindow(QWidget):
         if settings.get("topmost"):
             flags |= Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(flags)
+        self.setWindowTitle("Drawer")
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "..", "drawer.ico")))
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("background-color: black;")
         self.setMouseTracking(True)
