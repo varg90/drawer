@@ -193,5 +193,8 @@ class S(metaclass=_SMeta):
     URL_PROGRESS_H = 8
 
     # Widgets / misc
-    TEXT_SHADOW_OFFSET = 1
     BORDER_WIDTH = 1
+
+
+# Constants that must NOT scale (rendering details, not layout dimensions)
+TEXT_SHADOW_OFFSET = 1
