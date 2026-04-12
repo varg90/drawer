@@ -8,7 +8,7 @@ from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
                            QEasingCurve)
 from core.timer_logic import format_time, auto_warn_seconds
 from ui.icons import Icons
-from ui.scales import S, sc
+from ui.scales import S
 
 # Native scan codes for physical key positions (layout-independent hotkeys)
 import sys as _sys

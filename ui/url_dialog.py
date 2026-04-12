@@ -9,7 +9,7 @@ from core.cloud import detect_provider
 from core.cloud.cache import CacheManager
 from core.cloud.base import CloudFile
 from core.models import ImageItem
-from ui.scales import S, sc
+from ui.scales import S
 
 
 class FetchWorker(QThread):

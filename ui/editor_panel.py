@@ -22,7 +22,7 @@ from core.models import ImageItem
 from core.timer_logic import format_time
 from ui.theme import _mix, _darken
 from core.cloud.cache import CacheManager
-from ui.scales import S, sc
+from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import make_icon_btn
 

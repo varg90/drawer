@@ -4,7 +4,7 @@ import colorsys
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QColor, QPixmap
-from ui.scales import S, sc
+from ui.scales import S
 
 
 class _ColorSquare(QLabel):
