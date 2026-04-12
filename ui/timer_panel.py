@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtCore import Qt, pyqtSignal
 from core.constants import TIMER_PRESETS
 from core.class_mode import auto_distribute
-from ui.scales import S
+from ui.scales import S, sc
 from ui.widgets import make_timer_btn, timer_btn_style
 
 ALL_TIERS = [(30, "30s"), (60, "1m"), (180, "3m"),
@@ -40,12 +40,12 @@ class TimerPanel(QWidget):
         mode_row.setContentsMargins(0, 0, 0, 0)
 
         self._class_btn = QPushButton("class", self)
-        self._class_btn.setFixedHeight(28)
+        self._class_btn.setFixedHeight(S.TIMER_MODE_BTN_H)
         self._class_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._class_btn.clicked.connect(lambda: self.set_timer_mode("class"))
 
         self._quick_btn = QPushButton("quick", self)
-        self._quick_btn.setFixedHeight(28)
+        self._quick_btn.setFixedHeight(S.TIMER_MODE_BTN_H)
         self._quick_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._quick_btn.clicked.connect(lambda: self.set_timer_mode("quick"))
 
@@ -122,12 +122,12 @@ class TimerPanel(QWidget):
             f"background-color: {t.start_bg}; color: {t.bg_panel}; "
             f"font-family: 'Lexend'; font-size: {S.FONT_MODE}px; font-weight: 500; "
             f"border-radius: {S.MODE_BTN_RADIUS}px; border: none; "
-            f"padding: 4px 8px;")
+            f"padding: {S.MODE_BTN_PADDING_V}px {S.MODE_BTN_PADDING_H}px;")
         inactive_s = (
             f"background-color: {t.bg_button}; color: {t.text_secondary}; "
             f"font-family: 'Lexend'; font-size: {S.FONT_MODE}px; font-weight: 500; "
             f"border-radius: {S.MODE_BTN_RADIUS}px; border: none; "
-            f"padding: 4px 8px;")
+            f"padding: {S.MODE_BTN_PADDING_V}px {S.MODE_BTN_PADDING_H}px;")
         if self._timer_mode == "class":
             self._class_btn.setStyleSheet(active_s)
             self._quick_btn.setStyleSheet(inactive_s)
