@@ -3,9 +3,11 @@ import os
 import logging
 
 if getattr(sys, "frozen", False):
-    APP_DIR = sys._MEIPASS
+    DATA_DIR = sys._MEIPASS
+    APP_DIR = os.path.dirname(sys.executable)
 else:
-    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+    DATA_DIR = os.path.dirname(os.path.abspath(__file__))
+    APP_DIR = DATA_DIR
 
 LOG_FILE = os.path.join(APP_DIR, "app.log")
 logging.basicConfig(
@@ -23,8 +25,8 @@ from ui.settings_window import SettingsWindow
 def load_fonts() -> None:
     """Register custom fonts with Qt. Logs a warning if any file is missing."""
     font_files = [
-        os.path.join(APP_DIR, "fonts", "Lora[wght].ttf"),
-        os.path.join(APP_DIR, "fonts", "Lexend[wght].ttf"),
+        os.path.join(DATA_DIR, "fonts", "Lora[wght].ttf"),
+        os.path.join(DATA_DIR, "fonts", "Lexend[wght].ttf"),
     ]
     for path in font_files:
         if not os.path.isfile(path):
