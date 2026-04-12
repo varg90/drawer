@@ -108,12 +108,12 @@ class TitleLabel(QLabel):
         super().__init__(text, parent)
         self._color = QColor(color)
         self._text = text
-        font = QFont("Lora")
-        font.setPixelSize(font_size)
-        font.setWeight(QFont.Weight(weight))
+        self._font = QFont("Lora")
+        self._font.setPixelSize(font_size)
+        self._font.setWeight(QFont.Weight(weight))
         if spacing:
-            font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
-        self.setFont(font)
+            self._font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
+        self.setFont(self._font)
         self.setStyleSheet("color: transparent; background: transparent;")
         self.setContentsMargins(0, 0, 0, 0)
         if target_width:
@@ -128,11 +128,11 @@ class TitleLabel(QLabel):
         self.update()
 
     def paintEvent(self, event):
-        from PyQt6.QtGui import QPainter
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-        p.setFont(self.font())
-        rect = self.rect()
+        p.setFont(self._font)
+        n = S.TITLE_Y_NUDGE
+        rect = self.rect().adjusted(0, -n, 0, -n)
         flags = self.alignment() | Qt.TextFlag.TextSingleLine
         # Shadow above (dark, pressed-in look)
         p.setPen(QColor(0, 0, 0, 128))

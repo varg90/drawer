@@ -27,6 +27,7 @@ class S:
 
     # Title
     TITLE_W = 105
+    TITLE_Y_NUDGE = 4
 
     # Fonts (px)
     FONT_TITLE = 17
