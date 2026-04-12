@@ -8,11 +8,7 @@ from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
                            QEasingCurve)
 from core.timer_logic import format_time, auto_warn_seconds
 from ui.icons import Icons
-
-CORNER_GRIP = 50
-MIN_WIDTH = 200
-MIN_HEIGHT = 150
-NAV_ZONE = 40  # side click zone width
+from ui.scales import S, sc
 
 # Native scan codes for physical key positions (layout-independent hotkeys)
 import sys as _sys
@@ -71,7 +67,7 @@ class ProgressBar(QWidget):
         super().__init__(parent)
         self._progress = 0.0
         self._warning = False
-        self.setFixedHeight(3)
+        self.setFixedHeight(S.VIEWER_PROGRESS_H)
 
     def set_progress(self, value, warning=False):
         self._progress = max(0.0, min(1.0, value))
@@ -158,7 +154,7 @@ class ViewerWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("background-color: black;")
         self.setMouseTracking(True)
-        self.setMinimumSize(MIN_WIDTH, MIN_HEIGHT)
+        self.setMinimumSize(S.VIEWER_MIN_W, S.VIEWER_MIN_H)
 
         # Build play order
         order = list(range(len(images)))
@@ -214,7 +210,7 @@ class ViewerWindow(QWidget):
 
         # Center play/pause
         self._center_btn = QPushButton(self)
-        self._center_btn.setFixedSize(60, 60)
+        self._center_btn.setFixedSize(S.VIEWER_CENTER_BTN, S.VIEWER_CENTER_BTN)
         self._center_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._center_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._center_btn.setStyleSheet("background: transparent; border: none;")
@@ -238,19 +234,19 @@ class ViewerWindow(QWidget):
         # Bottom: timer + counter
         self._timer_label = QLabel(self)
         self._timer_label.setStyleSheet(
-            "color: rgba(204,192,174,255); font-family: Lora; font-size: 20px; background: transparent;")
+            f"color: rgba(204,192,174,255); font-family: Lora; font-size: {S.FONT_TIMER}px; background: transparent;")
         self._timer_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._counter_label = QLabel(self)
         self._counter_label.setStyleSheet(
-            "color: rgba(204,192,174,200); font-family: 'Lexend'; font-size: 13px; background: transparent;")
+            f"color: rgba(204,192,174,200); font-family: 'Lexend'; font-size: {S.FONT_COUNTER}px; background: transparent;")
         self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         # Alarm icon (session warning)
         self._alarm_label = QLabel(self)
         self._alarm_label.setPixmap(
             _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), 20))
-        self._alarm_label.setFixedSize(20, 20)
+        self._alarm_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
         self._alarm_label.setStyleSheet("background: transparent;")
         self._alarm_label.hide()
 
@@ -258,7 +254,7 @@ class ViewerWindow(QWidget):
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
             _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 20))
-        self._coffee_label.setFixedSize(20, 20)
+        self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
         self._coffee_label.setStyleSheet("background: transparent;")
         self._coffee_label.hide()
 
@@ -314,24 +310,24 @@ class ViewerWindow(QWidget):
         if self._paused:
             self._coffee_label.setPixmap(
                 _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 20))
-            self._coffee_label.setFixedSize(20, 20)
+            self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
             self._coffee_label.show()
         else:
             self._coffee_label.hide()
         self._layout_bottom(self.width(), self.height())
 
     def _layout_bottom(self, w, h):
-        lbl_h = 24
-        bottom_y = h - lbl_h - 8
-        x = 10
+        lbl_h = S.VIEWER_BOTTOM_LABEL_H
+        bottom_y = h - lbl_h - S.VIEWER_BOTTOM_OFFSET
+        x = S.VIEWER_BOTTOM_LABEL_X
         if self._alarm_label.isVisible():
-            self._alarm_label.setFixedSize(20, 20)
-            self._alarm_label.move(x, bottom_y + 2)
-            x += 26
+            self._alarm_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
+            self._alarm_label.move(x, bottom_y + S.VIEWER_BOTTOM_ICON_Y_OFFSET)
+            x += S.VIEWER_BOTTOM_ICON_SPACING
         if self._coffee_label.isVisible():
-            self._coffee_label.setFixedSize(20, 20)
-            self._coffee_label.move(x, bottom_y + 2)
-            x += 26
+            self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
+            self._coffee_label.move(x, bottom_y + S.VIEWER_BOTTOM_ICON_Y_OFFSET)
+            x += S.VIEWER_BOTTOM_ICON_SPACING
         # Center timer
         self._timer_label.setGeometry((w - 80) // 2, bottom_y, 80, lbl_h)
         self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -355,13 +351,13 @@ class ViewerWindow(QWidget):
         self._aspect = pix.width() / pix.height() if pix.height() else 1.0
 
         w = self.width()
-        h = max(MIN_HEIGHT, int(w / self._aspect))
+        h = max(S.VIEWER_MIN_H, int(w / self._aspect))
         if h > self._screen_max_h:
             h = self._screen_max_h
-            w = max(MIN_WIDTH, int(h * self._aspect))
+            w = max(S.VIEWER_MIN_W, int(h * self._aspect))
         if w > self._screen_max_w:
             w = self._screen_max_w
-            h = max(MIN_HEIGHT, int(w / self._aspect))
+            h = max(S.VIEWER_MIN_H, int(w / self._aspect))
         self.resize(w, h)
 
         self._update_display()
@@ -431,7 +427,7 @@ class ViewerWindow(QWidget):
             if not self._controls_visible:
                 self._opacity_effects[idx].setOpacity(0.0)
         self._timer_label.setStyleSheet(
-            f"color: {self._timer_color}; font-family: Lora; font-size: 20px; background: transparent;")
+            f"color: {self._timer_color}; font-family: Lora; font-size: {S.FONT_TIMER}px; background: transparent;")
         self._timer_label.setText(t)
 
         self._update_coffee()
@@ -508,7 +504,7 @@ class ViewerWindow(QWidget):
         content.setStyleSheet("background: transparent;")
         content.mousePressEvent = lambda e: self._help_overlay.hide()
         inner = QVBoxLayout(content)
-        inner.setContentsMargins(20, 20, 20, 20)
+        inner.setContentsMargins(S.VIEWER_HELP_MARGIN, S.VIEWER_HELP_MARGIN, S.VIEWER_HELP_MARGIN, S.VIEWER_HELP_MARGIN)
 
         info_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "info_viewer.txt")
         try:
@@ -518,7 +514,7 @@ class ViewerWindow(QWidget):
             info_text = "H - help"
 
         lbl = QLabel(info_text)
-        lbl.setStyleSheet("color: rgba(255,255,255,200); font-size: 14px;")
+        lbl.setStyleSheet(f"color: rgba(255,255,255,200); font-size: {S.FONT_HELP}px;")
         lbl.setWordWrap(True)
         lbl.mousePressEvent = lambda e: self._help_overlay.hide()
         inner.addWidget(lbl)
@@ -651,15 +647,15 @@ class ViewerWindow(QWidget):
         self._gradient.setGeometry(0, 0, w, h)
 
         # Fixed sizes
-        btn_sz = 26
-        margin = 8
+        btn_sz = S.VIEWER_ICON_BTN
+        margin = S.VIEWER_ICON_MARGIN
 
         # Top left: info
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
         self._info_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
         # Top center: viewer tools
-        gap = 4
+        gap = S.VIEWER_ICON_GAP
         tc_w = btn_sz * 4 + gap * 3
         tc_x = (w - tc_w) // 2
         self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
@@ -675,18 +671,18 @@ class ViewerWindow(QWidget):
         self._close_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
 
         # Center
-        self._center_btn.move((w - 60) // 2, (h - 60) // 2)
+        self._center_btn.move((w - S.VIEWER_CENTER_BTN) // 2, (h - S.VIEWER_CENTER_BTN) // 2)
 
         # Side nav
-        nav_y = (h - 40) // 2
-        self._left_nav.setGeometry(4, nav_y, 25, 40)
-        self._right_nav.setGeometry(w - 29, nav_y, 25, 40)
+        nav_y = (h - S.VIEWER_LEFT_NAV_H) // 2
+        self._left_nav.setGeometry(S.VIEWER_LEFT_NAV_X, nav_y, S.VIEWER_LEFT_NAV_W, S.VIEWER_LEFT_NAV_H)
+        self._right_nav.setGeometry(w - (S.VIEWER_LEFT_NAV_X + S.VIEWER_LEFT_NAV_W), nav_y, S.VIEWER_LEFT_NAV_W, S.VIEWER_LEFT_NAV_H)
 
         # Bottom layout
         self._layout_bottom(w, h)
 
         # Progress bar at very bottom
-        self._progress_bar.setGeometry(0, h - 3, w, 3)
+        self._progress_bar.setGeometry(0, h - S.VIEWER_PROGRESS_H, w, S.VIEWER_PROGRESS_H)
 
         self._update_display()
 
@@ -720,10 +716,10 @@ class ViewerWindow(QWidget):
                 self._resize_start_pos = event.globalPosition().toPoint()
                 self._resize_start_geom = self.geometry()
                 event.accept()
-            elif pos.x() < NAV_ZONE and self._controls_visible:
+            elif pos.x() < S.VIEWER_NAV_ZONE and self._controls_visible:
                 self._prev()
                 event.accept()
-            elif pos.x() > self.width() - NAV_ZONE and self._controls_visible:
+            elif pos.x() > self.width() - S.VIEWER_NAV_ZONE and self._controls_visible:
                 self._next()
                 event.accept()
             else:
@@ -756,7 +752,7 @@ class ViewerWindow(QWidget):
         w, h = self.width(), self.height()
         x, y = pos.x(), pos.y()
         edge = 6
-        g = CORNER_GRIP
+        g = S.VIEWER_CORNER_GRIP
         in_left = x < g
         in_right = x > w - g
         in_top = y < g
@@ -800,22 +796,22 @@ class ViewerWindow(QWidget):
         corner = self._resize_corner
 
         if corner in ("br", "r", "b"):
-            new_w = max(MIN_WIDTH, geom.width() + dx)
-            new_h = max(MIN_HEIGHT, int(new_w / self._aspect))
+            new_w = max(S.VIEWER_MIN_W, geom.width() + dx)
+            new_h = max(S.VIEWER_MIN_H, int(new_w / self._aspect))
             self.setGeometry(geom.x(), geom.y(), new_w, new_h)
         elif corner in ("bl", "l"):
-            new_w = max(MIN_WIDTH, geom.width() - dx)
-            new_h = max(MIN_HEIGHT, int(new_w / self._aspect))
+            new_w = max(S.VIEWER_MIN_W, geom.width() - dx)
+            new_h = max(S.VIEWER_MIN_H, int(new_w / self._aspect))
             new_x = geom.right() - new_w
             self.setGeometry(new_x, geom.y(), new_w, new_h)
         elif corner in ("tr",):
-            new_w = max(MIN_WIDTH, geom.width() + dx)
-            new_h = max(MIN_HEIGHT, int(new_w / self._aspect))
+            new_w = max(S.VIEWER_MIN_W, geom.width() + dx)
+            new_h = max(S.VIEWER_MIN_H, int(new_w / self._aspect))
             new_y = geom.bottom() - new_h
             self.setGeometry(geom.x(), new_y, new_w, new_h)
         elif corner in ("tl", "t"):
-            new_w = max(MIN_WIDTH, geom.width() - dx)
-            new_h = max(MIN_HEIGHT, int(new_w / self._aspect))
+            new_w = max(S.VIEWER_MIN_W, geom.width() - dx)
+            new_h = max(S.VIEWER_MIN_H, int(new_w / self._aspect))
             new_x = geom.right() - new_w
             new_y = geom.bottom() - new_h
             self.setGeometry(new_x, new_y, new_w, new_h)
