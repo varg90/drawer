@@ -76,6 +76,21 @@ def make_icon_btn(icon_name, color, size=S.ICON_HEADER, tooltip=""):
     return btn
 
 
+def make_filled_icon(icon_name, color, size):
+    """Render icon at high DPI, crop transparent edges, return QIcon that fills the target size."""
+    ratio = 2.0
+    phys = int(size * ratio)
+    raw = qta.icon(icon_name, color=color).pixmap(QSize(phys, phys)).toImage()
+    cropped = _crop_transparent(raw)
+    pm = QPixmap.fromImage(cropped).scaled(
+        phys, phys,
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation)
+    pm.setDevicePixelRatio(ratio)
+    from PyQt6.QtGui import QIcon
+    return QIcon(pm)
+
+
 def make_start_btn(theme):
     """Square start button with fa6s.pencil icon."""
     size = S.ICON_START

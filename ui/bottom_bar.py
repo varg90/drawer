@@ -7,7 +7,7 @@ from core.timer_logic import format_time
 from core.class_mode import total_duration
 from ui.scales import S
 from ui.icons import Icons
-from ui.widgets import make_start_btn
+from ui.widgets import make_start_btn, make_filled_icon
 
 
 class BottomBar(QWidget):
@@ -71,7 +71,7 @@ class BottomBar(QWidget):
         icon_sz = int(size * S.START_ICON_RATIO)
         radius = int(size * S.START_RADIUS_RATIO)
         self._add_btn = QPushButton()
-        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=self.theme.bg_button))
+        self._add_btn.setIcon(make_filled_icon(Icons.PLUS, self.theme.bg_button, size))
         self._add_btn.setIconSize(QSize(size, size))
         self._add_btn.setFixedSize(size, size)
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -185,7 +185,7 @@ class BottomBar(QWidget):
         self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px; font-family: 'Lexend';")
         self._update_limit_display()
 
-        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.bg_button))
+        self._add_btn.setIcon(make_filled_icon(Icons.PLUS, t.bg_button, S.ICON_START))
         self._add_btn.setStyleSheet(
             f"background-color: {t.text_hint}; border: none; "
             f"padding: 0px; border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
