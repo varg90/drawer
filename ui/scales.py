@@ -159,7 +159,7 @@ class S(metaclass=_SMeta):
     MODE_BTN_PADDING_H = 8
 
     # Image editor window
-    RESIZE_GRIP_W = 50
+    RESIZE_GRIP_W = 6
     EDITOR_TITLE_SPACING = 4
     EDITOR_TITLE_BOTTOM_SPACE = 6
     EDITOR_MIN_W = 200

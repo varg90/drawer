@@ -694,7 +694,7 @@ class EditorPanel(QWidget):
             self._reflow_grid()
 
     @staticmethod
-    def _short_name(path, max_len=22):
+    def _short_name(path, max_len=16):
         name = os.path.basename(path)
         if len(name) <= max_len:
             return name
