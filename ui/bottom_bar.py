@@ -72,7 +72,7 @@ class BottomBar(QWidget):
         radius = int(size * S.START_RADIUS_RATIO)
         self._add_btn = QPushButton()
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=self.theme.bg_button))
-        self._add_btn.setIconSize(QSize(icon_sz, icon_sz))
+        self._add_btn.setIconSize(QSize(size, size))
         self._add_btn.setFixedSize(size, size)
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_btn.setToolTip("Add files")
