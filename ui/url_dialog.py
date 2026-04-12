@@ -9,6 +9,7 @@ from core.cloud import detect_provider
 from core.cloud.cache import CacheManager
 from core.cloud.base import CloudFile
 from core.models import ImageItem
+from ui.scales import S, sc
 
 
 class FetchWorker(QThread):
@@ -121,16 +122,16 @@ class UrlDialog(QDialog):
         self._build_ui()
         self._apply_theme()
         self.adjustSize()
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(S.URL_DLG_MIN_W)
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 12, 16, 12)
-        root.setSpacing(8)
+        root.setContentsMargins(S.URL_DLG_MARGIN_H, S.URL_DLG_MARGIN_V, S.URL_DLG_MARGIN_H, S.URL_DLG_MARGIN_V)
+        root.setSpacing(S.URL_DLG_SPACING)
 
         # URL input row
         url_row = QHBoxLayout()
-        url_row.setSpacing(6)
+        url_row.setSpacing(S.URL_ROW_SPACING)
         self._url_input = QLineEdit()
         self._url_input.setPlaceholderText("Paste Yandex Disk or Google Drive link")
         self._url_input.returnPressed.connect(self._fetch)
@@ -147,13 +148,13 @@ class UrlDialog(QDialog):
         # File list with checkboxes
         self._file_list = QListWidget()
         self._file_list.setIconSize(QSize(0, 0))
-        self._file_list.setMinimumHeight(200)
+        self._file_list.setMinimumHeight(S.URL_FILE_LIST_MIN_H)
         self._file_list.itemChanged.connect(self._update_count)
         root.addWidget(self._file_list)
 
         # Select all / deselect all
         sel_row = QHBoxLayout()
-        sel_row.setSpacing(6)
+        sel_row.setSpacing(S.URL_ROW_SPACING)
         self._sel_all_btn = QPushButton("Select all")
         self._sel_all_btn.clicked.connect(self._select_all)
         sel_row.addWidget(self._sel_all_btn)
@@ -193,32 +194,32 @@ class UrlDialog(QDialog):
         self.setStyleSheet(f"background-color: {t.bg}; color: {t.text_primary};")
 
         input_s = (f"background-color: {t.bg_secondary}; color: {t.text_primary}; "
-                   f"border: 1px solid {t.border}; padding: 6px; font-size: 11px;")
+                   f"border: 1px solid {t.border}; padding: {S.URL_INPUT_PADDING}px; font-size: {S.URL_INPUT_FONT}px;")
         self._url_input.setStyleSheet(input_s)
 
         btn_s = (f"background-color: {t.bg_button}; color: {t.text_button}; "
-                 f"border: 1px solid {t.border}; font-size: 10px; font-weight: 500; "
-                 f"padding: 3px 6px;")
+                 f"border: 1px solid {t.border}; font-size: {S.URL_BTN_FONT}px; font-weight: 500; "
+                 f"padding: {S.URL_BTN_PADDING_V}px {S.URL_BTN_PADDING_H}px;")
         for btn in [self._fetch_btn, self._sel_all_btn, self._sel_none_btn, self._add_btn]:
             btn.setStyleSheet(btn_s)
 
         self._preview_cb.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
+            f"color: {t.text_secondary}; font-size: {S.URL_BTN_FONT}px; font-weight: 500;")
 
         self._status.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
+            f"color: {t.text_secondary}; font-size: {S.URL_BTN_FONT}px; font-weight: 500;")
         self._count_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: 10px; font-weight: 500;")
+            f"color: {t.text_secondary}; font-size: {S.URL_BTN_FONT}px; font-weight: 500;")
 
         list_s = (f"QListWidget {{ background-color: {t.bg_secondary}; border: none; "
-                  f"font-size: 11px; color: {t.text_primary}; }}"
-                  f"QListWidget::item {{ padding: 3px; }}"
+                  f"font-size: {S.URL_INPUT_FONT}px; color: {t.text_primary}; }}"
+                  f"QListWidget::item {{ padding: {S.URL_LIST_ITEM_PADDING}px; }}"
                   f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}")
         self._file_list.setStyleSheet(list_s)
 
         self._progress.setStyleSheet(
             f"QProgressBar {{ background-color: {t.bg_secondary}; border: 1px solid {t.border}; "
-            f"height: 8px; }} "
+            f"height: {S.URL_PROGRESS_H}px; }} "
             f"QProgressBar::chunk {{ background-color: {t.text_secondary}; }}")
 
     def _fetch(self):
@@ -273,7 +274,7 @@ class UrlDialog(QDialog):
     def _start_previews(self):
         if self._preview_worker and self._preview_worker.isRunning():
             return
-        self._file_list.setIconSize(QSize(48, 48))
+        self._file_list.setIconSize(QSize(S.URL_PREVIEW_SIZE, S.URL_PREVIEW_SIZE))
         self._preview_worker = PreviewWorker(self._cloud_files)
         self._preview_worker.preview_ready.connect(self._on_preview_ready)
         self._preview_worker.start()
@@ -294,7 +295,7 @@ class UrlDialog(QDialog):
             return
         if index < self._file_list.count():
             pix = QPixmap.fromImage(image).scaled(
-                48, 48, Qt.AspectRatioMode.KeepAspectRatio,
+                S.URL_PREVIEW_SIZE, S.URL_PREVIEW_SIZE, Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation)
             self._file_list.item(index).setIcon(QIcon(pix))
 
