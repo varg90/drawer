@@ -179,11 +179,11 @@ class TitleLabel(QLabel):
         flags = self.alignment() | Qt.TextFlag.TextSingleLine
         # Shadow above (dark, pressed-in look)
         p.setPen(QColor(0, 0, 0, 128))
-        shadow_rect = rect.adjusted(0, -1, 0, -1)
+        shadow_rect = rect.adjusted(0, -S.TEXT_SHADOW_OFFSET, 0, -S.TEXT_SHADOW_OFFSET)
         p.drawText(shadow_rect, flags, self._text)
         # Highlight below (subtle light edge)
         p.setPen(QColor(255, 250, 240, 10))
-        highlight_rect = rect.adjusted(0, 1, 0, 1)
+        highlight_rect = rect.adjusted(0, S.TEXT_SHADOW_OFFSET, 0, S.TEXT_SHADOW_OFFSET)
         p.drawText(highlight_rect, flags, self._text)
         # Main text
         p.setPen(self._color)
@@ -198,7 +198,7 @@ def make_centered_header(title_text, left_widgets, right_widgets, theme):
 
     header = QHBoxLayout()
     header.setContentsMargins(0, 0, 0, 0)
-    header.setSpacing(6)
+    header.setSpacing(S.SPACING_HEADER)
 
     for w in left_widgets:
         header.addWidget(w, 0, Qt.AlignmentFlag.AlignTop)

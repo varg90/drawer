@@ -89,7 +89,7 @@ class RoundedWindowMixin:
 
         border = self._border_color()
         if border:
-            painter.setPen(QPen(border, 1))
+            painter.setPen(QPen(border, S.BORDER_WIDTH))
             painter.drawPath(self._rw_cached_path)
 
         painter.end()
