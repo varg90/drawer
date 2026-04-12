@@ -71,7 +71,7 @@ class BottomBar(QWidget):
         icon_sz = int(size * S.START_ICON_RATIO)
         radius = int(size * S.START_RADIUS_RATIO)
         self._add_btn = QPushButton()
-        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=self.theme.text_hint))
+        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=self.theme.bg_button))
         self._add_btn.setIconSize(QSize(icon_sz, icon_sz))
         self._add_btn.setFixedSize(size, size)
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -185,7 +185,7 @@ class BottomBar(QWidget):
         self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px; font-family: 'Lexend';")
         self._update_limit_display()
 
-        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
+        self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.bg_button))
         self._add_btn.setStyleSheet(
             f"background-color: {t.text_hint}; border: none; "
             f"border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
