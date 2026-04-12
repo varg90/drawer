@@ -76,49 +76,6 @@ def make_icon_btn(icon_name, color, size=S.ICON_HEADER, tooltip=""):
     return btn
 
 
-class RoundedIconButton(QWidget):
-    """Square button with rounded background and vector icon painted to fill."""
-    clicked = pyqtSignal()
-
-    def __init__(self, icon_name, icon_color, bg_color, size, icon_ratio=1.0,
-                 radius_ratio=S.START_RADIUS_RATIO, parent=None):
-        super().__init__(parent)
-        self._icon = qta.icon(icon_name, color=icon_color)
-        self._bg = QColor(bg_color)
-        self._size = size
-        self._icon_ratio = icon_ratio
-        self._radius = int(size * radius_ratio)
-        self.setFixedSize(size, size)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def set_icon(self, icon_name, color):
-        self._icon = qta.icon(icon_name, color=color)
-        self.update()
-
-    def set_bg(self, color):
-        self._bg = QColor(color)
-        self.update()
-
-    def paintEvent(self, event):
-        from PyQt6.QtGui import QPainterPath
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # Rounded background
-        path = QPainterPath()
-        path.addRoundedRect(0.0, 0.0, self._size, self._size,
-                            self._radius, self._radius)
-        p.fillPath(path, self._bg)
-        # Vector icon
-        icon_sz = int(self._size * self._icon_ratio)
-        margin = (self._size - icon_sz) // 2
-        self._icon.paint(p, margin, margin, icon_sz, icon_sz)
-        p.end()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit()
-
-
 def make_start_btn(theme):
     """Square start button with fa6s.pencil icon."""
     size = S.ICON_START
