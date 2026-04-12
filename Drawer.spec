@@ -29,7 +29,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='drawer_0_2_0',
+    name='drawer_0_3_0',
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,
