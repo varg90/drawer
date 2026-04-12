@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtCore import Qt, pyqtSignal
 from core.constants import TIMER_PRESETS
 from core.class_mode import auto_distribute
-from ui.scales import S, sc
+from ui.scales import S
 from ui.widgets import make_timer_btn, timer_btn_style
 
 ALL_TIERS = [(30, "30s"), (60, "1m"), (180, "3m"),
