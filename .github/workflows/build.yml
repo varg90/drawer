@@ -110,11 +110,29 @@ jobs:
           fi
           iscc "//DAppVersion=$VERSION" installer.iss
 
+      - name: Generate macOS icns
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p Drawer.iconset
+          sips -z 16 16     drawer.ico --out Drawer.iconset/icon_16x16.png
+          sips -z 32 32     drawer.ico --out Drawer.iconset/icon_16x16@2x.png
+          sips -z 32 32     drawer.ico --out Drawer.iconset/icon_32x32.png
+          sips -z 64 64     drawer.ico --out Drawer.iconset/icon_32x32@2x.png
+          sips -z 128 128   drawer.ico --out Drawer.iconset/icon_128x128.png
+          sips -z 256 256   drawer.ico --out Drawer.iconset/icon_128x128@2x.png
+          sips -z 256 256   drawer.ico --out Drawer.iconset/icon_256x256.png
+          sips -z 512 512   drawer.ico --out Drawer.iconset/icon_256x256@2x.png
+          sips -z 512 512   drawer.ico --out Drawer.iconset/icon_512x512.png
+          sips -z 1024 1024 drawer.ico --out Drawer.iconset/icon_512x512@2x.png
+          iconutil -c icns Drawer.iconset -o drawer.icns
+
       - name: Build (macOS)
         if: runner.os == 'macOS'
         run: |
           pyinstaller --noconfirm --onedir --windowed \
             --name Drawer --strip \
+            --icon drawer.icns \
+            --osx-bundle-identifier com.drawer.app \
             --add-data "info_main.txt:." \
             --add-data "info_viewer.txt:." \
             --add-data "drawer.ico:." \
