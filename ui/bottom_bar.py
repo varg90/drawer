@@ -78,7 +78,7 @@ class BottomBar(QWidget):
         self._add_btn.setToolTip("Add files")
         self._add_btn.setStyleSheet(
             f"background-color: {self.theme.text_hint}; border: none; "
-            f"border-radius: {radius}px;")
+            f"padding: 0px; border-radius: {radius}px;")
         self._add_btn.clicked.connect(self.add_clicked.emit)
 
         self._start_btn = make_start_btn(self.theme)
@@ -188,7 +188,7 @@ class BottomBar(QWidget):
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.bg_button))
         self._add_btn.setStyleSheet(
             f"background-color: {t.text_hint}; border: none; "
-            f"border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
+            f"padding: 0px; border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
         self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
