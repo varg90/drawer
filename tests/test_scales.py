@@ -109,3 +109,32 @@ def test_detect_scale_factor_clamp_low():
 def test_detect_scale_factor_clamp_high():
     """Very large screens clamp to 2.0."""
     assert detect_scale_factor(4320) == 2.0
+
+
+def test_all_base_values_recorded():
+    """Every int attribute in S should be in _BASE."""
+    from ui.scales import _BASE
+    for attr in dir(S):
+        if attr.startswith('_'):
+            continue
+        val = getattr(S, attr)
+        if isinstance(val, int):
+            assert attr in _BASE, f"S.{attr} not in _BASE dict"
+
+
+def test_ratios_not_scaled():
+    """Float ratios must not change after init_scale."""
+    init_scale(2.0)
+    assert S.START_ICON_RATIO == 0.75
+    assert S.START_RADIUS_RATIO == 0.19
+    init_scale(1.0)
+
+
+def test_round_trip_all_constants():
+    """init_scale(2.0) then init_scale(1.0) restores every constant."""
+    from ui.scales import _BASE
+    init_scale(2.0)
+    init_scale(1.0)
+    for attr, base_val in _BASE.items():
+        actual = getattr(S, attr)
+        assert actual == base_val, f"S.{attr}: expected {base_val}, got {actual}"
