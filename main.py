@@ -20,6 +20,16 @@ log = logging.getLogger("refbot")
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QFont, QFontDatabase
 from ui.settings_window import SettingsWindow
+from ui.scales import init_scale
+
+
+REFERENCE_HEIGHT = 1080
+MAX_SCALE = 2.0
+
+
+def detect_scale_factor(screen_height):
+    """Compute UI scale factor from screen logical height."""
+    return min(max(1.0, round(screen_height / REFERENCE_HEIGHT, 2)), MAX_SCALE)
 
 
 def load_fonts() -> None:
@@ -44,6 +54,18 @@ if __name__ == "__main__":
     log.info("App started")
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+
+    # Detect scale factor from primary screen
+    screen = app.primaryScreen()
+    if screen:
+        height = screen.availableSize().height()
+        factor = detect_scale_factor(height)
+        log.info("Screen height: %d, scale factor: %.2f", height, factor)
+    else:
+        factor = 1.0
+        log.warning("No screen detected, using factor 1.0")
+    init_scale(factor)
+
     load_fonts()
     app.setFont(QFont("Lexend"))
     window = SettingsWindow()

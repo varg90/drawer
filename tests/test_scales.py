@@ -81,3 +81,31 @@ def test_sc_uses_current_factor():
     assert sc(100) == 150
     assert sc(7) == 10  # round(7 * 1.5) = 10.5 -> 10
     init_scale(1.0)
+
+
+from main import detect_scale_factor
+
+
+def test_detect_scale_factor_reference():
+    """1080p screen returns factor 1.0."""
+    assert detect_scale_factor(1080) == 1.0
+
+
+def test_detect_scale_factor_qhd():
+    """1440p screen returns factor ~1.33."""
+    assert detect_scale_factor(1440) == round(1440 / 1080, 2)
+
+
+def test_detect_scale_factor_4k():
+    """2160p screen returns factor 2.0."""
+    assert detect_scale_factor(2160) == 2.0
+
+
+def test_detect_scale_factor_clamp_low():
+    """Small screens clamp to 1.0."""
+    assert detect_scale_factor(768) == 1.0
+
+
+def test_detect_scale_factor_clamp_high():
+    """Very large screens clamp to 2.0."""
+    assert detect_scale_factor(4320) == 2.0
