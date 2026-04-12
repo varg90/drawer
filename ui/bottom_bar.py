@@ -178,7 +178,7 @@ class BottomBar(QWidget):
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
         self._add_btn.setStyleSheet(
             f"background-color: {t.bg_button}; border: 1px solid {t.border}; "
-            f"border-radius: 5px;")
+            f"border-radius: 8px;")
         self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
