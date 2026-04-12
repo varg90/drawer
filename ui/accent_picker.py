@@ -4,6 +4,7 @@ import colorsys
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QColor, QPixmap
+from ui.scales import S, sc
 
 
 class _ColorSquare(QLabel):
@@ -100,9 +101,6 @@ class AccentPicker(QWidget):
     """Compact frameless accent color picker window."""
     color_changed = pyqtSignal(str)
 
-    SQ = 120  # square size
-    BAR_W = 12
-
     def __init__(self, current_color, theme, parent=None):
         super().__init__(parent)
         self.setWindowFlags(
@@ -128,14 +126,14 @@ class AccentPicker(QWidget):
 
     def _build_ui(self, current_color):
         root = QVBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(8)
+        root.setContentsMargins(S.ACCENT_MARGIN, S.ACCENT_MARGIN, S.ACCENT_MARGIN, S.ACCENT_MARGIN)
+        root.setSpacing(S.ACCENT_SPACING)
 
         # Picker row
         row = QHBoxLayout()
-        row.setSpacing(6)
-        self._square = _ColorSquare(self.SQ)
-        self._hue_bar = _HueBar(self.SQ, self.BAR_W)
+        row.setSpacing(S.ACCENT_ROW_SPACING)
+        self._square = _ColorSquare(S.ACCENT_SQ)
+        self._hue_bar = _HueBar(S.ACCENT_SQ, S.ACCENT_BAR_W)
         self._hue_bar.on_hue_changed = self._on_hue
         self._square.on_color_changed = self._on_sv
         row.addStretch()
@@ -146,7 +144,7 @@ class AccentPicker(QWidget):
 
         # Hex input
         self._hex = QLineEdit(current_color)
-        self._hex.setFixedHeight(20)
+        self._hex.setFixedHeight(S.ACCENT_HEX_H)
         self._hex.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._hex.returnPressed.connect(self._on_hex)
         root.addWidget(self._hex)
@@ -160,8 +158,8 @@ class AccentPicker(QWidget):
             f"background: {t.bg}; border: 1px solid {t.border};")
         self._hex.setStyleSheet(
             f"background: {t.bg_button}; color: {t.text_secondary}; "
-            f"border: 1px solid {t.border}; border-radius: 2px; "
-            f"font-size: 10px; font-family: monospace;")
+            f"border: 1px solid {t.border}; border-radius: {S.ACCENT_HEX_RADIUS}px; "
+            f"font-size: {S.ACCENT_HEX_FONT}px; font-family: monospace;")
 
     def _sync_to_color(self, hex_color):
         c = QColor(hex_color)
@@ -198,6 +196,6 @@ class AccentPicker(QWidget):
     def show_near(self, widget):
         """Position near the accent button and show."""
         pos = widget.mapToGlobal(widget.rect().bottomLeft())
-        self.move(pos.x(), pos.y() + 4)
+        self.move(pos.x(), pos.y() + S.ACCENT_OFFSET_Y)
         self.show()
         self.activateWindow()
