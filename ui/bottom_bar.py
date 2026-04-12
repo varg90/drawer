@@ -67,18 +67,18 @@ class BottomBar(QWidget):
         summary_col.addLayout(summary_time)
 
         # Start button (right side)
-        add_size = 26
-        add_icon_sz = add_size
-        add_radius = int(add_size * S.START_RADIUS_RATIO)
+        size = S.ICON_START
+        icon_sz = int(size * S.START_ICON_RATIO)
+        radius = int(size * S.START_RADIUS_RATIO)
         self._add_btn = QPushButton()
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=self.theme.text_hint))
-        self._add_btn.setIconSize(QSize(add_icon_sz, add_icon_sz))
-        self._add_btn.setFixedSize(add_size, add_size)
+        self._add_btn.setIconSize(QSize(icon_sz, icon_sz))
+        self._add_btn.setFixedSize(size, size)
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_btn.setToolTip("Add files")
         self._add_btn.setStyleSheet(
             f"background-color: {self.theme.bg_button}; border: none; "
-            f"border-radius: {add_radius}px;")
+            f"border-radius: {radius}px;")
         self._add_btn.clicked.connect(self.add_clicked.emit)
 
         self._start_btn = make_start_btn(self.theme)
@@ -185,11 +185,10 @@ class BottomBar(QWidget):
         self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px; font-family: 'Lexend';")
         self._update_limit_display()
 
-        add_radius = int(self._add_btn.width() * S.START_RADIUS_RATIO)
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
         self._add_btn.setStyleSheet(
             f"background-color: {t.bg_button}; border: none; "
-            f"border-radius: {add_radius}px;")
+            f"border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
         self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
