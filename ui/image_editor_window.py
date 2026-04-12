@@ -16,8 +16,6 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
     """Editor window — always a separate window with magnetic snap."""
     images_updated = pyqtSignal(list)
 
-    EDGE = 6  # resize grip width in pixels
-
     shuffle_changed = pyqtSignal(bool)
 
     def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True):
@@ -29,7 +27,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self._parent_ref = weakref.ref(parent) if parent else lambda: None
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
         self._shuffle_init = shuffle
-        self.setMinimumSize(200, 200)
+        self.setMinimumSize(S.EDITOR_MIN_W, S.EDITOR_MIN_H)
         self._resizing = False
         self._resize_edge = None
         self._resize_start = None
@@ -49,7 +47,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         # Title bar — add buttons left, close/minimize right
         title_bar = QHBoxLayout()
         title_bar.setContentsMargins(0, 0, 0, 0)
-        title_bar.setSpacing(4)
+        title_bar.setSpacing(S.EDITOR_TITLE_SPACING)
 
         self._add_files_btn = make_icon_btn(Icons.ADD_FILE, self.theme.text_hint,
                                              size=S.ICON_HEADER, tooltip="Add files")
@@ -67,7 +65,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self._close_btn.clicked.connect(self.close)
         title_bar.addWidget(self._close_btn)
         root.addLayout(title_bar)
-        root.addSpacing(6)
+        root.addSpacing(S.EDITOR_TITLE_BOTTOM_SPACE)
 
         # Editor panel
         init_view = self.__dict__.get('_view_mode_init', 'list')
@@ -143,7 +141,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
     def _edge_at(self, pos):
         """Return which edge(s) the cursor is near, or None."""
         r = self.rect()
-        e = self.EDGE
+        e = S.RESIZE_GRIP_W
         edges = ""
         if pos.y() < e:
             edges += "t"
@@ -208,7 +206,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
                 p = self._parent_ref()
                 if p:
                     pg = p.geometry()
-                    snap = 12
+                    snap = S.EDGE_SNAP_THRESHOLD
                     if "b" in e and abs(new_geo.bottom() - pg.bottom()) < snap:
                         new_geo.setBottom(pg.bottom())
                     if "t" in e and abs(new_geo.top() - pg.top()) < snap:

@@ -2,10 +2,7 @@
 """Winamp-style magnetic snap between frameless windows."""
 import weakref
 from PyQt6.QtCore import Qt, QPoint
-
-
-SNAP_DISTANCE = 15
-DETACH_DISTANCE = 40
+from ui.scales import S
 
 # Global registry of all snap-capable windows (weak refs — auto-cleaned)
 _snap_windows = []
@@ -79,7 +76,7 @@ class SnapMixin:
                 snapped_pos = self._calc_snap_pos(other, side)
                 if snapped_pos is not None:
                     delta = new_pos - snapped_pos
-                    if abs(delta.x()) > DETACH_DISTANCE or abs(delta.y()) > DETACH_DISTANCE:
+                    if abs(delta.x()) > S.DETACH_DISTANCE or abs(delta.y()) > S.DETACH_DISTANCE:
                         other._snapped_children = [
                             (wr, s) for wr, s in other._snapped_children
                             if wr() is not None and wr() is not self]
@@ -95,7 +92,7 @@ class SnapMixin:
 
         # Free window — try snap to another
         best_snap = None
-        best_dist = SNAP_DISTANCE
+        best_dist = S.SNAP_DISTANCE
 
         for other in _live_windows():
             if other is self or not other.isVisible():
@@ -156,7 +153,7 @@ class SnapMixin:
         og = other.geometry()
         my_w, my_h = self.width(), self.height()
         candidates = []
-        sd = SNAP_DISTANCE
+        sd = S.SNAP_DISTANCE
 
         # Right of other
         rx = og.right() + 1
