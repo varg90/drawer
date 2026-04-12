@@ -22,11 +22,9 @@ from core.models import ImageItem
 from core.timer_logic import format_time
 from ui.theme import _mix, _darken
 from core.cloud.cache import CacheManager
-from ui.scales import S
+from ui.scales import S, sc
 from ui.icons import Icons
 from ui.widgets import make_icon_btn
-
-GRID_MIN = 48
 
 
 class _ColorLine(QWidget):
@@ -34,7 +32,7 @@ class _ColorLine(QWidget):
     def __init__(self, color, parent=None):
         super().__init__(parent)
         self._color = color
-        self.setFixedHeight(1)
+        self.setFixedHeight(S.COLOR_LINE_H)
     def set_color(self, color):
         self._color = color
         self.update()
@@ -49,9 +47,6 @@ def _short_label(secs):
     if secs >= 60 and secs % 60 == 0:
         return f"{secs // 60}m"
     return f"{secs}s"
-GRID_MAX = 256
-GRID_DEFAULT = 80
-ZOOM_STEP = 16
 
 
 def _sort_group_items(items):
@@ -69,10 +64,10 @@ class PixmapLoader(QThread):
     """Load images from disk in a background thread."""
     loaded = pyqtSignal(str, QImage)
 
-    def __init__(self, paths, max_size=GRID_MAX):
+    def __init__(self, paths, max_size=None):
         super().__init__()
         self._paths = paths
-        self._max = max_size
+        self._max = max_size if max_size is not None else S.GRID_MAX
         self._cancel = False
 
     def cancel(self):
@@ -209,7 +204,7 @@ class EditorPanel(QWidget):
         self._list_container = QWidget()
         self._list_layout = QVBoxLayout(self._list_container)
         self._list_layout.setContentsMargins(0, 0, 0, 0)
-        self._list_layout.setSpacing(4)
+        self._list_layout.setSpacing(S.LIST_SPACING)
         self._list_layout.addStretch()
         self._list_scroll.setWidget(self._list_container)
         self._stack.addWidget(self._list_scroll)
@@ -230,7 +225,7 @@ class EditorPanel(QWidget):
         self._grid_container = QWidget()
         self._grid_layout = QVBoxLayout(self._grid_container)
         self._grid_layout.setContentsMargins(0, 0, 0, 0)
-        self._grid_layout.setSpacing(4)
+        self._grid_layout.setSpacing(S.GRID_SPACING)
         self._grid_layout.addStretch()
         self._grid_scroll.setWidget(self._grid_container)
         self._stack.addWidget(self._grid_scroll)
@@ -261,9 +256,9 @@ class EditorPanel(QWidget):
         self._zoom_label.hide()
 
         self._zoom_slider = QSlider(Qt.Orientation.Horizontal)
-        self._zoom_slider.setRange(GRID_MIN, GRID_MAX)
-        self._zoom_slider.setValue(GRID_DEFAULT)
-        self._zoom_slider.setFixedWidth(90)
+        self._zoom_slider.setRange(S.GRID_MIN, S.GRID_MAX)
+        self._zoom_slider.setValue(S.GRID_DEFAULT)
+        self._zoom_slider.setFixedWidth(S.ZOOM_SLIDER_W)
         self._zoom_slider.valueChanged.connect(self._on_zoom)
         self._zoom_slider.hide()
 
@@ -279,12 +274,12 @@ class EditorPanel(QWidget):
 
         self._zoom_out_btn.clicked.connect(
             lambda: self._zoom_slider.setValue(
-                max(self._zoom_slider.value() - ZOOM_STEP, self._zoom_slider.minimum())
+                max(self._zoom_slider.value() - S.GRID_ZOOM_STEP, self._zoom_slider.minimum())
             )
         )
         self._zoom_in_btn.clicked.connect(
             lambda: self._zoom_slider.setValue(
-                min(self._zoom_slider.value() + ZOOM_STEP, self._zoom_slider.maximum())
+                min(self._zoom_slider.value() + S.GRID_ZOOM_STEP, self._zoom_slider.maximum())
             )
         )
 
@@ -346,9 +341,9 @@ class EditorPanel(QWidget):
         self._list_container.setObjectName("editorListContainer")
         self._grid_container.setObjectName("editorGridContainer")
         scrollbar_s = (
-            f"QScrollBar:vertical {{ background: transparent; width: 4px; margin: 0; }}"
+            f"QScrollBar:vertical {{ background: transparent; width: {S.SCROLLBAR_W}px; margin: 0; }}"
             f"QScrollBar::handle:vertical {{ background: {t.text_hint}; "
-            f"min-height: 20px; border-radius: 2px; }}"
+            f"min-height: {S.SCROLLBAR_HANDLE_MIN_H}px; border-radius: {S.SCROLLBAR_RADIUS}px; }}"
             f"QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}"
             f"QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}"
         )
@@ -370,7 +365,7 @@ class EditorPanel(QWidget):
         self._list_style = (
             f"QListWidget {{ background-color: transparent; border: none; "
             f"font-family: 'Lexend'; font-size: {S.FONT_BUTTON}px; color: {t.text_primary}; }}"
-            f"QListWidget::item {{ padding: 2px; }}"
+            f"QListWidget::item {{ padding: {S.LIST_ITEM_PADDING}px; }}"
             f"QListWidget::item:selected {{ background-color: {t.bg_active}; }}"
         )
         # Mockup: plain text, accent-tinted, no bg/border
@@ -378,21 +373,21 @@ class EditorPanel(QWidget):
         self._header_style = (
             f"background-color: transparent; color: {_accent_header}; "
             f"border: none; font-family: 'Lexend'; font-size: {S.FONT_LABEL}px; "
-            f"font-weight: 500; padding: 3px 2px 1px; text-align: left;"
+            f"font-weight: 500; padding: {S.HEADER_PADDING_TOP}px {S.HEADER_PADDING_H}px {S.HEADER_PADDING_BOTTOM}px; text-align: left;"
         )
         self._header_reserve_style = (
             f"background-color: transparent; color: {t.text_hint}; "
             f"border: none; font-family: 'Lexend'; font-size: {S.FONT_LABEL}px; "
-            f"font-weight: 500; padding: 3px 2px 1px; text-align: left;"
+            f"font-weight: 500; padding: {S.HEADER_PADDING_TOP}px {S.HEADER_PADDING_H}px {S.HEADER_PADDING_BOTTOM}px; text-align: left;"
         )
 
         # Zoom slider
         self._zoom_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: {S.FONT_LABEL}px; font-weight: 500;")
         self._zoom_slider.setStyleSheet(
-            f"QSlider::groove:horizontal {{ background: {t.border}; height: 4px; }}"
+            f"QSlider::groove:horizontal {{ background: {t.border}; height: {S.SLIDER_GROOVE_H}px; }}"
             f"QSlider::handle:horizontal {{ background: {t.text_secondary}; "
-            f"width: 12px; margin: -4px 0; }}"
+            f"width: {S.SLIDER_HANDLE_W}px; margin: -{S.SLIDER_HANDLE_MARGIN}px 0; }}"
         )
 
         self._cache_size_label.setStyleSheet(
@@ -530,7 +525,7 @@ class EditorPanel(QWidget):
 
                 lw.addItem(item)
 
-            lw.setFixedHeight(len(items) * 30 + 4)
+            lw.setFixedHeight(len(items) * S.LIST_ITEM_H + S.LIST_PADDING)
 
             # Context menu for pin / move-to-group
             lw.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -599,7 +594,7 @@ class EditorPanel(QWidget):
                     rp = QPainter(rounded)
                     rp.setRenderHint(QPainter.RenderHint.Antialiasing)
                     rpath = QPainterPath()
-                    rpath.addRoundedRect(QRectF(rounded.rect()), 3, 3)
+                    rpath.addRoundedRect(QRectF(rounded.rect()), S.GRID_TILE_RADIUS, S.GRID_TILE_RADIUS)
                     rp.setClipPath(rpath)
                     rp.drawPixmap(0, 0, scaled)
                     rp.end()
@@ -611,7 +606,7 @@ class EditorPanel(QWidget):
                 # Border style per state — all tiles get rounded corners
                 pinned = getattr(img, "pinned", False)
                 if is_reserve:
-                    lbl.setStyleSheet(f"border: 1px dashed {t.text_hint};")
+                    lbl.setStyleSheet(f"border: {S.EDITOR_BORDER_DASHED}px dashed {t.text_hint};")
                 else:
                     lbl.setStyleSheet("border: none;")
 
@@ -620,7 +615,7 @@ class EditorPanel(QWidget):
                     pin_sz = max(8, min(20, int(sz * 0.18)))
                     pin_overlay = QLabel(lbl)
                     pin_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-                    pin_overlay.setFixedSize(pin_sz + 2, pin_sz + 2)
+                    pin_overlay.setFixedSize(pin_sz + S.PIN_OVERLAY_PADDING, pin_sz + S.PIN_OVERLAY_PADDING)
                     pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_primary)
                     pin_overlay.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
                     pin_overlay.setStyleSheet("border: none; background: transparent;")
@@ -637,7 +632,7 @@ class EditorPanel(QWidget):
                 po = getattr(lbl, '_pin_overlay', None)
                 if po:
                     psz = lbl._pin_sz
-                    po.move(lbl.width() - psz - 4, 2)
+                    po.move(lbl.width() - psz - S.PIN_POS_X_OFFSET, S.PIN_POS_Y_OFFSET)
             grid.setFixedHeight(h)
             grid._labels = labels
 
@@ -662,7 +657,7 @@ class EditorPanel(QWidget):
             pix = QPixmap(path)
             if not pix.isNull():
                 pix = pix.scaled(
-                    GRID_MAX, GRID_MAX,
+                    S.GRID_MAX, S.GRID_MAX,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
@@ -766,7 +761,7 @@ class EditorPanel(QWidget):
                         rp = QPainter(rounded)
                         rp.setRenderHint(QPainter.RenderHint.Antialiasing)
                         rpath = QPainterPath()
-                        rpath.addRoundedRect(QRectF(rounded.rect()), 3, 3)
+                        rpath.addRoundedRect(QRectF(rounded.rect()), S.GRID_TILE_RADIUS, S.GRID_TILE_RADIUS)
                         rp.setClipPath(rpath)
                         rp.drawPixmap(0, 0, scaled)
                         rp.end()
@@ -778,7 +773,7 @@ class EditorPanel(QWidget):
                     t = self.theme
                     pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_primary)
                     po.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
-                    po.setFixedSize(pin_sz + 2, pin_sz + 2)
+                    po.setFixedSize(pin_sz + S.PIN_OVERLAY_PADDING, pin_sz + S.PIN_OVERLAY_PADDING)
                     lbl._pin_sz = pin_sz
             h = _flow_position(labels, w, value)
             grid.setFixedHeight(h)
@@ -786,7 +781,7 @@ class EditorPanel(QWidget):
             for lbl in labels:
                 po = getattr(lbl, '_pin_overlay', None)
                 if po:
-                    po.move(lbl.width() - lbl._pin_sz - 4, 2)
+                    po.move(lbl.width() - lbl._pin_sz - S.PIN_POS_X_OFFSET, S.PIN_POS_Y_OFFSET)
 
     def _reflow_grid(self):
         if self._view_mode != "grid" or not self._grid_groups:
@@ -802,7 +797,7 @@ class EditorPanel(QWidget):
                     po = getattr(lbl, '_pin_overlay', None)
                     if po:
                         psz = lbl._pin_sz
-                        po.move(lbl.width() - psz - 4, 2)
+                        po.move(lbl.width() - psz - S.PIN_POS_X_OFFSET, S.PIN_POS_Y_OFFSET)
 
     # ------------------------------------------------------------------
     # Grid tile selection
@@ -818,7 +813,7 @@ class EditorPanel(QWidget):
         t = self.theme
         self._selected_tiles.add(lbl)
         lbl._selected = True
-        lbl.setStyleSheet(f"border: 2px solid {t.border_active};")
+        lbl.setStyleSheet(f"border: {S.EDITOR_BORDER_SELECTED}px solid {t.border_active};")
 
     def _deselect_tile(self, lbl):
         self._selected_tiles.discard(lbl)
@@ -831,7 +826,7 @@ class EditorPanel(QWidget):
             pinned = getattr(img, "pinned", False)
             is_reserve = img.timer == 0
             if is_reserve:
-                lbl.setStyleSheet(f"border: 1px dashed {t.text_hint};")
+                lbl.setStyleSheet(f"border: {S.EDITOR_BORDER_DASHED}px dashed {t.text_hint};")
             else:
                 lbl.setStyleSheet("border: none;")
         else:
@@ -1058,7 +1053,7 @@ class EditorPanel(QWidget):
         msg.setDefaultButton(QMessageBox.StandardButton.No)
         t = self.theme
         msg.setStyleSheet(
-            f"background-color: {t.bg}; color: {t.text_primary}; font-size: 12px;")
+            f"background-color: {t.bg}; color: {t.text_primary}; font-size: {S.FONT_MSG_BOX}px;")
         if msg.exec() != QMessageBox.StandardButton.Yes:
             return
         self.images = []
@@ -1130,7 +1125,7 @@ class EditorPanel(QWidget):
         if (event.type() == event.Type.Wheel
                 and event.modifiers() & Qt.KeyboardModifier.ControlModifier):
             delta = event.angleDelta().y()
-            step = ZOOM_STEP if delta > 0 else -ZOOM_STEP
+            step = S.GRID_ZOOM_STEP if delta > 0 else -S.GRID_ZOOM_STEP
             slider = self._zoom_slider
             slider.setValue(
                 max(slider.minimum(), min(slider.value() + step, slider.maximum()))
