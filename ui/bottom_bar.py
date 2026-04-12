@@ -42,7 +42,7 @@ class BottomBar(QWidget):
         summary_col.addWidget(self._groups_label)
 
         summary_time = QHBoxLayout()
-        summary_time.setSpacing(4)
+        summary_time.setSpacing(S.SUMMARY_TIME_SPACING)
         summary_time.setContentsMargins(0, 0, 0, 0)
 
         self._total_label = QLabel("")
@@ -79,7 +79,7 @@ class BottomBar(QWidget):
         layout.addWidget(summary_widget, 0, Qt.AlignmentFlag.AlignBottom)
         layout.addStretch()
         layout.addWidget(self._add_btn, 0, Qt.AlignmentFlag.AlignBottom)
-        layout.addSpacing(8)
+        layout.addSpacing(S.START_BTN_SPACING)
         layout.addWidget(self._start_btn, 0, Qt.AlignmentFlag.AlignBottom)
 
     # ------------------------------------------------------------------ Session limit
@@ -109,13 +109,13 @@ class BottomBar(QWidget):
         if secs is None:
             self._limit_btn.setText("no limit")
             self._limit_btn.setStyleSheet(
-                f"color: {t.text_hint}; font-size: 9px; font-weight: 500; "
+                f"color: {t.text_hint}; font-size: {S.FONT_LIMIT_BTN}px; font-weight: 500; "
                 f"font-family: 'Lexend'; "
                 f"background: transparent; border: none; padding: 0;")
         else:
             self._limit_btn.setText(f"limit: {label}")
             self._limit_btn.setStyleSheet(
-                f"color: {t.accent}; font-size: 9px; font-weight: 500; "
+                f"color: {t.accent}; font-size: {S.FONT_LIMIT_BTN}px; font-weight: 500; "
                 f"font-family: 'Lexend'; "
                 f"background: transparent; border: none; padding: 0; "
                 f"text-decoration: underline;")
@@ -174,7 +174,7 @@ class BottomBar(QWidget):
         self._total_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500; "
             f"font-family: 'Lexend';")
-        self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px; font-family: 'Lexend';")
+        self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: {S.FONT_LIMIT_SEP}px; font-family: 'Lexend';")
         self._update_limit_display()
 
         self._add_btn.set_icon(Icons.PLUS, t.bg_button)
