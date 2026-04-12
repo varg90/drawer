@@ -68,7 +68,7 @@ class BottomBar(QWidget):
 
         # Start button (right side)
         add_size = 26
-        add_icon_sz = int(add_size * S.START_ICON_RATIO)
+        add_icon_sz = add_size
         add_radius = int(add_size * S.START_RADIUS_RATIO)
         self._add_btn = QPushButton()
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=self.theme.text_hint))
