@@ -1,8 +1,38 @@
 # ui/scales.py
 """Centralized size definitions — single source of truth for all UI dimensions."""
 
+_factor = 1.0
 
-class S:
+# Base values (unscaled) — used by init_scale to recompute S.* constants
+_BASE = {}
+
+
+def sc(value):
+    """Scale a pixel value by the current factor, rounded to int."""
+    return round(value * _factor)
+
+
+def init_scale(factor):
+    """Recompute all S.* pixel constants with the given factor. Call once at startup."""
+    global _factor
+    _factor = factor
+    for attr, val in _BASE.items():
+        setattr(S, attr, round(val * factor))
+
+
+class _SMeta(type):
+    """Metaclass that records base values of int class attributes."""
+    def __init__(cls, name, bases, namespace):
+        super().__init__(name, bases, namespace)
+        for attr, val in namespace.items():
+            if attr.startswith('_'):
+                continue
+            if isinstance(val, int):
+                _BASE[attr] = val
+            # floats (ratios) are NOT recorded — they don't scale
+
+
+class S(metaclass=_SMeta):
     # Window
     MAIN_W = 250
     MAIN_H = 250
@@ -21,7 +51,7 @@ class S:
     # Icons — bottom bar
     ICON_START = 52
 
-    # Start button
+    # Start button (ratios — NOT scaled)
     START_ICON_RATIO = 0.75
     START_RADIUS_RATIO = 0.19  # ~10px on 52px button
 
@@ -52,5 +82,5 @@ class S:
     PANEL_PADDING = 6
 
     # Editor
-    EDITOR_BTN = 15       # header toolbar icons
-    EDITOR_BTN_BOTTOM = 11  # bottom bar icons (smaller per mockup)
+    EDITOR_BTN = 15
+    EDITOR_BTN_BOTTOM = 11
