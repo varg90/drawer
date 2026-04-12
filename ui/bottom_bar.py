@@ -1,13 +1,13 @@
 """BottomBar — summary labels, session limit, add button, start button."""
 import qtawesome as qta
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, pyqtSignal
 from core.constants import SESSION_LIMIT_PRESETS
 from core.timer_logic import format_time
 from core.class_mode import total_duration
 from ui.scales import S
 from ui.icons import Icons
-from ui.widgets import make_start_btn, make_filled_icon
+from ui.widgets import make_start_btn, RoundedIconButton
 
 
 class BottomBar(QWidget):
@@ -66,19 +66,11 @@ class BottomBar(QWidget):
 
         summary_col.addLayout(summary_time)
 
-        # Start button (right side)
-        size = S.ICON_START
-        icon_sz = int(size * S.START_ICON_RATIO)
-        radius = int(size * S.START_RADIUS_RATIO)
-        self._add_btn = QPushButton()
-        self._add_btn.setIcon(make_filled_icon(Icons.PLUS, self.theme.bg_button, size))
-        self._add_btn.setIconSize(QSize(size, size))
-        self._add_btn.setFixedSize(size, size)
-        self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Add button (right side)
+        self._add_btn = RoundedIconButton(
+            Icons.PLUS, self.theme.bg_button, self.theme.text_hint,
+            S.ICON_START)
         self._add_btn.setToolTip("Add files")
-        self._add_btn.setStyleSheet(
-            f"background-color: {self.theme.text_hint}; border: none; "
-            f"padding: 0px; border-radius: {radius}px;")
         self._add_btn.clicked.connect(self.add_clicked.emit)
 
         self._start_btn = make_start_btn(self.theme)
@@ -185,10 +177,8 @@ class BottomBar(QWidget):
         self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: 10px; font-family: 'Lexend';")
         self._update_limit_display()
 
-        self._add_btn.setIcon(make_filled_icon(Icons.PLUS, t.bg_button, S.ICON_START))
-        self._add_btn.setStyleSheet(
-            f"background-color: {t.text_hint}; border: none; "
-            f"padding: 0px; border-radius: {int(S.ICON_START * S.START_RADIUS_RATIO)}px;")
+        self._add_btn.set_icon(Icons.PLUS, t.bg_button)
+        self._add_btn.set_bg(t.text_hint)
         self._start_btn.setIcon(qta.icon(Icons.START, color=t.start_text))
         self._start_btn.setStyleSheet(
             f"background-color: {t.start_bg}; border: none; "
