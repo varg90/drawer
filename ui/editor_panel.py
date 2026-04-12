@@ -491,6 +491,8 @@ class EditorPanel(QWidget):
             header.setCheckable(False)
 
             lw = QListWidget(self._list_container)
+            lw.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             lw.setDragDropMode(QListWidget.DragDropMode.InternalMove)
             lw.setDefaultDropAction(Qt.DropAction.MoveAction)
             lw.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
