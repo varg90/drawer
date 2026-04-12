@@ -88,7 +88,7 @@ class S(metaclass=_SMeta):
     # Viewer window
     VIEWER_MIN_W = 200
     VIEWER_MIN_H = 150
-    VIEWER_CORNER_GRIP = 50
+    VIEWER_CORNER_GRIP = 100
     VIEWER_NAV_ZONE = 40
     VIEWER_CENTER_BTN = 60
     VIEWER_ICON_LABEL = 20
@@ -159,7 +159,7 @@ class S(metaclass=_SMeta):
     MODE_BTN_PADDING_H = 8
 
     # Image editor window
-    RESIZE_GRIP_W = 50
+    RESIZE_GRIP_W = 100
     EDITOR_TITLE_SPACING = 4
     EDITOR_TITLE_BOTTOM_SPACE = 6
     EDITOR_MIN_W = 200
