@@ -1,6 +1,12 @@
 import sys
 import os
 import logging
+import platform
+
+# Tell Windows this is a separate app (shows our icon in taskbar, not Python's)
+if platform.system() == "Windows":
+    import ctypes
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("drawer.app")
 
 if getattr(sys, "frozen", False):
     DATA_DIR = sys._MEIPASS
