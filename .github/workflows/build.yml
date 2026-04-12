@@ -121,6 +121,7 @@ jobs:
             --add-data "fonts:fonts" \
             $PYINSTALLER_EXCLUDES \
             main.py
+          xattr -cr dist/Drawer.app
           hdiutil create -volname Drawer \
             -srcfolder dist/Drawer.app \
             -ov -format UDZO dist/Drawer.dmg
