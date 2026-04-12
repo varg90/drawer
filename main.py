@@ -3,7 +3,7 @@ import os
 import logging
 
 if getattr(sys, "frozen", False):
-    APP_DIR = os.path.dirname(sys.executable)
+    APP_DIR = sys._MEIPASS
 else:
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
