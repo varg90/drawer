@@ -169,7 +169,7 @@ class BottomBar(QWidget):
     def apply_theme(self):
         t = self.theme
         self._groups_label.setStyleSheet(
-            f"color: {t.text_secondary}; font-size: {S.FONT_HINT}px; font-weight: 500; "
+            f"color: {t.text_hint}; font-size: {S.FONT_HINT}px; font-weight: 400; "
             f"font-family: 'Lexend';")
         self._total_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500; "
