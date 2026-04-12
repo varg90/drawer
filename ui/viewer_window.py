@@ -14,12 +14,20 @@ MIN_WIDTH = 200
 MIN_HEIGHT = 150
 NAV_ZONE = 40  # side click zone width
 
-# Windows scan codes for physical key positions (layout-independent hotkeys)
-SC_H = 35
-SC_G = 34
-SC_R = 19
-SC_F = 33
-SC_V = 47
+# Native scan codes for physical key positions (layout-independent hotkeys)
+import sys as _sys
+if _sys.platform == "darwin":
+    SC_H = 4   # macOS keycode for H position
+    SC_G = 5   # macOS keycode for G position
+    SC_R = 15  # macOS keycode for R position
+    SC_F = 3   # macOS keycode for F position
+    SC_V = 9   # macOS keycode for V position
+else:
+    SC_H = 35  # Windows scan code
+    SC_G = 34
+    SC_R = 19
+    SC_F = 33
+    SC_V = 47
 FADE_MS = 200
 
 # Icon colors
