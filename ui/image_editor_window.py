@@ -131,10 +131,10 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
     def _view_mode(self, val):
         self.__dict__['_view_mode_init'] = val
 
-    def _edge_at(self, pos):
+    def _edge_at(self, pos, cursor_only=False):
         """Return which edge(s) the cursor is near, or None."""
         r = self.rect()
-        e = S.RESIZE_GRIP_W
+        e = S.RESIZE_CURSOR_W if cursor_only else S.RESIZE_GRIP_W
         edges = ""
         if pos.y() < e:
             edges += "t"
@@ -171,9 +171,9 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self.snap_mouse_press(event)
 
     def mouseMoveEvent(self, event):
-        # Update cursor on hover — only call setCursor when edge changes
+        # Update cursor on hover — wider zone for visual hint
         if not event.buttons():
-            edge = self._edge_at(event.pos())
+            edge = self._edge_at(event.pos(), cursor_only=True)
             if edge != self._last_edge:
                 self._last_edge = edge
                 self.setCursor(self._cursor_for_edge(edge) if edge else Qt.CursorShape.ArrowCursor)
