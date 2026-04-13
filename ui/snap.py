@@ -113,6 +113,7 @@ class SnapMixin:
             self._snapped_to = (weakref.ref(other), side)
             if not any(wr() is self for wr, _ in other._snapped_children):
                 other._snapped_children.append((weakref.ref(self), side))
+            self._on_snapped(other, side)
             self.update()
             other.update()
         else:
@@ -120,6 +121,10 @@ class SnapMixin:
 
         event.accept()
         return True
+
+    def _on_snapped(self, other, side):
+        """Called when this window snaps to another. Override to customize."""
+        pass
 
     def snap_mouse_release(self, event):
         self._drag_pos = None

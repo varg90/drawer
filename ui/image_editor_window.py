@@ -214,6 +214,10 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
 
         self.snap_mouse_move(event)
 
+    def _on_snapped(self, other, side):
+        """Reset size to match parent when re-snapping."""
+        self.resize(S.EDITOR_W, other.height())
+
     def mouseReleaseEvent(self, event):
         self._resizing = False
         self._resize_edge = None

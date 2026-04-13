@@ -635,7 +635,7 @@ class EditorPanel(QWidget):
                     pin_overlay = QLabel(lbl)
                     pin_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
                     pin_overlay.setFixedSize(pin_sz + S.PIN_OVERLAY_PADDING, pin_sz + S.PIN_OVERLAY_PADDING)
-                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_primary)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_hint)
                     pin_overlay.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
                     pin_overlay.setStyleSheet("border: none; background: transparent;")
                     # Position after label is sized by flow layout
@@ -799,7 +799,7 @@ class EditorPanel(QWidget):
                 if po:
                     pin_sz = max(8, min(20, int(value * 0.18)))
                     t = self.theme
-                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_primary)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_hint)
                     po.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
                     po.setFixedSize(pin_sz + S.PIN_OVERLAY_PADDING, pin_sz + S.PIN_OVERLAY_PADDING)
                     lbl._pin_sz = pin_sz
