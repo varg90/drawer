@@ -58,7 +58,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.setMinimumSize(S.MAIN_MIN, S.MAIN_MIN)
         self.resize(S.MAIN_W, S.MAIN_H)
         self._resize_edge = None
-        self._resize_start = None
         self._resize_geo = None
         self._resize_outline = None
         self._last_edge = None
@@ -302,18 +301,20 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             return Qt.CursorShape.SizeBDiagCursor
         return Qt.CursorShape.ArrowCursor
 
-    def _calc_resize_geo(self, delta):
-        """Calculate target square geometry from drag delta.
-        _edge_at always returns a corner (tl/tr/bl/br), so both axes are present."""
+    def _calc_resize_geo(self, mouse_global):
+        """Calculate target square geometry from current mouse position.
+        Size = distance from anchor corner to mouse, clamped to limits."""
         from PyQt6.QtCore import QRect
         geo = self._resize_geo
         e = self._resize_edge
-        dx = delta.x() if "r" in e else -delta.x()
-        dy = delta.y() if "b" in e else -delta.y()
-        d = dx if abs(dx) >= abs(dy) else dy
+        # Anchor is the opposite corner — it stays fixed
+        ax = geo.left() if "r" in e else geo.right()
+        ay = geo.top() if "b" in e else geo.bottom()
+        # Size = max of horizontal/vertical distance from anchor to mouse
+        new_size = max(abs(mouse_global.x() - ax), abs(mouse_global.y() - ay))
         screen = self.screen()
         max_size = screen.availableGeometry().height() if screen else 900
-        new_size = max(S.MAIN_MIN, min(max_size, geo.width() + d))
+        new_size = max(S.MAIN_MIN, min(max_size, new_size))
         new_geo = QRect(geo)
         if "l" in e:
             new_geo.setLeft(geo.right() - new_size + 1)
@@ -353,7 +354,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             edge = self._edge_at(event.pos(), cursor_only=True)
             if edge:
                 self._resize_edge = edge
-                self._resize_start = event.globalPosition().toPoint()
                 self._resize_geo = self.geometry()
                 self._show_resize_outline()
                 event.accept()
@@ -369,8 +369,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                 self.setCursor(self._cursor_for_edge(edge) if edge else Qt.CursorShape.ArrowCursor)
             return
         if self._resize_edge:
-            delta = event.globalPosition().toPoint() - self._resize_start
-            new_geo = self._calc_resize_geo(delta)
+            new_geo = self._calc_resize_geo(event.globalPosition().toPoint())
             if self._resize_outline:
                 self._resize_outline.setGeometry(new_geo)
             event.accept()
