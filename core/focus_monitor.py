@@ -3,6 +3,7 @@
 Windows: ctypes calls to user32/kernel32/psapi.
 macOS: Cocoa NSWorkspace via objc runtime.
 """
+import os
 import sys
 
 # System processes that are never meaningful app targets
@@ -33,42 +34,40 @@ def list_window_apps():
 
 # ------------------------------------------------------------------ Windows
 
-def _win_get_process_name(hwnd):
-    """Get process executable name from a window handle."""
+if sys.platform == "win32":
     import ctypes
     from ctypes import wintypes
+    _user32 = ctypes.windll.user32
+    _kernel32 = ctypes.windll.kernel32
+    _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
-    user32 = ctypes.windll.user32
-    kernel32 = ctypes.windll.kernel32
 
+def _win_get_process_name(hwnd):
+    """Get process executable name from a window handle."""
     pid = wintypes.DWORD()
-    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    _user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
     if not pid.value:
         return None
 
-    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False,
-                                  pid.value)
+    handle = _kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False,
+                                   pid.value)
     if not handle:
         return None
     try:
         buf = ctypes.create_unicode_buffer(260)
         size = wintypes.DWORD(260)
-        kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size))
+        _kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size))
         path = buf.value
         if not path:
             return None
-        # Extract filename without extension: "C:\...\Photoshop.exe" -> "Photoshop"
-        import os
         return os.path.splitext(os.path.basename(path))[0]
     finally:
-        kernel32.CloseHandle(handle)
+        _kernel32.CloseHandle(handle)
 
 
 def _win_foreground():
     """Return the process name of the foreground window on Windows."""
-    import ctypes
-    hwnd = ctypes.windll.user32.GetForegroundWindow()
+    hwnd = _user32.GetForegroundWindow()
     if not hwnd:
         return None
     return _win_get_process_name(hwnd)
@@ -76,17 +75,12 @@ def _win_foreground():
 
 def _win_list_apps():
     """Enumerate visible top-level windows and return unique process names."""
-    import ctypes
-    from ctypes import wintypes
-
-    user32 = ctypes.windll.user32
     names = set()
 
     def _enum_callback(hwnd, _):
-        if not user32.IsWindowVisible(hwnd):
+        if not _user32.IsWindowVisible(hwnd):
             return True
-        length = user32.GetWindowTextLengthW(hwnd)
-        if length == 0:
+        if _user32.GetWindowTextLengthW(hwnd) == 0:
             return True
         name = _win_get_process_name(hwnd)
         if name and name not in _WIN_SYSTEM_APPS:
@@ -95,7 +89,7 @@ def _win_list_apps():
 
     WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND,
                                       wintypes.LPARAM)
-    user32.EnumWindows(WNDENUMPROC(_enum_callback), 0)
+    _user32.EnumWindows(WNDENUMPROC(_enum_callback), 0)
     return sorted(names)
 
 
