@@ -212,8 +212,6 @@ class ViewerWindow(QWidget):
 
         self._top_right = QWidget(self)
         self._top_right.setStyleSheet("background: transparent;")
-        self._settings_btn = _icon_btn(Icons.DOTS_MENU, 20, self._top_right, tooltip="Настройки")
-        self._settings_btn.clicked.connect(self._open_settings)
         self._close_btn = _icon_btn(Icons.CLOSE, 20, self._top_right, tooltip="Закрыть")
         self._close_btn.clicked.connect(self.close)
 
@@ -572,16 +570,6 @@ class ViewerWindow(QWidget):
             self.showFullScreen()
         self._update_display()
 
-    def _open_settings(self):
-        if not self.on_close:
-            return
-        if self._settings_window and self._settings_window.isVisible():
-            self._settings_window.close()
-        else:
-            if not self._paused:
-                self._toggle_pause()
-            self.on_close(return_only=True)
-
     def _finish(self):
         self._focus_timer.stop()
         self._qtimer.stop()
@@ -708,8 +696,8 @@ class ViewerWindow(QWidget):
         tc_w = btn_sz * 4 + gap * 3
         tc_x = (w - tc_w) // 2
 
-        # Top right: settings + close
-        tr_w = btn_sz * 2 + gap
+        # Top right: close
+        tr_w = btn_sz
         tr_x = w - tr_w - margin
 
         # If centered tools would overlap, push them left after info button
@@ -724,8 +712,7 @@ class ViewerWindow(QWidget):
         self._flipv_btn.setGeometry(3 * (btn_sz + gap), 0, btn_sz, btn_sz)
 
         self._top_right.setGeometry(tr_x, margin, tr_w, btn_sz)
-        self._settings_btn.setGeometry(0, 0, btn_sz, btn_sz)
-        self._close_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
+        self._close_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
         # Center
         self._center_btn.move((w - S.VIEWER_CENTER_BTN) // 2, (h - S.VIEWER_CENTER_BTN) // 2)
