@@ -7,8 +7,8 @@ class Icons:
     START = "fa6s.pencil"
 
     # Focus tracking toggle
-    FOCUS_ON = "ph.eye-bold"
-    FOCUS_OFF = "ph.eye-slash-bold"
+    FOCUS_ON = "mdi.monitor-eye"
+    FOCUS_OFF = "ph.eye-closed-bold"
 
     # Accent color picker
     PALETTE = "ph.palette-fill"
