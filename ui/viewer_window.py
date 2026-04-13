@@ -701,22 +701,20 @@ class ViewerWindow(QWidget):
         # Viewer tools — reflow based on available space:
         # 1) horizontal at top if wide enough
         # 2) vertical column on left if tall enough
-        # 3) split 2 left + 2 right if square/small
+        # 3) hide if too small (keyboard shortcuts still work)
         tl_right = margin + btn_sz + gap
-        left_btns = [self._bw_btn, self._grid_btn]
-        right_btns = [self._fliph_btn, self._flipv_btn]
-        all_btns = left_btns + right_btns
+        all_btns = [self._bw_btn, self._grid_btn,
+                    self._fliph_btn, self._flipv_btn]
         tc_w = btn_sz * 4 + gap * 3
         fits_horizontal = tl_right + tc_w + gap + tr_w <= w - margin
         col4_h = btn_sz * 4 + gap * 3
         col_y = margin + btn_sz + gap
         fits_vertical_4 = col_y + col4_h < (h - S.VIEWER_CENTER_BTN) // 2
 
-        self._top_center.show()
-        for btn in all_btns:
-            btn.show()
-
         if fits_horizontal:
+            self._top_center.show()
+            for btn in all_btns:
+                btn.show()
             tc_x = (w - tc_w) // 2
             if tc_x < tl_right:
                 tc_x = tl_right
@@ -724,18 +722,14 @@ class ViewerWindow(QWidget):
             for i, btn in enumerate(all_btns):
                 btn.setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
         elif fits_vertical_4:
+            self._top_center.show()
+            for btn in all_btns:
+                btn.show()
             self._top_center.setGeometry(margin, col_y, btn_sz, col4_h)
             for i, btn in enumerate(all_btns):
                 btn.setGeometry(0, i * (btn_sz + gap), btn_sz, btn_sz)
         else:
-            col2_h = btn_sz * 2 + gap
-            self._top_center.setGeometry(margin, col_y,
-                                          w - margin * 2, col2_h)
-            for i, btn in enumerate(left_btns):
-                btn.setGeometry(0, i * (btn_sz + gap), btn_sz, btn_sz)
-            right_x = w - margin * 2 - btn_sz
-            for i, btn in enumerate(right_btns):
-                btn.setGeometry(right_x, i * (btn_sz + gap), btn_sz, btn_sz)
+            self._top_center.hide()
 
         # Center
         self._center_btn.move((w - S.VIEWER_CENTER_BTN) // 2, (h - S.VIEWER_CENTER_BTN) // 2)
