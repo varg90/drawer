@@ -192,6 +192,10 @@ class S(metaclass=_SMeta):
     FONT_LIMIT_BTN = 9
     FONT_LIMIT_SEP = 10
 
+    # Focus tracker
+    FONT_FOCUS_BTN = 9
+    FOCUS_DROPDOWN_MAX = 10
+
     # URL dialog
     URL_DLG_MIN_W = 400
     URL_DLG_MARGIN_H = 16
