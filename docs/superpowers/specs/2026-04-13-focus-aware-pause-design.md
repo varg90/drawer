@@ -62,12 +62,16 @@ The groups distribution text ("4x30s 4x1m 4x3m...") is removed from the settings
 
 ### Window Focus Detection
 
-- On Windows: poll `GetForegroundWindow()` via ctypes, or use Qt's `QWindow` / platform events
+- **Windows:** poll `GetForegroundWindow()` via ctypes + `GetWindowThreadProcessId()` to identify the process
+- **macOS:** `NSWorkspace.activeApplication()` via PyObjC or `CGWindowListCopyWindowInfo`
 - Match tracked app by process name or window class name
 - Polling interval: ~500ms–1s (lightweight, no performance concern)
+- Platform-specific code goes in `ui/platform.py` (existing pattern)
 
 ### App Discovery
 
 - Enumerate visible top-level windows with titles
-- Filter out system/shell windows (taskbar, desktop, system tray)
+- **Windows:** `EnumWindows()` via ctypes
+- **macOS:** `CGWindowListCopyWindowInfo()` 
+- Filter out system/shell windows (taskbar, desktop, system tray, Dock)
 - Display the application name (not window title) where possible
