@@ -166,6 +166,17 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._update_summary()
         if self._editor_visible:
             self.editor.refresh(self.images)
+            self._sync_editor_tiers()
+
+    def _sync_editor_tiers(self):
+        """Push configured tier timer values to editor panel."""
+        if not self._editor_visible:
+            return
+        groups = self._timer_panel.class_groups
+        if groups:
+            self.editor._panel._all_tier_timers = [t for _, t in groups]
+        else:
+            self.editor._panel._all_tier_timers = []
 
     def _apply_class_timers(self):
         groups = self._timer_panel.class_groups
@@ -263,7 +274,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         cw = self.centralWidget()
         overlay = QWidget(cw)
         overlay.setGeometry(cw.rect())
-        overlay.setStyleSheet(f"background-color: rgba({t.bg_rgb}, 230);")
+        overlay.setStyleSheet(
+            f"background-color: rgba({t.bg_rgb}, 230);"
+            f"border-radius: {S.WINDOW_RADIUS}px;")
 
         layout = QVBoxLayout(overlay)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -332,7 +345,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             self.editor._apply_theme()
             self.editor._panel.theme = self.theme
             self.editor._panel._apply_theme()
-            self.editor._panel._rebuild()
+            self.editor._panel._restyle_groups()
 
     # ------------------------------------------------------------------ Toggle methods
 
@@ -385,6 +398,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.editor.show()
         self.editor._snapped_to = (weakref.ref(self), "right")
         self._snapped_children.append((weakref.ref(self.editor), "right"))
+        self._sync_editor_tiers()
         self.update()  # repaint with snapped corner radii
         self.editor.update()
 
@@ -430,6 +444,21 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         if not self.images:
             return
 
+        mode = self._timer_panel.timer_mode
+        # Assign timers before shuffling so tiers stay correct
+        if mode == "quick":
+            timer = self._timer_panel.get_timer_seconds()
+            for img in self.images:
+                if not img.pinned:
+                    img.timer = timer
+        elif self._timer_panel.class_groups:
+            timers = groups_to_timers(self._timer_panel.class_groups)
+            idx = 0
+            for img in self.images:
+                if not img.pinned and idx < len(timers):
+                    img.timer = timers[idx]
+                    idx += 1
+
         if self._shuffle:
             pinned = [img for img in self.images if img.pinned]
             unpinned = [img for img in self.images if not img.pinned]
@@ -438,19 +467,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         else:
             show_images = list(self.images)
 
-        mode = self._timer_panel.timer_mode
-        if mode == "quick":
-            timer = self._timer_panel.get_timer_seconds()
-            for img in show_images:
-                if not img.pinned:
-                    img.timer = timer
-        elif self._timer_panel.class_groups:
-            timers = groups_to_timers(self._timer_panel.class_groups)
-            idx = 0
-            for img in show_images:
-                if not img.pinned and idx < len(timers):
-                    img.timer = timers[idx]
-                    idx += 1
+        if mode == "class" and self._timer_panel.class_groups:
             show_images.sort(key=lambda img: img.timer)
 
         settings = {

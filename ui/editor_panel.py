@@ -169,6 +169,7 @@ class EditorPanel(QWidget):
 
         self._list_groups = []   # list of (header_btn, list_widget)
         self._grid_groups = []   # list of (header_btn, grid_widget)
+        self._all_tier_timers = []  # all configured tier timer values
 
         self._needs_initial_rebuild = True
 
@@ -438,6 +439,22 @@ class EditorPanel(QWidget):
         self._zoom_in_btn.setVisible(is_grid)
 
     # ------------------------------------------------------------------
+    # Restyle (theme change without full rebuild)
+    # ------------------------------------------------------------------
+
+    def _restyle_groups(self):
+        """Update styles on existing group headers and lists without rebuilding."""
+        for header, lw in self._list_groups:
+            is_reserve = header.property("is_reserve")
+            header.setStyleSheet(
+                self._header_reserve_style if is_reserve else self._header_style)
+            lw.setStyleSheet(self._list_style)
+        for header, grid in self._grid_groups:
+            is_reserve = header.property("is_reserve")
+            header.setStyleSheet(
+                self._header_reserve_style if is_reserve else self._header_style)
+
+    # ------------------------------------------------------------------
     # Rebuild
     # ------------------------------------------------------------------
 
@@ -470,7 +487,9 @@ class EditorPanel(QWidget):
 
         groups = self._group_by_timer()
         # Non-reserve groups first, reserve (timer=0) last
-        non_reserve = [(tv, items) for tv, items in groups.items() if tv != 0]
+        non_reserve = sorted(
+            [(tv, items) for tv, items in groups.items() if tv != 0],
+            key=lambda g: g[0])
         reserve = [(tv, items) for tv, items in groups.items() if tv == 0]
         ordered = non_reserve + reserve
 
@@ -486,6 +505,7 @@ class EditorPanel(QWidget):
                 header_style = self._header_style
 
             header = QPushButton(header_text, self._list_container)
+            header.setProperty("is_reserve", is_reserve)
             header.setStyleSheet(header_style)
             header.setCursor(Qt.CursorShape.PointingHandCursor)
             header.setCheckable(False)
@@ -555,7 +575,9 @@ class EditorPanel(QWidget):
         self._grid_groups = []
 
         groups = self._group_by_timer()
-        non_reserve = [(tv, items) for tv, items in groups.items() if tv != 0]
+        non_reserve = sorted(
+            [(tv, items) for tv, items in groups.items() if tv != 0],
+            key=lambda g: g[0])
         reserve = [(tv, items) for tv, items in groups.items() if tv == 0]
         ordered = non_reserve + reserve
 
@@ -574,6 +596,7 @@ class EditorPanel(QWidget):
                 header_style = self._header_style
 
             header = QPushButton(header_text, self._grid_container)
+            header.setProperty("is_reserve", is_reserve)
             header.setStyleSheet(header_style)
             header.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -887,17 +910,28 @@ class EditorPanel(QWidget):
         pinned = getattr(img, "pinned", False)
         pin_action = menu.addAction("Unpin" if pinned else "Pin to group")
 
-        # "Move to..." submenu — show all groups except the current one
+        # "Move to..." submenu — show all configured tiers + existing groups
         move_menu = menu.addMenu("Move to...")
         groups = self._group_by_timer()
-        for timer_val in groups.keys():
+        seen = set()
+        # All configured tiers (even if currently empty)
+        for timer_val in sorted(self._all_tier_timers):
             if timer_val == img.timer:
                 continue
             label = "Reserve" if timer_val == 0 else format_time(timer_val)
             act = move_menu.addAction(label)
             act.setData(timer_val)
-        # Always offer Reserve target even if that group doesn't exist yet
-        if 0 not in groups and img.timer != 0:
+            seen.add(timer_val)
+        # Any existing groups not in configured tiers
+        for timer_val in groups.keys():
+            if timer_val in seen or timer_val == img.timer:
+                continue
+            label = "Reserve" if timer_val == 0 else format_time(timer_val)
+            act = move_menu.addAction(label)
+            act.setData(timer_val)
+            seen.add(timer_val)
+        # Always offer Reserve
+        if 0 not in seen and img.timer != 0:
             act = move_menu.addAction("Reserve")
             act.setData(0)
 
@@ -929,16 +963,25 @@ class EditorPanel(QWidget):
         pinned = getattr(img, "pinned", False)
         pin_action = menu.addAction("Unpin" if pinned else "Pin to group")
 
-        # "Move to..." submenu
+        # "Move to..." submenu — show all configured tiers + existing groups
         move_menu = menu.addMenu("Move to...")
         groups = self._group_by_timer()
-        for timer_val in groups.keys():
+        seen = set()
+        for timer_val in sorted(self._all_tier_timers):
             if timer_val == img.timer:
                 continue
             label = "Reserve" if timer_val == 0 else format_time(timer_val)
             act = move_menu.addAction(label)
             act.setData(timer_val)
-        if 0 not in groups and img.timer != 0:
+            seen.add(timer_val)
+        for timer_val in groups.keys():
+            if timer_val in seen or timer_val == img.timer:
+                continue
+            label = "Reserve" if timer_val == 0 else format_time(timer_val)
+            act = move_menu.addAction(label)
+            act.setData(timer_val)
+            seen.add(timer_val)
+        if 0 not in seen and img.timer != 0:
             act = move_menu.addAction("Reserve")
             act.setData(0)
 

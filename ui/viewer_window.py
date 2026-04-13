@@ -129,6 +129,7 @@ class ViewerWindow(QWidget):
         self.settings = settings
         self._settings_window = settings_window
         self._paused = False
+        self._was_paused_by_help = False
         self._countdown = 0
         self._total_time = 0
         self._drag_pos = None
@@ -477,17 +478,30 @@ class ViewerWindow(QWidget):
         self._update_center_icon()
         self._update_coffee()
 
-    def _show_help(self):
+    def _dismiss_help(self):
         if hasattr(self, "_help_overlay") and self._help_overlay.isVisible():
             self._help_overlay.hide()
+            if self._was_paused_by_help:
+                self._toggle_pause()
+
+    def _show_help(self):
+        if hasattr(self, "_help_overlay") and self._help_overlay.isVisible():
+            self._dismiss_help()
             return
+        self._was_paused_by_help = not self._paused
+        if not self._paused:
+            self._toggle_pause()
         from PyQt6.QtWidgets import QScrollArea, QVBoxLayout
         
 
+        self.unsetCursor()
         self._help_overlay = QWidget(self)
         self._help_overlay.setGeometry(self.rect())
-        self._help_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 210);")
-        self._help_overlay.mousePressEvent = lambda e: self._help_overlay.hide()
+        self._help_overlay.setCursor(Qt.CursorShape.ArrowCursor)
+        self._help_overlay.setStyleSheet(
+            f"background-color: rgba(0, 0, 0, 210);"
+            f"border-radius: {S.WINDOW_RADIUS}px;")
+        self._help_overlay.mousePressEvent = lambda e: self._dismiss_help()
 
         layout = QVBoxLayout(self._help_overlay)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -500,11 +514,11 @@ class ViewerWindow(QWidget):
             "QScrollBar:vertical { width: 4px; background: transparent; }"
             "QScrollBar::handle:vertical { background: rgba(255,255,255,80); }"
             "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }")
-        scroll.mousePressEvent = lambda e: self._help_overlay.hide()
+        scroll.mousePressEvent = lambda e: self._dismiss_help()
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
-        content.mousePressEvent = lambda e: self._help_overlay.hide()
+        content.mousePressEvent = lambda e: self._dismiss_help()
         inner = QVBoxLayout(content)
         inner.setContentsMargins(S.VIEWER_HELP_MARGIN, S.VIEWER_HELP_MARGIN, S.VIEWER_HELP_MARGIN, S.VIEWER_HELP_MARGIN)
 
@@ -518,7 +532,7 @@ class ViewerWindow(QWidget):
         lbl = QLabel(info_text)
         lbl.setStyleSheet(f"color: rgba(255,255,255,200); font-size: {S.FONT_HELP}px;")
         lbl.setWordWrap(True)
-        lbl.mousePressEvent = lambda e: self._help_overlay.hide()
+        lbl.mousePressEvent = lambda e: self._dismiss_help()
         inner.addWidget(lbl)
         inner.addStretch()
 
@@ -711,6 +725,8 @@ class ViewerWindow(QWidget):
         super().leaveEvent(event)
         self._gradient.hide()
         self._fade_controls(False)
+        if not self._resize_corner:
+            self.unsetCursor()
 
     # ------------------------------------------------------------------ Mouse handling
 
@@ -737,8 +753,18 @@ class ViewerWindow(QWidget):
 
     def mouseMoveEvent(self, event):
         pos = event.position().toPoint()
-        corner = self._get_corner(pos)
-        self._update_cursor(corner)
+        # Don't show resize cursor over interactive buttons
+        if not self._resize_corner and self._controls_visible:
+            child = self.childAt(pos)
+            if isinstance(child, QPushButton):
+                self.unsetCursor()
+                corner = None
+            else:
+                corner = self._get_corner(pos)
+                self._update_cursor(corner)
+        else:
+            corner = self._get_corner(pos)
+            self._update_cursor(corner)
 
         buttons = event.buttons()
         if buttons & Qt.MouseButton.RightButton and self._drag_pos is not None:
