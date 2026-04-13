@@ -421,10 +421,17 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         photos += glob.glob(os.path.join(cat_dir, "*.[pP][nN][gG]"))
         if not photos:
             return
-        photo = random.choice(photos)
-        pix = QPixmap(photo)
-        if pix.isNull():
+        last = getattr(self, "_last_cat", None)
+        choices = [p for p in photos if p != last] or photos
+        photo = random.choice(choices)
+        self._last_cat = photo
+        from PyQt6.QtGui import QImageReader
+        reader = QImageReader(photo)
+        reader.setAutoTransform(True)
+        img = reader.read()
+        if img.isNull():
             return
+        pix = QPixmap.fromImage(img)
 
         t = self.theme
         cw = self.centralWidget()
