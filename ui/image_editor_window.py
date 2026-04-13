@@ -40,6 +40,11 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self.setMouseTracking(True)
 
     def _build_ui(self):
+        # Clear old layout if rebuilding
+        old = self.layout()
+        if old is not None:
+            from PyQt6.QtWidgets import QWidget as _QW
+            _QW().setLayout(old)  # reparent to temp widget → deletes children
         root = QVBoxLayout(self)
         root.setContentsMargins(S.MARGIN, S.MARGIN_TOP, S.MARGIN, S.MARGIN_BOTTOM)
         root.setSpacing(0)
