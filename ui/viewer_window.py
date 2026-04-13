@@ -225,19 +225,6 @@ class ViewerWindow(QWidget):
         self._center_btn.clicked.connect(self._toggle_pause)
         self._update_center_icon()
 
-        # Side navigation (visual only — clicks handled in mousePressEvent)
-        self._left_nav = QLabel(self)
-        self._left_nav.setPixmap(_dpi_pixmap(_icon(Icons.CARET_LEFT, CLR_DIM), 20))
-        self._left_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._left_nav.setStyleSheet("background: transparent;")
-        self._left_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-
-        self._right_nav = QLabel(self)
-        self._right_nav.setPixmap(_dpi_pixmap(_icon(Icons.CARET_RIGHT, CLR_DIM), 20))
-        self._right_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._right_nav.setStyleSheet("background: transparent;")
-        self._right_nav.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-
         # Bottom: timer + counter
         self._timer_label = QLabel(self)
         self._timer_label.setStyleSheet(
@@ -273,7 +260,6 @@ class ViewerWindow(QWidget):
         # Collect hover-only widgets
         self._hover_widgets = [
             self._top_left, self._top_center, self._top_right, self._center_btn,
-            self._left_nav, self._right_nav,
             self._timer_label, self._counter_label,
             self._progress_bar,
         ]
@@ -733,11 +719,6 @@ class ViewerWindow(QWidget):
 
         # Center
         self._center_btn.move((w - S.VIEWER_CENTER_BTN) // 2, (h - S.VIEWER_CENTER_BTN) // 2)
-
-        # Side nav
-        nav_y = (h - S.VIEWER_LEFT_NAV_H) // 2
-        self._left_nav.setGeometry(S.VIEWER_LEFT_NAV_X, nav_y, S.VIEWER_LEFT_NAV_W, S.VIEWER_LEFT_NAV_H)
-        self._right_nav.setGeometry(w - (S.VIEWER_LEFT_NAV_X + S.VIEWER_LEFT_NAV_W), nav_y, S.VIEWER_LEFT_NAV_W, S.VIEWER_LEFT_NAV_H)
 
         # Bottom layout
         self._layout_bottom(w, h)
