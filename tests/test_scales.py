@@ -138,3 +138,29 @@ def test_round_trip_all_constants():
     for attr, base_val in _BASE.items():
         actual = getattr(S, attr)
         assert actual == base_val, f"S.{attr}: expected {base_val}, got {actual}"
+
+
+def test_init_scale_combined_factors():
+    """init_scale accepts dpi_factor and user_factor separately."""
+    init_scale(2.0, user_factor=1.2)
+    # effective = 2.0 * 1.2 = 2.4
+    assert S.MAIN_W == round(250 * 2.4)  # 600
+    assert S.MARGIN == round(14 * 2.4)   # 34
+    init_scale(1.0)
+
+
+def test_init_scale_user_factor_only():
+    """User factor alone works via rescale_user."""
+    init_scale(1.0)
+    from ui.scales import rescale_user
+    rescale_user(1.5)
+    assert S.MAIN_W == round(250 * 1.5)  # 375
+    assert S.MARGIN == round(14 * 1.5)   # 21
+    rescale_user(1.0)
+
+
+def test_user_factor_from_saved_size():
+    """Saved window size 300 with base 250 gives user_factor 1.2."""
+    init_scale(1.0, user_factor=300 / 250)
+    assert S.MAIN_W == round(250 * 1.2)  # 300
+    init_scale(1.0)
