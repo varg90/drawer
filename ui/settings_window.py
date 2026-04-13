@@ -121,8 +121,8 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         header_layout, self._title = make_centered_header(
             "Drawer",
-            [self._help_btn, self._cat_btn, self._accent_btn, self._theme_btn],
-            [self._min_btn, self._close_btn],
+            [self._help_btn, self._accent_btn, self._theme_btn],
+            [self._cat_btn, self._min_btn, self._close_btn],
             self.theme,
         )
         root.addLayout(header_layout)
