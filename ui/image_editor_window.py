@@ -10,6 +10,7 @@ from ui.scales import S
 from ui.widgets import make_icon_btn
 from ui.snap import SnapMixin
 from ui.rounded_window import RoundedWindowMixin
+from ui.platform import setup_frameless_native
 
 
 class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
@@ -222,6 +223,12 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self._resizing = False
         self._resize_edge = None
         self.snap_mouse_release(event)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not getattr(self, '_native_setup_done', False):
+            self._native_setup_done = True
+            setup_frameless_native(self)
 
     def closeEvent(self, event):
         self.snap_cleanup()
