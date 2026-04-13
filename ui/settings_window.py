@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QFileDialog, QScrollArea, QLabel)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import (QColor, QLinearGradient, QPainter, QPainterPath,
-                         QDragEnterEvent, QDropEvent, QIcon)
+                         QDragEnterEvent, QDropEvent, QIcon, QPixmap)
 from PyQt6.QtCore import QRectF
 from core.constants import SUPPORTED_FORMATS
 from core.class_mode import groups_to_timers
