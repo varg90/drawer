@@ -56,10 +56,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "..", "drawer.ico")))
         self.setMinimumSize(220, 220)
         self.resize(S.MAIN_W, S.MAIN_H)
-        self._resizing = False
         self._resize_edge = None
         self._resize_start = None
         self._resize_geo = None
+        self._resize_outline = None
         self._last_edge = None
         self.setMouseTracking(True)
 
@@ -288,23 +288,14 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         return Qt.CursorShape.ArrowCursor
 
     def _calc_resize_geo(self, delta):
-        """Calculate target square geometry from drag delta."""
+        """Calculate target square geometry from drag delta.
+        _edge_at always returns a corner (tl/tr/bl/br), so both axes are present."""
         from PyQt6.QtCore import QRect
         geo = self._resize_geo
         e = self._resize_edge
-        if "r" in e:
-            dx = delta.x()
-        elif "l" in e:
-            dx = -delta.x()
-        else:
-            dx = 0
-        if "b" in e:
-            dy = delta.y()
-        elif "t" in e:
-            dy = -delta.y()
-        else:
-            dy = 0
-        d = max(dx, dy) if (dx or dy) else 0
+        dx = delta.x() if "r" in e else -delta.x()
+        dy = delta.y() if "b" in e else -delta.y()
+        d = max(dx, dy)
         screen = self.screen()
         max_size = screen.availableGeometry().height() if screen else 900
         new_size = max(220, min(max_size, geo.width() + d))
@@ -336,7 +327,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._resize_outline.show()
 
     def _hide_resize_outline(self):
-        if hasattr(self, "_resize_outline") and self._resize_outline is not None:
+        if self._resize_outline is not None:
             self._resize_outline.close()
             self._resize_outline.deleteLater()
             self._resize_outline = None
@@ -345,14 +336,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         if event.button() == Qt.MouseButton.LeftButton:
             edge = self._edge_at(event.pos(), cursor_only=True)
             if edge:
-                self._resizing = True
                 self._resize_edge = edge
                 self._resize_start = event.globalPosition().toPoint()
                 self._resize_geo = self.geometry()
                 self._show_resize_outline()
                 event.accept()
                 return
-        self._resizing = False
+        self._resize_edge = None
         self.snap_mouse_press(event)
 
     def mouseMoveEvent(self, event):
@@ -362,7 +352,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                 self._last_edge = edge
                 self.setCursor(self._cursor_for_edge(edge) if edge else Qt.CursorShape.ArrowCursor)
             return
-        if self._resizing and self._resize_edge:
+        if self._resize_edge:
             delta = event.globalPosition().toPoint() - self._resize_start
             new_geo = self._calc_resize_geo(delta)
             if self._resize_outline:
@@ -372,9 +362,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.snap_mouse_move(event)
 
     def mouseReleaseEvent(self, event):
-        if self._resizing:
-            self._resizing = False
-            # Apply final size from outline
+        if self._resize_edge:
             if self._resize_outline:
                 target = self._resize_outline.geometry()
                 self._hide_resize_outline()
@@ -388,8 +376,8 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _apply_user_scale(self):
         """Recalculate UI scale from current window size and rebuild everything."""
-        from ui.scales import rescale_user, _BASE
-        base_size = _BASE["MAIN_W"]  # 250
+        from ui.scales import rescale_user, base_value
+        base_size = base_value("MAIN_W")
         user_factor = self.width() / base_size
         rescale_user(user_factor)
 

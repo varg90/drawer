@@ -29,6 +29,11 @@ def rescale_user(user_factor):
     init_scale(_dpi_factor, user_factor)
 
 
+def base_value(attr):
+    """Return the unscaled base value of a S.* constant."""
+    return _BASE[attr]
+
+
 class _SMeta(type):
     """Metaclass that records base values of int class attributes."""
     def __init__(cls, name, bases, namespace):
