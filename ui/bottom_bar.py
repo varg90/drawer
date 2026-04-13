@@ -94,6 +94,14 @@ class BottomBar(QWidget):
         return SESSION_LIMIT_PRESETS[self._session_limit_index][0]
 
     @property
+    def focus_enabled(self):
+        return self._focus_tracker.is_tracking
+
+    @property
+    def focus_app(self):
+        return self._focus_tracker.tracked_app
+
+    @property
     def session_limit_index(self):
         return self._session_limit_index
 
