@@ -1,11 +1,51 @@
 # ui/snap.py
 """Winamp-style magnetic snap between frameless windows."""
+import sys
 import weakref
 from PyQt6.QtCore import Qt, QPoint
 from ui.scales import S
 
 # Global registry of all snap-capable windows (weak refs — auto-cleaned)
 _snap_windows = []
+
+# Windows DeferWindowPos for atomic multi-window moves
+_dwp = None
+if sys.platform == "win32":
+    try:
+        import ctypes
+        from ctypes import wintypes
+        _user32 = ctypes.windll.user32
+        _BeginDeferWindowPos = _user32.BeginDeferWindowPos
+        _BeginDeferWindowPos.restype = wintypes.HANDLE
+        _DeferWindowPos = _user32.DeferWindowPos
+        _DeferWindowPos.restype = wintypes.HANDLE
+        _EndDeferWindowPos = _user32.EndDeferWindowPos
+        SWP_NOZORDER = 0x0004
+        SWP_NOSIZE = 0x0001
+        SWP_NOACTIVATE = 0x0010
+        _dwp = True
+    except Exception:
+        _dwp = None
+
+
+def _atomic_move(moves):
+    """Move multiple windows atomically. moves: list of (QWidget, QPoint)."""
+    if _dwp and moves:
+        hdwp = _BeginDeferWindowPos(len(moves))
+        if hdwp:
+            for widget, pos in moves:
+                hwnd = int(widget.winId())
+                hdwp = _DeferWindowPos(
+                    hdwp, hwnd, 0, pos.x(), pos.y(), 0, 0,
+                    SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE)
+                if not hdwp:
+                    break
+            if hdwp:
+                _EndDeferWindowPos(hdwp)
+                return
+    # Fallback: move sequentially
+    for widget, pos in moves:
+        widget.move(pos)
 
 
 def _live_windows():
@@ -59,10 +99,11 @@ class SnapMixin:
 
         new_pos = event.globalPosition().toPoint() - self._drag_pos
 
-        # If we have children snapped to us — just move, no snap detection
+        # If we have children snapped to us — move all atomically
         if self._snapped_children:
-            self.move(new_pos)
-            self._move_children()
+            moves = [(self, new_pos)]
+            self._collect_child_moves(new_pos, moves)
+            _atomic_move(moves)
             event.accept()
             return True
 
@@ -129,6 +170,26 @@ class SnapMixin:
     def snap_mouse_release(self, event):
         self._drag_pos = None
 
+    def _collect_child_moves(self, parent_pos, moves):
+        """Pre-calculate target positions for all snapped children."""
+        for child_ref, side in self._snapped_children:
+            child = child_ref()
+            if child is None:
+                continue
+            # Calculate child position relative to parent's new position
+            pg = self.geometry()
+            if side == "right":
+                child_pos = QPoint(parent_pos.x() + pg.width(), parent_pos.y())
+            elif side == "left":
+                child_pos = QPoint(parent_pos.x() - child.width(), parent_pos.y())
+            elif side == "bottom":
+                child_pos = QPoint(parent_pos.x(), parent_pos.y() + pg.height())
+            elif side == "top":
+                child_pos = QPoint(parent_pos.x(), parent_pos.y() - child.height())
+            else:
+                continue
+            moves.append((child, child_pos))
+
     def _move_children(self, _visited=None):
         if _visited is None:
             _visited = set()
@@ -145,9 +206,9 @@ class SnapMixin:
     def _calc_snap_pos(self, other, side):
         og = other.geometry()
         if side == "right":
-            return QPoint(og.right() + 1, og.top())
+            return QPoint(og.right(), og.top())
         elif side == "left":
-            return QPoint(og.left() - self.width(), og.top())
+            return QPoint(og.left() - self.width() + 1, og.top())
         elif side == "bottom":
             return QPoint(og.left(), og.bottom() + 1)
         elif side == "top":

@@ -393,7 +393,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.editor.images_updated.connect(self._on_editor_update)
         self.editor.shuffle_changed.connect(self._on_shuffle_changed)
         pos = self.geometry()
-        self.editor.move(pos.right() + 1, pos.top())
+        self.editor.move(pos.right(), pos.top())
         self.editor.resize(S.EDITOR_W, S.MAIN_H)
         self.editor.show()
         self.editor._snapped_to = (weakref.ref(self), "right")
