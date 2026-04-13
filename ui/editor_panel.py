@@ -485,13 +485,7 @@ class EditorPanel(QWidget):
             lw.deleteLater()
         self._list_groups = []
 
-        groups = self._group_by_timer()
-        # Non-reserve groups first, reserve (timer=0) last
-        non_reserve = sorted(
-            [(tv, items) for tv, items in groups.items() if tv != 0],
-            key=lambda g: g[0])
-        reserve = [(tv, items) for tv, items in groups.items() if tv == 0]
-        ordered = non_reserve + reserve
+        ordered = self._ordered_groups()
 
         insert_pos = 0
         for timer_val, items in ordered:
@@ -742,6 +736,15 @@ class EditorPanel(QWidget):
             groups[key].append((i, img))
         return groups
 
+    def _ordered_groups(self):
+        """Groups sorted by timer (shortest first), reserve last."""
+        groups = self._group_by_timer()
+        non_reserve = sorted(
+            [(tv, items) for tv, items in groups.items() if tv != 0],
+            key=lambda g: g[0])
+        reserve = [(tv, items) for tv, items in groups.items() if tv == 0]
+        return non_reserve + reserve
+
     # ------------------------------------------------------------------
     # Cache
     # ------------------------------------------------------------------
@@ -890,8 +893,58 @@ class EditorPanel(QWidget):
     # Context menus (pin / move to group)
     # ------------------------------------------------------------------
 
-    def _show_context_menu(self, pos, list_widget):
+    def _build_img_menu(self, img):
+        """Build styled context menu with pin toggle and 'Move to...' submenu."""
         from PyQt6.QtWidgets import QMenu
+        t = self.theme
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            f"QMenu {{ background-color: {t.bg_button}; color: {t.text_primary}; "
+            f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; }}"
+            f"QMenu::item:selected {{ background-color: {t.bg_active}; }}"
+        )
+
+        pinned = getattr(img, "pinned", False)
+        pin_action = menu.addAction("Unpin" if pinned else "Pin to group")
+
+        # "Move to..." submenu — all configured tiers + existing groups
+        move_menu = menu.addMenu("Move to...")
+        groups = self._group_by_timer()
+        seen = set()
+        for timer_val in sorted(self._all_tier_timers):
+            if timer_val == img.timer:
+                continue
+            label = "Reserve" if timer_val == 0 else format_time(timer_val)
+            act = move_menu.addAction(label)
+            act.setData(timer_val)
+            seen.add(timer_val)
+        for timer_val in groups.keys():
+            if timer_val in seen or timer_val == img.timer:
+                continue
+            label = "Reserve" if timer_val == 0 else format_time(timer_val)
+            act = move_menu.addAction(label)
+            act.setData(timer_val)
+            seen.add(timer_val)
+        if 0 not in seen and img.timer != 0:
+            act = move_menu.addAction("Reserve")
+            act.setData(0)
+
+        return menu, pin_action
+
+    def _handle_menu_action(self, img, action, pin_action):
+        """Handle result from _build_img_menu. Returns True if something changed."""
+        if action == pin_action:
+            img.pinned = not getattr(img, "pinned", False)
+        elif action is not None and action.data() is not None:
+            img.timer = action.data()
+            img.pinned = True
+        else:
+            return False
+        self._rebuild()
+        self._emit()
+        return True
+
+    def _show_context_menu(self, pos, list_widget):
         item = list_widget.itemAt(pos)
         if item is None:
             return
@@ -899,102 +952,18 @@ class EditorPanel(QWidget):
         if idx is None or idx >= len(self.images):
             return
         img = self.images[idx]
-        t = self.theme
-        menu = QMenu(self)
-        menu.setStyleSheet(
-            f"QMenu {{ background-color: {t.bg_button}; color: {t.text_primary}; "
-            f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; }}"
-            f"QMenu::item:selected {{ background-color: {t.bg_active}; }}"
-        )
-
-        pinned = getattr(img, "pinned", False)
-        pin_action = menu.addAction("Unpin" if pinned else "Pin to group")
-
-        # "Move to..." submenu — show all configured tiers + existing groups
-        move_menu = menu.addMenu("Move to...")
-        groups = self._group_by_timer()
-        seen = set()
-        # All configured tiers (even if currently empty)
-        for timer_val in sorted(self._all_tier_timers):
-            if timer_val == img.timer:
-                continue
-            label = "Reserve" if timer_val == 0 else format_time(timer_val)
-            act = move_menu.addAction(label)
-            act.setData(timer_val)
-            seen.add(timer_val)
-        # Any existing groups not in configured tiers
-        for timer_val in groups.keys():
-            if timer_val in seen or timer_val == img.timer:
-                continue
-            label = "Reserve" if timer_val == 0 else format_time(timer_val)
-            act = move_menu.addAction(label)
-            act.setData(timer_val)
-            seen.add(timer_val)
-        # Always offer Reserve
-        if 0 not in seen and img.timer != 0:
-            act = move_menu.addAction("Reserve")
-            act.setData(0)
-
+        menu, pin_action = self._build_img_menu(img)
         action = menu.exec(list_widget.mapToGlobal(pos))
-        if action == pin_action:
-            img.pinned = not pinned
-            self._rebuild()
-            self._emit()
-        elif action is not None and action.data() is not None:
-            img.timer = action.data()
-            img.pinned = True   # auto-pin when manually moved
-            self._rebuild()
-            self._emit()
+        self._handle_menu_action(img, action, pin_action)
 
     def _show_tile_context_menu(self, tile, global_pos):
-        from PyQt6.QtWidgets import QMenu
         idx = tile.property("img_idx")
         if idx is None or idx >= len(self.images):
             return
         img = self.images[idx]
-        t = self.theme
-        menu = QMenu(self)
-        menu.setStyleSheet(
-            f"QMenu {{ background-color: {t.bg_button}; color: {t.text_primary}; "
-            f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; }}"
-            f"QMenu::item:selected {{ background-color: {t.bg_active}; }}"
-        )
-
-        pinned = getattr(img, "pinned", False)
-        pin_action = menu.addAction("Unpin" if pinned else "Pin to group")
-
-        # "Move to..." submenu — show all configured tiers + existing groups
-        move_menu = menu.addMenu("Move to...")
-        groups = self._group_by_timer()
-        seen = set()
-        for timer_val in sorted(self._all_tier_timers):
-            if timer_val == img.timer:
-                continue
-            label = "Reserve" if timer_val == 0 else format_time(timer_val)
-            act = move_menu.addAction(label)
-            act.setData(timer_val)
-            seen.add(timer_val)
-        for timer_val in groups.keys():
-            if timer_val in seen or timer_val == img.timer:
-                continue
-            label = "Reserve" if timer_val == 0 else format_time(timer_val)
-            act = move_menu.addAction(label)
-            act.setData(timer_val)
-            seen.add(timer_val)
-        if 0 not in seen and img.timer != 0:
-            act = move_menu.addAction("Reserve")
-            act.setData(0)
-
+        menu, pin_action = self._build_img_menu(img)
         action = menu.exec(global_pos)
-        if action == pin_action:
-            img.pinned = not pinned
-            self._rebuild()
-            self._emit()
-        elif action is not None and action.data() is not None:
-            img.timer = action.data()
-            img.pinned = True
-            self._rebuild()
-            self._emit()
+        self._handle_menu_action(img, action, pin_action)
 
     # ------------------------------------------------------------------
     # Reorder
