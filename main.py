@@ -72,6 +72,14 @@ if __name__ == "__main__":
         log.warning("No screen detected, using factor 1.0")
     init_scale(factor, user_factor=1.0)
 
+    # Load saved window size for user scale
+    from core.session import load_session
+    from ui.scales import rescale_user, _BASE
+    saved = load_session()
+    if saved and "window_size" in saved:
+        user_factor = saved["window_size"] / _BASE["MAIN_W"]
+        rescale_user(user_factor)
+
     load_fonts()
     app.setFont(QFont("Lexend"))
     window = SettingsWindow()

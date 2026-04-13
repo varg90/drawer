@@ -641,6 +641,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._timer_panel.restore_state(data)
         self._bottom_bar.restore_state(data)
 
+        saved_size = data.get("window_size")
+        if saved_size:
+            self.resize(saved_size, saved_size)
+
         theme_name = data.get("theme", "dark")
         accent = data.get("accent")
         if accent:
@@ -677,6 +681,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             "viewer_size": getattr(self, "_last_viewer_size", None),
             "editor_pos": [self.editor.x(), self.editor.y()] if self.editor and self.editor.isVisible() else None,
             "editor_size": [self.editor.width(), self.editor.height()] if self.editor and self.editor.isVisible() else None,
+            "window_size": self.width(),
         }
         save_session(data)
 
