@@ -71,10 +71,7 @@ def _win_foreground():
     hwnd = ctypes.windll.user32.GetForegroundWindow()
     if not hwnd:
         return None
-    name = _win_get_process_name(hwnd)
-    if name in _WIN_SYSTEM_APPS:
-        return None
-    return name
+    return _win_get_process_name(hwnd)
 
 
 def _win_list_apps():
