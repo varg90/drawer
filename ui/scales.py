@@ -169,6 +169,7 @@ class S(metaclass=_SMeta):
 
     # Image editor window
     RESIZE_GRIP_W = 6
+    RESIZE_CURSOR_W = 14
     EDITOR_TITLE_SPACING = 4
     EDITOR_TITLE_BOTTOM_SPACE = 6
     EDITOR_MIN_W = 200

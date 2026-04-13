@@ -54,7 +54,14 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("Drawer")
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "..", "drawer.ico")))
-        self.setFixedSize(S.MAIN_W, S.MAIN_H)
+        self.setMinimumSize(200, 200)
+        self.resize(S.MAIN_W, S.MAIN_H)
+        self._resizing = False
+        self._resize_edge = None
+        self._resize_start = None
+        self._resize_geo = None
+        self._last_edge = None
+        self.setMouseTracking(True)
 
         self.images = []
         self.viewer = None
@@ -250,14 +257,133 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     # ------------------------------------------------------------------ Window dragging
 
+    def _edge_at(self, pos, cursor_only=False):
+        r = self.rect()
+        e = S.RESIZE_CURSOR_W if cursor_only else S.RESIZE_GRIP_W
+        edges = ""
+        if pos.y() < e:
+            edges += "t"
+        elif pos.y() > r.height() - e:
+            edges += "b"
+        if pos.x() < e:
+            edges += "l"
+        elif pos.x() > r.width() - e:
+            edges += "r"
+        return edges or None
+
+    def _cursor_for_edge(self, edge):
+        if edge in ("tl", "br"):
+            return Qt.CursorShape.SizeFDiagCursor
+        if edge in ("tr", "bl"):
+            return Qt.CursorShape.SizeBDiagCursor
+        if edge in ("t", "b"):
+            return Qt.CursorShape.SizeVerCursor
+        if edge in ("l", "r"):
+            return Qt.CursorShape.SizeHorCursor
+        return Qt.CursorShape.ArrowCursor
+
     def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            edge = self._edge_at(event.pos())
+            if edge:
+                self._resizing = True
+                self._resize_edge = edge
+                self._resize_start = event.globalPosition().toPoint()
+                self._resize_geo = self.geometry()
+                event.accept()
+                return
+        self._resizing = False
         self.snap_mouse_press(event)
 
     def mouseMoveEvent(self, event):
+        # Cursor hint on hover
+        if not event.buttons():
+            edge = self._edge_at(event.pos(), cursor_only=True)
+            if edge != self._last_edge:
+                self._last_edge = edge
+                self.setCursor(self._cursor_for_edge(edge) if edge else Qt.CursorShape.ArrowCursor)
+            return
+        # Active resize — constrain to square
+        if self._resizing and self._resize_edge:
+            from PyQt6.QtCore import QRect
+            delta = event.globalPosition().toPoint() - self._resize_start
+            geo = self._resize_geo
+            e = self._resize_edge
+            # Calculate size delta based on drag direction
+            if "r" in e:
+                dx = delta.x()
+            elif "l" in e:
+                dx = -delta.x()
+            else:
+                dx = 0
+            if "b" in e:
+                dy = delta.y()
+            elif "t" in e:
+                dy = -delta.y()
+            else:
+                dy = 0
+            d = max(dx, dy) if (dx or dy) else 0
+            new_size = max(200, geo.width() + d)
+            new_geo = QRect(geo)
+            # Anchor: grow/shrink from the opposite corner
+            if "l" in e:
+                new_geo.setLeft(geo.right() - new_size + 1)
+            else:
+                new_geo.setRight(geo.left() + new_size - 1)
+            if "t" in e:
+                new_geo.setTop(geo.bottom() - new_size + 1)
+            else:
+                new_geo.setBottom(geo.top() + new_size - 1)
+            self.setGeometry(new_geo)
+            event.accept()
+            return
         self.snap_mouse_move(event)
 
     def mouseReleaseEvent(self, event):
+        if self._resizing:
+            self._resizing = False
+            self._resize_edge = None
+            self._apply_user_scale()
+            return
         self.snap_mouse_release(event)
+
+    # ------------------------------------------------------------------ Resize scale
+
+    def _apply_user_scale(self):
+        """Recalculate UI scale from current window size and rebuild."""
+        from ui.scales import rescale_user, _BASE
+        base_size = _BASE["MAIN_W"]  # 250
+        user_factor = self.width() / base_size
+        rescale_user(user_factor)
+
+        # Rebuild this window's layout margins
+        self.centralWidget().layout().setContentsMargins(
+            S.MARGIN, S.MARGIN_TOP, S.MARGIN, S.MARGIN_BOTTOM)
+
+        # Rebuild theme (icons, fonts, styles)
+        self._apply_theme()
+        self._timer_panel.theme = self.theme
+        self._timer_panel.apply_theme()
+        self._bottom_bar.theme = self.theme
+        self._bottom_bar.apply_theme()
+        self._panel._radius = S.PANEL_RADIUS
+        self._panel.update()
+
+        # Rebuild editor if open
+        if self._editor_visible:
+            self.editor.resize(S.EDITOR_W, self.height())
+            self.editor._apply_theme()
+            self.editor._panel.theme = self.theme
+            self.editor._panel._apply_theme()
+            self.editor._panel._rebuild()
+            # Reposition snapped editor
+            if self.editor._snapped_to is not None:
+                snap_pos = self.editor._calc_snap_pos(self, "right")
+                if snap_pos:
+                    self.editor.move(snap_pos)
+            self.editor.update()
+
+        self.update()
 
     # ------------------------------------------------------------------ Help / Theme / Accent
 
