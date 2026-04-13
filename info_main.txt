@@ -1,6 +1,5 @@
-Drawer 0.3.1
+Drawer 0.4.0
 
-Pin - always on top (slideshow only)
 Palette - accent color
 Sun/Moon - theme toggle
 
@@ -8,7 +7,8 @@ TIMER
 Quick - same timer for all images
 Class - auto-distribute by tiers (manual distribution available in file manager)
 Set session time limit - lmk forward, rmk back (no limit by default)
-Pencil - start session.
+Pause with (on/off) - pick an app to track so the session is automatically paused when chosen app is not in focus
+Pencil - start session
 
 FILE MANAGER
 Open on image button next to start
@@ -22,6 +22,6 @@ Rmk to redistribute or pin files
 File manager can be dettached and resized
 
 Contact info - valerianashot@gmail.com
-Claude did the job, I complained and picked icons. My husband Alex allowed me to waste tokens. My cat Loaf meowed. 
+Claude did the job, I complained and picked icons. My husband Alex allowed me to waste tokens. My cat Bulka meowed. 
 
 Click anywhere to close info
