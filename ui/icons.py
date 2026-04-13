@@ -10,6 +10,9 @@ class Icons:
     FOCUS_ON = "mdi.monitor-eye"
     FOCUS_OFF = "ph.eye-closed-bold"
 
+    # Cat
+    CAT = "mdi.cat"
+
     # Accent color picker
     PALETTE = "ph.palette-fill"
 
