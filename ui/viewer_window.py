@@ -9,6 +9,7 @@ from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
 from core.timer_logic import format_time, auto_warn_seconds
 from ui.icons import Icons
 from ui.scales import S
+from ui.platform import setup_frameless_native
 
 # Native scan codes for physical key positions (layout-independent hotkeys)
 import sys as _sys
@@ -647,6 +648,12 @@ class ViewerWindow(QWidget):
             self._toggle_flip_v()
         else:
             super().keyPressEvent(event)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not getattr(self, '_native_setup_done', False):
+            self._native_setup_done = True
+            setup_frameless_native(self)
 
     def closeEvent(self, event):
         self._qtimer.stop()
