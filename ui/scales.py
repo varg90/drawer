@@ -2,6 +2,8 @@
 """Centralized size definitions — single source of truth for all UI dimensions."""
 
 _factor = 1.0
+_dpi_factor = 1.0
+_user_factor = 1.0
 
 # Base values (unscaled) — used by init_scale to recompute S.* constants
 _BASE = {}
@@ -12,12 +14,19 @@ def sc(value):
     return round(value * _factor)
 
 
-def init_scale(factor):
-    """Recompute all S.* pixel constants with the given factor. Call once at startup."""
-    global _factor
-    _factor = factor
+def init_scale(dpi_factor, user_factor=1.0):
+    """Set DPI and user scale factors. Recomputes all S.* constants."""
+    global _factor, _dpi_factor, _user_factor
+    _dpi_factor = dpi_factor
+    _user_factor = user_factor
+    _factor = dpi_factor * user_factor
     for attr, val in _BASE.items():
-        setattr(S, attr, round(val * factor))
+        setattr(S, attr, round(val * _factor))
+
+
+def rescale_user(user_factor):
+    """Change user scale factor only, keeping DPI factor."""
+    init_scale(_dpi_factor, user_factor)
 
 
 class _SMeta(type):
