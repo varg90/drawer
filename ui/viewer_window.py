@@ -499,6 +499,10 @@ class ViewerWindow(QWidget):
         fg = get_foreground_app()
         if fg is None:
             return
+        # Ignore when Drawer itself is focused (user interacting with viewer)
+        own = os.path.splitext(os.path.basename(_sys.executable))[0].lower()
+        if fg.lower() == own:
+            return
         app_lost_focus = fg.lower() != self._focus_app.lower()
         if app_lost_focus and not self._paused:
             self._auto_paused = True
