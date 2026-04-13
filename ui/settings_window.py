@@ -54,7 +54,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("Drawer")
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "..", "drawer.ico")))
-        self.setMinimumSize(220, 220)
+        self.setMinimumSize(S.MAIN_MIN, S.MAIN_MIN)
         self.resize(S.MAIN_W, S.MAIN_H)
         self._resize_edge = None
         self._resize_start = None
@@ -298,7 +298,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         d = max(dx, dy)
         screen = self.screen()
         max_size = screen.availableGeometry().height() if screen else 900
-        new_size = max(220, min(max_size, geo.width() + d))
+        new_size = max(S.MAIN_MIN, min(max_size, geo.width() + d))
         new_geo = QRect(geo)
         if "l" in e:
             new_geo.setLeft(geo.right() - new_size + 1)
@@ -664,6 +664,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         saved_size = data.get("window_size")
         if saved_size:
+            screen = self.screen()
+            max_h = screen.availableGeometry().height() if screen else 900
+            saved_size = max(S.MAIN_MIN, min(saved_size, max_h))
             self.resize(saved_size, saved_size)
 
         theme_name = data.get("theme", "dark")

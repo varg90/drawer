@@ -72,13 +72,15 @@ if __name__ == "__main__":
         log.warning("No screen detected, using factor 1.0")
     init_scale(factor, user_factor=1.0)
 
-    # Load saved window size for user scale
+    # Pre-load session to apply saved window scale before building UI
     from core.session import load_session
     from ui.scales import rescale_user, base_value
-    saved = load_session()
-    if saved and "window_size" in saved:
-        user_factor = saved["window_size"] / base_value("MAIN_W")
-        rescale_user(user_factor)
+    _saved_session = load_session()
+    if _saved_session and "window_size" in _saved_session:
+        screen = app.primaryScreen()
+        max_h = screen.availableGeometry().height() if screen else 900
+        saved_size = min(_saved_session["window_size"], max_h)
+        rescale_user(saved_size / base_value("MAIN_W"))
 
     load_fonts()
     app.setFont(QFont("Lexend"))
