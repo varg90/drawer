@@ -343,7 +343,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            edge = self._edge_at(event.pos())
+            edge = self._edge_at(event.pos(), cursor_only=True)
             if edge:
                 self._resizing = True
                 self._resize_edge = edge
