@@ -27,6 +27,7 @@ else:
     SC_F = 33
     SC_V = 47
 FADE_MS = 200
+_OWN_PROCESS = os.path.splitext(os.path.basename(_sys.executable))[0].lower()
 
 # Icon colors
 CLR_NORMAL = QColor(204, 192, 174, 255)
@@ -145,9 +146,8 @@ class ViewerWindow(QWidget):
         self._is_warning = False
         self._session_limit = settings.get("session_limit")  # seconds or None
         self._session_elapsed = 0
-        self._focus_app = settings.get("focus_app")  # app name or None
+        self._focus_app = settings.get("focus_app")
         self._focus_enabled = settings.get("focus_enabled", False)
-        self._auto_paused = False
         self._grayscale = False
         self._flip_h = False
         self._flip_v = False
@@ -487,25 +487,19 @@ class ViewerWindow(QWidget):
         if self._paused:
             self._qtimer.stop()
         else:
-            self._auto_paused = False
             self._qtimer.start()
         self._update_center_icon()
         self._update_coffee()
 
     def _check_focus(self):
-        """Poll foreground window — auto-pause if tracked app lost focus."""
         if not self._focus_enabled or not self._focus_app:
             return
         fg = get_foreground_app()
         if fg is None:
             return
-        # Ignore when Drawer itself is focused (user interacting with viewer)
-        own = os.path.splitext(os.path.basename(_sys.executable))[0].lower()
-        if fg.lower() == own:
+        if fg.lower() == _OWN_PROCESS:
             return
-        app_lost_focus = fg.lower() != self._focus_app.lower()
-        if app_lost_focus and not self._paused:
-            self._auto_paused = True
+        if fg.lower() != self._focus_app.lower() and not self._paused:
             self._toggle_pause()
 
     def _dismiss_help(self):

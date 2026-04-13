@@ -165,20 +165,17 @@ class FocusTrackerWidget(QWidget):
         icon_color = t.text_secondary if enabled else t.text_hint
         self._toggle_btn.setIcon(qta.icon(icon_name, color=icon_color))
 
+        self._label.setStyleSheet(
+            f"color: {t.text_hint}; font-size: {S.FONT_FOCUS_BTN}px; "
+            f"font-family: 'Lexend'; font-weight: 400;")
+
         if not enabled:
             self._label.setText("Pause with app")
-            self._label.setStyleSheet(
-                f"color: {t.text_hint}; font-size: {S.FONT_FOCUS_BTN}px; "
-                f"font-family: 'Lexend'; font-weight: 400;")
             self._app_btn.hide()
             self._action_btn.hide()
             return
 
-        # Enabled — show app selector
         self._label.setText("Pause with:")
-        self._label.setStyleSheet(
-            f"color: {t.text_hint}; font-size: {S.FONT_FOCUS_BTN}px; "
-            f"font-family: 'Lexend'; font-weight: 400;")
 
         current = self._state.current_app
         if current:
@@ -200,7 +197,7 @@ class FocusTrackerWidget(QWidget):
                 f"background: transparent; border: none; padding: 0;")
             # Show arrow to pick
             self._action_btn.setIcon(
-                qta.icon("ph.caret-down-bold", color=t.text_hint))
+                qta.icon(Icons.CARET_DOWN, color=t.text_hint))
             self._action_btn.setToolTip("Choose app to track")
 
         self._app_btn.show()
