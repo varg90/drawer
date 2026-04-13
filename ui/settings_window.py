@@ -257,6 +257,14 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     def paintEvent(self, event):
         self._paint_rounded(event)
 
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        from PyQt6.QtCore import QEvent
+        if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow():
+            if self._resize_edge:
+                self._hide_resize_outline()
+                self._resize_edge = None
+
     def showEvent(self, event):
         super().showEvent(event)
         if not getattr(self, '_native_setup_done', False):
@@ -323,6 +331,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._resize_outline.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.WindowTransparentForInput
             | Qt.WindowType.Tool)
         t = self.theme
         self._resize_outline.setStyleSheet(
