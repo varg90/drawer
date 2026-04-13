@@ -283,6 +283,63 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             return Qt.CursorShape.SizeHorCursor
         return Qt.CursorShape.ArrowCursor
 
+    def _calc_resize_geo(self, delta):
+        """Calculate target square geometry from drag delta."""
+        from PyQt6.QtCore import QRect
+        geo = self._resize_geo
+        e = self._resize_edge
+        if "r" in e:
+            dx = delta.x()
+        elif "l" in e:
+            dx = -delta.x()
+        else:
+            dx = 0
+        if "b" in e:
+            dy = delta.y()
+        elif "t" in e:
+            dy = -delta.y()
+        else:
+            dy = 0
+        d = max(dx, dy) if (dx or dy) else 0
+        screen = self.screen()
+        max_size = screen.availableGeometry().height() if screen else 900
+        new_size = max(220, min(max_size, geo.width() + d))
+        new_geo = QRect(geo)
+        if "l" in e:
+            new_geo.setLeft(geo.right() - new_size + 1)
+        else:
+            new_geo.setRight(geo.left() + new_size - 1)
+        if "t" in e:
+            new_geo.setTop(geo.bottom() - new_size + 1)
+        else:
+            new_geo.setBottom(geo.top() + new_size - 1)
+        return new_geo
+
+    def _show_resize_outline(self):
+        """Create a translucent overlay showing the target resize rectangle."""
+        self._resize_outline = QWidget()
+        self._resize_outline.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool)
+        self._resize_outline.setAttribute(
+            Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._resize_outline.setAttribute(
+            Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        t = self.theme
+        self._resize_outline.setStyleSheet(
+            f"background-color: rgba({t.bg_rgb}, 120);"
+            f"border: 2px solid {t.accent};"
+            f"border-radius: {S.WINDOW_RADIUS}px;")
+        self._resize_outline.setGeometry(self.geometry())
+        self._resize_outline.show()
+
+    def _hide_resize_outline(self):
+        if hasattr(self, "_resize_outline") and self._resize_outline is not None:
+            self._resize_outline.close()
+            self._resize_outline.deleteLater()
+            self._resize_outline = None
+
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             edge = self._edge_at(event.pos())
@@ -291,54 +348,24 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                 self._resize_edge = edge
                 self._resize_start = event.globalPosition().toPoint()
                 self._resize_geo = self.geometry()
+                self._show_resize_outline()
                 event.accept()
                 return
         self._resizing = False
         self.snap_mouse_press(event)
 
     def mouseMoveEvent(self, event):
-        # Cursor hint on hover
         if not event.buttons():
             edge = self._edge_at(event.pos(), cursor_only=True)
             if edge != self._last_edge:
                 self._last_edge = edge
                 self.setCursor(self._cursor_for_edge(edge) if edge else Qt.CursorShape.ArrowCursor)
             return
-        # Active resize — constrain to square
         if self._resizing and self._resize_edge:
-            from PyQt6.QtCore import QRect
             delta = event.globalPosition().toPoint() - self._resize_start
-            geo = self._resize_geo
-            e = self._resize_edge
-            # Calculate size delta based on drag direction
-            if "r" in e:
-                dx = delta.x()
-            elif "l" in e:
-                dx = -delta.x()
-            else:
-                dx = 0
-            if "b" in e:
-                dy = delta.y()
-            elif "t" in e:
-                dy = -delta.y()
-            else:
-                dy = 0
-            d = max(dx, dy) if (dx or dy) else 0
-            # Clamp to screen height
-            screen = self.screen()
-            max_size = screen.availableGeometry().height() if screen else 900
-            new_size = max(220, min(max_size, geo.width() + d))
-            new_geo = QRect(geo)
-            # Anchor: grow/shrink from the opposite corner
-            if "l" in e:
-                new_geo.setLeft(geo.right() - new_size + 1)
-            else:
-                new_geo.setRight(geo.left() + new_size - 1)
-            if "t" in e:
-                new_geo.setTop(geo.bottom() - new_size + 1)
-            else:
-                new_geo.setBottom(geo.top() + new_size - 1)
-            self.setGeometry(new_geo)
+            new_geo = self._calc_resize_geo(delta)
+            if self._resize_outline:
+                self._resize_outline.setGeometry(new_geo)
             event.accept()
             return
         self.snap_mouse_move(event)
@@ -346,6 +373,11 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     def mouseReleaseEvent(self, event):
         if self._resizing:
             self._resizing = False
+            # Apply final size from outline
+            if self._resize_outline:
+                target = self._resize_outline.geometry()
+                self._hide_resize_outline()
+                self.setGeometry(target)
             self._resize_edge = None
             self._apply_user_scale()
             return
