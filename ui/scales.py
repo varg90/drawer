@@ -101,8 +101,8 @@ class S(metaclass=_SMeta):
     EDITOR_BTN_BOTTOM = 11
 
     # Viewer window
-    VIEWER_MIN_W = 230
-    VIEWER_MIN_H = 150
+    VIEWER_MIN_W = 150
+    VIEWER_MIN_H = 100
     VIEWER_CORNER_GRIP = 50
     VIEWER_NAV_ZONE = 40
     VIEWER_CENTER_BTN = 60
