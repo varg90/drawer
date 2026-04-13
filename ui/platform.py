@@ -28,9 +28,6 @@ def setup_frameless_native(widget):
         def msg(obj, selector, *args):
             return objc.objc_msgSend(obj, sel(selector), *args)
 
-        # Bool-returning variant
-        msg_bool = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
-
         # Get NSView -> NSWindow
         view_ptr = int(widget.winId())
         ns_window = msg(view_ptr, "window")
