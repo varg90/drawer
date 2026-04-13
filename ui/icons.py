@@ -6,6 +6,10 @@ class Icons:
     # Start button
     START = "fa6s.pencil"
 
+    # Focus tracking toggle
+    FOCUS_ON = "mdi.monitor-eye"
+    FOCUS_OFF = "ph.eye-closed-bold"
+
     # Accent color picker
     PALETTE = "ph.palette-fill"
 
@@ -20,6 +24,7 @@ class Icons:
     # Navigation
     CARET_LEFT = "ph.caret-left-bold"
     CARET_RIGHT = "ph.caret-right-bold"
+    CARET_DOWN = "ph.caret-down-bold"
     INFO = "ph.info-bold"
     PLUS = "ph.image-square-fill"
 

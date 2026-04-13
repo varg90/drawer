@@ -623,6 +623,8 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             "topmost": self._topmost,
             "viewer_size": getattr(self, "_last_viewer_size", None),
             "session_limit": self._bottom_bar.get_session_limit(),
+            "focus_enabled": self._bottom_bar.focus_enabled,
+            "focus_app": self._bottom_bar.focus_app,
         }
         from ui.viewer_window import ViewerWindow
         self.viewer = ViewerWindow(show_images, settings,

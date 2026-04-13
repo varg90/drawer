@@ -10,6 +10,7 @@ from core.timer_logic import format_time, auto_warn_seconds
 from ui.icons import Icons
 from ui.scales import S
 from ui.platform import setup_frameless_native
+from core.focus_monitor import get_foreground_app
 
 # Native scan codes for physical key positions (layout-independent hotkeys)
 import sys as _sys
@@ -26,6 +27,7 @@ else:
     SC_F = 33
     SC_V = 47
 FADE_MS = 200
+_OWN_PROCESS = os.path.splitext(os.path.basename(_sys.executable))[0].lower()
 
 # Icon colors
 CLR_NORMAL = QColor(204, 192, 174, 255)
@@ -144,6 +146,8 @@ class ViewerWindow(QWidget):
         self._is_warning = False
         self._session_limit = settings.get("session_limit")  # seconds or None
         self._session_elapsed = 0
+        self._focus_app = settings.get("focus_app")
+        self._focus_enabled = settings.get("focus_enabled", False)
         self._grayscale = False
         self._flip_h = False
         self._flip_v = False
@@ -288,6 +292,13 @@ class ViewerWindow(QWidget):
         self._qtimer = QTimer(self)
         self._qtimer.setInterval(1000)
         self._qtimer.timeout.connect(self._tick)
+
+        # Focus polling timer (checks foreground window every 500ms)
+        self._focus_timer = QTimer(self)
+        self._focus_timer.setInterval(500)
+        self._focus_timer.timeout.connect(self._check_focus)
+        if self._focus_enabled and self._focus_app:
+            self._focus_timer.start()
 
         # Screen limits
         screen = QApplication.primaryScreen().availableGeometry()
@@ -480,6 +491,17 @@ class ViewerWindow(QWidget):
         self._update_center_icon()
         self._update_coffee()
 
+    def _check_focus(self):
+        if not self._focus_enabled or not self._focus_app:
+            return
+        fg = get_foreground_app()
+        if fg is None:
+            return
+        if fg.lower() == _OWN_PROCESS:
+            return
+        if fg.lower() != self._focus_app.lower() and not self._paused:
+            self._toggle_pause()
+
     def _dismiss_help(self):
         if self._help_overlay is not None:
             self._help_overlay.deleteLater()
@@ -561,6 +583,7 @@ class ViewerWindow(QWidget):
             self.on_close(return_only=True)
 
     def _finish(self):
+        self._focus_timer.stop()
         self._qtimer.stop()
         cb = self.on_close
         self.on_close = None
@@ -656,6 +679,7 @@ class ViewerWindow(QWidget):
             setup_frameless_native(self)
 
     def closeEvent(self, event):
+        self._focus_timer.stop()
         self._qtimer.stop()
         if self.on_close:
             cb = self.on_close

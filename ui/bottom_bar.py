@@ -8,6 +8,7 @@ from core.class_mode import total_duration
 from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import make_icon_btn, make_start_btn
+from ui.focus_tracker import FocusTrackerWidget
 
 
 class BottomBar(QWidget):
@@ -36,11 +37,6 @@ class BottomBar(QWidget):
         summary_col.setSpacing(0)
         summary_col.setContentsMargins(0, 0, 0, 0)
 
-        self._groups_label = QLabel("")
-        self._groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._groups_label.setWordWrap(True)
-        summary_col.addWidget(self._groups_label)
-
         summary_time = QHBoxLayout()
         summary_time.setSpacing(S.SUMMARY_TIME_SPACING)
         summary_time.setContentsMargins(0, 0, 0, 0)
@@ -65,6 +61,10 @@ class BottomBar(QWidget):
         summary_time.addStretch()
 
         summary_col.addLayout(summary_time)
+
+        # Focus tracker (below total+limit)
+        self._focus_tracker = FocusTrackerWidget(self.theme, parent=self)
+        summary_col.addWidget(self._focus_tracker)
 
         # Add button (right side)
         self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
@@ -92,6 +92,14 @@ class BottomBar(QWidget):
 
     def get_session_limit(self):
         return SESSION_LIMIT_PRESETS[self._session_limit_index][0]
+
+    @property
+    def focus_enabled(self):
+        return self._focus_tracker.is_tracking
+
+    @property
+    def focus_app(self):
+        return self._focus_tracker.tracked_app
 
     @property
     def session_limit_index(self):
@@ -122,13 +130,11 @@ class BottomBar(QWidget):
 
     def update_summary_quick(self, image_count, timer_seconds):
         if image_count == 0:
-            self._groups_label.setText("")
             self._total_label.setText("")
             self._limit_sep.hide()
             self._limit_btn.hide()
         else:
             total = image_count * timer_seconds
-            self._groups_label.setText(f"{image_count} images")
             self._total_label.setText(format_time(total))
             self._limit_sep.show()
             self._limit_btn.show()
@@ -136,28 +142,16 @@ class BottomBar(QWidget):
 
     def update_summary_class(self, image_count, class_groups):
         if image_count == 0:
-            self._groups_label.setText("")
             self._total_label.setText("")
             self._limit_sep.hide()
             self._limit_btn.hide()
         elif class_groups:
-            parts = []
-            for count, timer in class_groups:
-                if timer >= 3600:
-                    t = f"{timer // 3600}h"
-                elif timer >= 60:
-                    t = f"{timer // 60}m"
-                else:
-                    t = f"{timer}s"
-                parts.append(f"{count}x{t}")
-            self._groups_label.setText("  ".join(parts))
             dur = total_duration(class_groups)
             self._total_label.setText(format_time(dur))
             self._limit_sep.show()
             self._limit_btn.show()
             self._update_limit_display()
         else:
-            self._groups_label.setText(f"{image_count} images")
             self._total_label.setText("")
             self._limit_sep.hide()
             self._limit_btn.hide()
@@ -166,14 +160,14 @@ class BottomBar(QWidget):
 
     def apply_theme(self):
         t = self.theme
-        self._groups_label.setStyleSheet(
-            f"color: {t.text_hint}; font-size: {S.FONT_HINT}px; font-weight: 400; "
-            f"font-family: 'Lexend';")
         self._total_label.setStyleSheet(
             f"color: {t.text_secondary}; font-size: {S.FONT_TOTAL}px; font-weight: 500; "
             f"font-family: 'Lexend';")
         self._limit_sep.setStyleSheet(f"color: {t.text_hint}; font-size: {S.FONT_LIMIT_SEP}px; font-family: 'Lexend';")
         self._update_limit_display()
+
+        self._focus_tracker.theme = t
+        self._focus_tracker.apply_theme()
 
         self._add_btn.setIcon(qta.icon(Icons.PLUS, color=t.text_hint))
         self._add_btn.setStyleSheet(
@@ -187,9 +181,11 @@ class BottomBar(QWidget):
     # ------------------------------------------------------------------ Session save/restore
 
     def save_state(self):
-        return {
+        state = {
             "session_limit": self.get_session_limit(),
         }
+        state.update(self._focus_tracker.save_state())
+        return state
 
     def restore_state(self, data):
         session_limit = data.get("session_limit")
@@ -200,3 +196,4 @@ class BottomBar(QWidget):
                     break
         self._session_limit_index = min(self._session_limit_index,
                                         len(SESSION_LIMIT_PRESETS) - 1)
+        self._focus_tracker.restore_state(data)
