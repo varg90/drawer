@@ -54,7 +54,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("Drawer")
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "..", "drawer.ico")))
-        self.setMinimumSize(200, 200)
+        self.setMinimumSize(220, 220)
         self.resize(S.MAIN_W, S.MAIN_H)
         self._resizing = False
         self._resize_edge = None
@@ -86,6 +86,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _build_ui(self):
         central = QWidget()
+        central.setMouseTracking(True)
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
         root.setContentsMargins(S.MARGIN, S.MARGIN_TOP, S.MARGIN, S.MARGIN_BOTTOM)
@@ -323,7 +324,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             else:
                 dy = 0
             d = max(dx, dy) if (dx or dy) else 0
-            new_size = max(200, geo.width() + d)
+            # Clamp to screen height
+            screen = self.screen()
+            max_size = screen.availableGeometry().height() if screen else 900
+            new_size = max(220, min(max_size, geo.width() + d))
             new_geo = QRect(geo)
             # Anchor: grow/shrink from the opposite corner
             if "l" in e:
@@ -350,32 +354,28 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     # ------------------------------------------------------------------ Resize scale
 
     def _apply_user_scale(self):
-        """Recalculate UI scale from current window size and rebuild."""
+        """Recalculate UI scale from current window size and rebuild everything."""
         from ui.scales import rescale_user, _BASE
         base_size = _BASE["MAIN_W"]  # 250
         user_factor = self.width() / base_size
         rescale_user(user_factor)
 
-        # Rebuild this window's layout margins
-        self.centralWidget().layout().setContentsMargins(
-            S.MARGIN, S.MARGIN_TOP, S.MARGIN, S.MARGIN_BOTTOM)
+        # Save widget state before full rebuild
+        timer_state = self._timer_panel.save_state()
+        bottom_state = self._bottom_bar.save_state()
 
-        # Rebuild theme (icons, fonts, styles)
+        # Rebuild entire UI from scratch with new S.* values
+        self._dismiss_help()
+        self._build_ui()
+        self._timer_panel.restore_state({**timer_state, **bottom_state})
+        self._bottom_bar.restore_state({**timer_state, **bottom_state})
         self._apply_theme()
-        self._timer_panel.theme = self.theme
-        self._timer_panel.apply_theme()
-        self._bottom_bar.theme = self.theme
-        self._bottom_bar.apply_theme()
-        self._panel._radius = S.PANEL_RADIUS
-        self._panel.update()
 
         # Rebuild editor if open
         if self._editor_visible:
             self.editor.resize(S.EDITOR_W, self.height())
+            self.editor._build_ui()
             self.editor._apply_theme()
-            self.editor._panel.theme = self.theme
-            self.editor._panel._apply_theme()
-            self.editor._panel._rebuild()
             # Reposition snapped editor
             if self.editor._snapped_to is not None:
                 snap_pos = self.editor._calc_snap_pos(self, "right")
