@@ -618,11 +618,14 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         if mode == "class" and self._timer_panel.class_groups:
             show_images.sort(key=lambda img: img.timer)
 
+        focus_state = self._bottom_bar._focus_tracker
         settings = {
             "order": "sequential",
             "topmost": self._topmost,
             "viewer_size": getattr(self, "_last_viewer_size", None),
             "session_limit": self._bottom_bar.get_session_limit(),
+            "focus_enabled": focus_state.is_tracking,
+            "focus_app": focus_state.tracked_app,
         }
         from ui.viewer_window import ViewerWindow
         self.viewer = ViewerWindow(show_images, settings,
