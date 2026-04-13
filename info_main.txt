@@ -1,4 +1,4 @@
-Drawer 0.1.0
+Drawer 0.3.1
 
 Pin - always on top (slideshow only)
 Palette - accent color

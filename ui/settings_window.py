@@ -302,7 +302,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             with open(info_path, encoding="utf-8") as f:
                 info_text = f.read().replace("\n", "<br>")
         except FileNotFoundError:
-            info_text = "Drawer 0.1.0"
+            info_text = "Drawer 0.3.1"
         lbl = QLabel(info_text)
         lbl.setStyleSheet(f"color: {t.text_primary}; font-size: 11px;")
         lbl.setWordWrap(True)
