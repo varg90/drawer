@@ -74,10 +74,10 @@ if __name__ == "__main__":
 
     # Load saved window size for user scale
     from core.session import load_session
-    from ui.scales import rescale_user, _BASE
+    from ui.scales import rescale_user, base_value
     saved = load_session()
     if saved and "window_size" in saved:
-        user_factor = saved["window_size"] / _BASE["MAIN_W"]
+        user_factor = saved["window_size"] / base_value("MAIN_W")
         rescale_user(user_factor)
 
     load_fonts()
