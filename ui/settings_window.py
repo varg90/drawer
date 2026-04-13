@@ -98,12 +98,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                                        size=S.ICON_HEADER, tooltip="Help")
         self._help_btn.clicked.connect(self._show_help)
 
-        self._topmost_btn = make_icon_toggle(
-            Icons.TOPMOST_ON, Icons.TOPMOST_OFF, self._topmost, self.theme,
-            size=S.ICON_HEADER)
-        self._topmost_btn.setToolTip("Always on top")
-        self._topmost_btn.clicked.connect(self._toggle_topmost)
-
         self._accent_btn = make_icon_btn(Icons.PALETTE, self.theme.accent,
                                           size=S.ICON_HEADER, tooltip="Accent color")
         self._accent_btn.clicked.connect(self._pick_accent)
@@ -124,7 +118,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         header_layout, self._title = make_centered_header(
             "Drawer",
             [self._help_btn, self._accent_btn, self._theme_btn],
-            [self._topmost_btn, self._min_btn, self._close_btn],
+            [self._min_btn, self._close_btn],
             self.theme,
         )
         root.addLayout(header_layout)
@@ -218,9 +212,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         # Header icons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
-        _topmost_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
-        _topmost_color = t.text_secondary if self._topmost else t.text_hint
-        self._topmost_btn.setIcon(qta.icon(_topmost_icon, color=_topmost_color))
         _theme_icon = Icons.THEME_DARK if t.name == "dark" else Icons.THEME_LIGHT
         self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
         self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
@@ -495,15 +486,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             self.editor._panel._apply_theme()
             self.editor._panel._restyle_groups()
 
-    # ------------------------------------------------------------------ Toggle methods
-
-    def _toggle_topmost(self):
-        self._topmost = not self._topmost
-        t = self.theme
-        _icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
-        _color = t.text_secondary if self._topmost else t.text_hint
-        self._topmost_btn.setIcon(qta.icon(_icon, color=_color))
-
     # ------------------------------------------------------------------ Image management
 
     def _add_files(self):
@@ -636,8 +618,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.hide()
 
     def _on_viewer_closed(self, return_only=False):
-        if self.viewer and not self.viewer.isFullScreen():
-            self._last_viewer_size = [self.viewer.width(), self.viewer.height()]
+        if self.viewer:
+            if not self.viewer.isFullScreen():
+                self._last_viewer_size = [self.viewer.width(), self.viewer.height()]
+            self._topmost = self.viewer._topmost
         if return_only:
             self.show()
         else:
