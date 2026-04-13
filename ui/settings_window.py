@@ -23,6 +23,7 @@ from ui.snap import SnapMixin
 from ui.rounded_window import RoundedWindowMixin
 from ui.timer_panel import TimerPanel
 from ui.bottom_bar import BottomBar
+from ui.platform import setup_frameless_native
 
 
 class _InsetPanel(QWidget):
@@ -255,6 +256,12 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def paintEvent(self, event):
         self._paint_rounded(event)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not getattr(self, '_native_setup_done', False):
+            self._native_setup_done = True
+            setup_frameless_native(self)
 
     # ------------------------------------------------------------------ Window dragging
 

@@ -9,6 +9,7 @@ from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
 from core.timer_logic import format_time, auto_warn_seconds
 from ui.icons import Icons
 from ui.scales import S
+from ui.platform import setup_frameless_native
 
 # Native scan codes for physical key positions (layout-independent hotkeys)
 import sys as _sys
@@ -648,6 +649,12 @@ class ViewerWindow(QWidget):
         else:
             super().keyPressEvent(event)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not getattr(self, '_native_setup_done', False):
+            self._native_setup_done = True
+            setup_frameless_native(self)
+
     def closeEvent(self, event):
         self._qtimer.stop()
         if self.on_close:
@@ -762,10 +769,10 @@ class ViewerWindow(QWidget):
                 self.unsetCursor()
                 corner = None
             else:
-                corner = self._get_corner(pos)
+                corner = self._get_corner(pos, cursor_only=True)
                 self._update_cursor(corner)
         else:
-            corner = self._get_corner(pos)
+            corner = self._get_corner(pos, cursor_only=True)
             self._update_cursor(corner)
 
         buttons = event.buttons()
@@ -786,10 +793,10 @@ class ViewerWindow(QWidget):
             pos = event.position().toPoint()
             self._update_cursor(self._get_corner(pos))
 
-    def _get_corner(self, pos):
+    def _get_corner(self, pos, cursor_only=False):
         w, h = self.width(), self.height()
         x, y = pos.x(), pos.y()
-        edge = 6
+        edge = S.RESIZE_CURSOR_W if cursor_only else S.RESIZE_GRIP_W
         g = S.VIEWER_CORNER_GRIP
         in_left = x < g
         in_right = x > w - g
