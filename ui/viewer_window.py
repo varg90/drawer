@@ -20,12 +20,14 @@ if _sys.platform == "darwin":
     SC_R = 15  # macOS keycode for R position
     SC_F = 3   # macOS keycode for F position
     SC_V = 9   # macOS keycode for V position
+    SC_P = 35  # macOS keycode for P position
 else:
     SC_H = 35  # Windows scan code
     SC_G = 34
     SC_R = 19
     SC_F = 33
     SC_V = 47
+    SC_P = 25
 FADE_MS = 200
 _OWN_PROCESS = os.path.splitext(os.path.basename(_sys.executable))[0].lower()
 
@@ -152,10 +154,11 @@ class ViewerWindow(QWidget):
         self._flip_h = False
         self._flip_v = False
         self._grid_thirds = False
+        self._topmost = bool(settings.get("topmost"))
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
-        if settings.get("topmost"):
+        if self._topmost:
             flags |= Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(flags)
         self.setWindowTitle("Drawer")
@@ -209,6 +212,10 @@ class ViewerWindow(QWidget):
         self._fliph_btn.clicked.connect(self._toggle_flip_h)
         self._flipv_btn = _icon_btn(Icons.FLIP_V, 20, self._top_center, tooltip="Flip V (V)")
         self._flipv_btn.clicked.connect(self._toggle_flip_v)
+        pin_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
+        pin_color = CLR_NORMAL if self._topmost else CLR_DIM
+        self._pin_btn = _icon_btn(pin_icon, 20, self._top_center, color=pin_color, tooltip="Pin on top (P)")
+        self._pin_btn.clicked.connect(self._toggle_topmost)
 
         self._top_right = QWidget(self)
         self._top_right.setStyleSheet("background: transparent;")
@@ -595,6 +602,20 @@ class ViewerWindow(QWidget):
         self._flip_v = not self._flip_v
         self._update_display()
 
+    def _toggle_topmost(self):
+        self._topmost = not self._topmost
+        flags = self.windowFlags()
+        if self._topmost:
+            flags |= Qt.WindowType.WindowStaysOnTopHint
+        else:
+            flags &= ~Qt.WindowType.WindowStaysOnTopHint
+        self.setWindowFlags(flags)
+        self.show()
+        icon_name = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
+        color = CLR_NORMAL if self._topmost else CLR_DIM
+        self._pin_btn.setIcon(_icon(icon_name, color))
+        self._pin_btn.setIconSize(QSize(20, 20))
+
     # ------------------------------------------------------------------ Fade animation
 
     def _fade_controls(self, show):
@@ -643,6 +664,8 @@ class ViewerWindow(QWidget):
             self._toggle_flip_h()
         elif sc == SC_V:
             self._toggle_flip_v()
+        elif sc == SC_P:
+            self._toggle_topmost()
         else:
             super().keyPressEvent(event)
 
@@ -690,12 +713,13 @@ class ViewerWindow(QWidget):
         # 3) hide if too small (keyboard shortcuts still work)
         tl_right = margin + btn_sz + gap
         all_btns = [self._bw_btn, self._grid_btn,
-                    self._fliph_btn, self._flipv_btn]
-        tc_w = btn_sz * 4 + gap * 3
+                    self._fliph_btn, self._flipv_btn, self._pin_btn]
+        n = len(all_btns)
+        tc_w = btn_sz * n + gap * (n - 1)
         fits_horizontal = tl_right + tc_w + gap + tr_w <= w - margin
-        col4_h = btn_sz * 4 + gap * 3
+        col_h = btn_sz * n + gap * (n - 1)
         col_y = margin + btn_sz + gap
-        fits_vertical_4 = col_y + col4_h < (h - S.VIEWER_CENTER_BTN) // 2
+        fits_vertical = col_y + col_h < (h - S.VIEWER_CENTER_BTN) // 2
 
         if fits_horizontal:
             self._top_center.show()
@@ -707,11 +731,11 @@ class ViewerWindow(QWidget):
             self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
             for i, btn in enumerate(all_btns):
                 btn.setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
-        elif fits_vertical_4:
+        elif fits_vertical:
             self._top_center.show()
             for btn in all_btns:
                 btn.show()
-            self._top_center.setGeometry(margin, col_y, btn_sz, col4_h)
+            self._top_center.setGeometry(margin, col_y, btn_sz, col_h)
             for i, btn in enumerate(all_btns):
                 btn.setGeometry(0, i * (btn_sz + gap), btn_sz, btn_sz)
         else:
