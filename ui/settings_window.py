@@ -59,7 +59,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.resize(S.MAIN_W, S.MAIN_H)
         self._resize_edge = None
         self._resize_geo = None
-        self._resize_outline = None
         self._last_edge = None
         self.setMouseTracking(True)
 
@@ -256,14 +255,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     def paintEvent(self, event):
         self._paint_rounded(event)
 
-    def changeEvent(self, event):
-        super().changeEvent(event)
-        from PyQt6.QtCore import QEvent
-        if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow():
-            if self._resize_edge:
-                self._hide_resize_outline()
-                self._resize_edge = None
-
     def showEvent(self, event):
         super().showEvent(event)
         if not getattr(self, '_native_setup_done', False):
@@ -301,61 +292,12 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             return Qt.CursorShape.SizeBDiagCursor
         return Qt.CursorShape.ArrowCursor
 
-    def _calc_resize_geo(self, mouse_global):
-        """Calculate target square geometry from current mouse position.
-        Size = distance from anchor corner to mouse, clamped to limits."""
-        from PyQt6.QtCore import QRect
-        geo = self._resize_geo
-        e = self._resize_edge
-        # Anchor is the opposite corner — it stays fixed
-        ax = geo.left() if "r" in e else geo.right()
-        ay = geo.top() if "b" in e else geo.bottom()
-        # Size = max of horizontal/vertical distance from anchor to mouse
-        new_size = max(abs(mouse_global.x() - ax), abs(mouse_global.y() - ay))
-        screen = self.screen()
-        max_size = screen.availableGeometry().height() if screen else 900
-        new_size = max(S.MAIN_MIN, min(max_size, new_size))
-        new_geo = QRect(geo)
-        if "l" in e:
-            new_geo.setLeft(geo.right() - new_size + 1)
-        else:
-            new_geo.setRight(geo.left() + new_size - 1)
-        if "t" in e:
-            new_geo.setTop(geo.bottom() - new_size + 1)
-        else:
-            new_geo.setBottom(geo.top() + new_size - 1)
-        return new_geo
-
-    def _show_resize_outline(self):
-        """Create a semi-transparent overlay showing the target resize rectangle."""
-        self._resize_outline = QWidget()
-        self._resize_outline.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.WindowTransparentForInput
-            | Qt.WindowType.Tool)
-        t = self.theme
-        self._resize_outline.setStyleSheet(
-            f"background-color: {t.bg};"
-            f"border: 2px solid {t.accent};"
-            f"border-radius: {S.WINDOW_RADIUS}px;")
-        self._resize_outline.setWindowOpacity(0.5)
-        self._resize_outline.setGeometry(self.geometry())
-        self._resize_outline.show()
-
-    def _hide_resize_outline(self):
-        if self._resize_outline is not None:
-            self._resize_outline.close()
-            self._resize_outline.deleteLater()
-            self._resize_outline = None
-
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             edge = self._edge_at(event.pos(), cursor_only=True)
             if edge:
                 self._resize_edge = edge
                 self._resize_geo = self.geometry()
-                self._show_resize_outline()
                 event.accept()
                 return
         self._resize_edge = None
@@ -369,19 +311,33 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                 self.setCursor(self._cursor_for_edge(edge) if edge else Qt.CursorShape.ArrowCursor)
             return
         if self._resize_edge:
-            new_geo = self._calc_resize_geo(event.globalPosition().toPoint())
-            if self._resize_outline:
-                self._resize_outline.setGeometry(new_geo)
+            from PyQt6.QtCore import QRect
+            geo = self._resize_geo
+            e = self._resize_edge
+            mouse = event.globalPosition().toPoint()
+            # Anchor = opposite corner, size = distance from anchor to mouse
+            ax = geo.left() if "r" in e else geo.right()
+            ay = geo.top() if "b" in e else geo.bottom()
+            new_size = max(abs(mouse.x() - ax), abs(mouse.y() - ay))
+            screen = self.screen()
+            max_size = screen.availableGeometry().height() if screen else 900
+            new_size = max(S.MAIN_MIN, min(max_size, new_size))
+            new_geo = QRect(geo)
+            if "l" in e:
+                new_geo.setLeft(geo.right() - new_size + 1)
+            else:
+                new_geo.setRight(geo.left() + new_size - 1)
+            if "t" in e:
+                new_geo.setTop(geo.bottom() - new_size + 1)
+            else:
+                new_geo.setBottom(geo.top() + new_size - 1)
+            self.setGeometry(new_geo)
             event.accept()
             return
         self.snap_mouse_move(event)
 
     def mouseReleaseEvent(self, event):
         if self._resize_edge:
-            if self._resize_outline:
-                target = self._resize_outline.geometry()
-                self._hide_resize_outline()
-                self.setGeometry(target)
             self._resize_edge = None
             self._apply_user_scale()
             return
