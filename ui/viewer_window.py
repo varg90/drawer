@@ -130,6 +130,7 @@ class ViewerWindow(QWidget):
         self._settings_window = settings_window
         self._paused = False
         self._was_paused_by_help = False
+        self._help_overlay = None
         self._countdown = 0
         self._total_time = 0
         self._drag_pos = None
@@ -479,13 +480,14 @@ class ViewerWindow(QWidget):
         self._update_coffee()
 
     def _dismiss_help(self):
-        if hasattr(self, "_help_overlay") and self._help_overlay.isVisible():
-            self._help_overlay.hide()
+        if self._help_overlay is not None:
+            self._help_overlay.deleteLater()
+            self._help_overlay = None
             if self._was_paused_by_help:
                 self._toggle_pause()
 
     def _show_help(self):
-        if hasattr(self, "_help_overlay") and self._help_overlay.isVisible():
+        if self._help_overlay is not None:
             self._dismiss_help()
             return
         self._was_paused_by_help = not self._paused
