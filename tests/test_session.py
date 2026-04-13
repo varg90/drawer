@@ -57,3 +57,19 @@ def test_save_large_list():
     save_session(data, path)
     assert len(load_session(path)["images"]) == 1000
     os.unlink(path)
+
+def test_focus_state_round_trip():
+    """Focus tracker state survives save/load cycle."""
+    data = {
+        "focus_enabled": True,
+        "focus_slot": 2,
+        "focus_apps": ["Photoshop", None, "Krita", None, None],
+    }
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        path = f.name
+    save_session(data, path)
+    loaded = load_session(path)
+    assert loaded["focus_enabled"] is True
+    assert loaded["focus_slot"] == 2
+    assert loaded["focus_apps"] == ["Photoshop", None, "Krita", None, None]
+    os.unlink(path)
