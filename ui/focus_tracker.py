@@ -98,7 +98,7 @@ class FocusTrackerWidget(QWidget):
         layout.addWidget(self._app_btn)
 
         # Action button: arrow (open list) or x (clear slot)
-        self._action_btn = IconButton(size=S.ICON_HEADER)
+        self._action_btn = IconButton(size=S.FONT_FOCUS_BTN)
         self._action_btn.clicked.connect(self._on_action)
         self._action_btn.hide()
         layout.addWidget(self._action_btn)
