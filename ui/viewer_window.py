@@ -691,28 +691,35 @@ class ViewerWindow(QWidget):
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
         self._info_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
-        # Top center: viewer tools
-        gap = S.VIEWER_ICON_GAP
-        tc_w = btn_sz * 4 + gap * 3
-        tc_x = (w - tc_w) // 2
-
         # Top right: close
+        gap = S.VIEWER_ICON_GAP
         tr_w = btn_sz
         tr_x = w - tr_w - margin
-
-        # If centered tools would overlap, push them left after info button
-        tl_right = margin + btn_sz + gap
-        if tc_x < tl_right or tc_x + tc_w > tr_x - gap:
-            tc_x = tl_right
-
-        self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
-        self._bw_btn.setGeometry(0, 0, btn_sz, btn_sz)
-        self._grid_btn.setGeometry(btn_sz + gap, 0, btn_sz, btn_sz)
-        self._fliph_btn.setGeometry(2 * (btn_sz + gap), 0, btn_sz, btn_sz)
-        self._flipv_btn.setGeometry(3 * (btn_sz + gap), 0, btn_sz, btn_sz)
-
         self._top_right.setGeometry(tr_x, margin, tr_w, btn_sz)
         self._close_btn.setGeometry(0, 0, btn_sz, btn_sz)
+
+        # Top center: viewer tools — hide progressively when no space
+        tl_right = margin + btn_sz + gap
+        center_btns = [self._bw_btn, self._grid_btn,
+                       self._fliph_btn, self._flipv_btn]
+        available = tr_x - gap - tl_right
+        visible_count = min(4, max(0, int((available + gap) / (btn_sz + gap))))
+        for i, btn in enumerate(center_btns):
+            if i < visible_count:
+                btn.show()
+            else:
+                btn.hide()
+        if visible_count == 0:
+            self._top_center.hide()
+        else:
+            self._top_center.show()
+            tc_w = btn_sz * visible_count + gap * (visible_count - 1)
+            tc_x = max(tl_right, (w - tc_w) // 2)
+            if tc_x + tc_w > tr_x - gap:
+                tc_x = tl_right
+            self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
+            for i in range(visible_count):
+                center_btns[i].setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
 
         # Center
         self._center_btn.move((w - S.VIEWER_CENTER_BTN) // 2, (h - S.VIEWER_CENTER_BTN) // 2)
