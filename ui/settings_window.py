@@ -302,7 +302,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         e = self._resize_edge
         dx = delta.x() if "r" in e else -delta.x()
         dy = delta.y() if "b" in e else -delta.y()
-        d = max(dx, dy)
+        d = dx if abs(dx) >= abs(dy) else dy
         screen = self.screen()
         max_size = screen.availableGeometry().height() if screen else 900
         new_size = max(S.MAIN_MIN, min(max_size, geo.width() + d))
