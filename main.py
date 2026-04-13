@@ -70,7 +70,7 @@ if __name__ == "__main__":
     else:
         factor = 1.0
         log.warning("No screen detected, using factor 1.0")
-    init_scale(factor)
+    init_scale(factor, user_factor=1.0)
 
     load_fonts()
     app.setFont(QFont("Lexend"))
