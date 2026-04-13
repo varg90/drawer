@@ -762,10 +762,10 @@ class ViewerWindow(QWidget):
                 self.unsetCursor()
                 corner = None
             else:
-                corner = self._get_corner(pos)
+                corner = self._get_corner(pos, cursor_only=True)
                 self._update_cursor(corner)
         else:
-            corner = self._get_corner(pos)
+            corner = self._get_corner(pos, cursor_only=True)
             self._update_cursor(corner)
 
         buttons = event.buttons()
@@ -786,10 +786,10 @@ class ViewerWindow(QWidget):
             pos = event.position().toPoint()
             self._update_cursor(self._get_corner(pos))
 
-    def _get_corner(self, pos):
+    def _get_corner(self, pos, cursor_only=False):
         w, h = self.width(), self.height()
         x, y = pos.x(), pos.y()
-        edge = 6
+        edge = S.RESIZE_CURSOR_W if cursor_only else S.RESIZE_GRIP_W
         g = S.VIEWER_CORNER_GRIP
         in_left = x < g
         in_right = x > w - g
