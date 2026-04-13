@@ -98,6 +98,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                                        size=S.ICON_HEADER, tooltip="Help")
         self._help_btn.clicked.connect(self._show_help)
 
+        self._cat_btn = make_icon_btn(Icons.CAT, self.theme.text_hint,
+                                       size=S.ICON_HEADER, tooltip="Cat")
+        self._cat_btn.clicked.connect(self._show_cat)
+
         self._accent_btn = make_icon_btn(Icons.PALETTE, self.theme.accent,
                                           size=S.ICON_HEADER, tooltip="Accent color")
         self._accent_btn.clicked.connect(self._pick_accent)
@@ -117,7 +121,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         header_layout, self._title = make_centered_header(
             "Drawer",
-            [self._help_btn, self._accent_btn, self._theme_btn],
+            [self._help_btn, self._cat_btn, self._accent_btn, self._theme_btn],
             [self._min_btn, self._close_btn],
             self.theme,
         )
@@ -212,6 +216,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         # Header icons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
+        self._cat_btn.setIcon(qta.icon(Icons.CAT, color=t.text_hint))
         _theme_icon = Icons.THEME_DARK if t.name == "dark" else Icons.THEME_LIGHT
         self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
         self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
@@ -398,7 +403,56 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         self.update()
 
-    # ------------------------------------------------------------------ Help / Theme / Accent
+    # ------------------------------------------------------------------ Cat / Help / Theme / Accent
+
+    def _dismiss_cat(self):
+        if hasattr(self, "_cat_overlay") and self._cat_overlay is not None:
+            self._cat_overlay.deleteLater()
+            self._cat_overlay = None
+
+    def _show_cat(self):
+        if hasattr(self, "_cat_overlay") and self._cat_overlay is not None:
+            self._dismiss_cat()
+            return
+        import glob
+        cat_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Cat")
+        photos = glob.glob(os.path.join(cat_dir, "*.[jJ][pP][gG]"))
+        photos += glob.glob(os.path.join(cat_dir, "*.[jJ][pP][eE][gG]"))
+        photos += glob.glob(os.path.join(cat_dir, "*.[pP][nN][gG]"))
+        if not photos:
+            return
+        photo = random.choice(photos)
+        pix = QPixmap(photo)
+        if pix.isNull():
+            return
+
+        t = self.theme
+        cw = self.centralWidget()
+        overlay = QWidget(cw)
+        overlay.setGeometry(cw.rect())
+        overlay.setStyleSheet(
+            f"background-color: rgba({t.bg_rgb}, 230);"
+            f"border-radius: {S.WINDOW_RADIUS}px;")
+        overlay.mousePressEvent = lambda e: self._dismiss_cat()
+
+        from PyQt6.QtWidgets import QVBoxLayout
+        layout = QVBoxLayout(overlay)
+        layout.setContentsMargins(8, 8, 8, 8)
+
+        lbl = QLabel()
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl.setStyleSheet("background: transparent;")
+        scaled = pix.scaled(
+            cw.width() - 16, cw.height() - 16,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
+        lbl.setPixmap(scaled)
+        lbl.mousePressEvent = lambda e: self._dismiss_cat()
+        layout.addWidget(lbl)
+
+        overlay.raise_()
+        overlay.show()
+        self._cat_overlay = overlay
 
     def _dismiss_help(self):
         if hasattr(self, "_help_overlay") and self._help_overlay is not None:
