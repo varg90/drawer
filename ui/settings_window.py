@@ -259,28 +259,32 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     # ------------------------------------------------------------------ Window dragging
 
     def _edge_at(self, pos, cursor_only=False):
+        """Detect if cursor is near any edge. For square resize, returns the
+        quadrant corner (tl/tr/bl/br) so the anchor is always the opposite corner."""
         r = self.rect()
         e = S.RESIZE_CURSOR_W if cursor_only else S.RESIZE_GRIP_W
-        edges = ""
-        if pos.y() < e:
-            edges += "t"
-        elif pos.y() > r.height() - e:
-            edges += "b"
-        if pos.x() < e:
-            edges += "l"
-        elif pos.x() > r.width() - e:
-            edges += "r"
-        return edges or None
+        near_top = pos.y() < e
+        near_bottom = pos.y() > r.height() - e
+        near_left = pos.x() < e
+        near_right = pos.x() > r.width() - e
+        if not (near_top or near_bottom or near_left or near_right):
+            return None
+        # Map to quadrant corner for square resize
+        in_top_half = pos.y() < r.height() / 2
+        in_left_half = pos.x() < r.width() / 2
+        if in_top_half and in_left_half:
+            return "tl"
+        if in_top_half and not in_left_half:
+            return "tr"
+        if not in_top_half and in_left_half:
+            return "bl"
+        return "br"
 
     def _cursor_for_edge(self, edge):
         if edge in ("tl", "br"):
             return Qt.CursorShape.SizeFDiagCursor
         if edge in ("tr", "bl"):
             return Qt.CursorShape.SizeBDiagCursor
-        if edge in ("t", "b"):
-            return Qt.CursorShape.SizeVerCursor
-        if edge in ("l", "r"):
-            return Qt.CursorShape.SizeHorCursor
         return Qt.CursorShape.ArrowCursor
 
     def _calc_resize_geo(self, delta):
