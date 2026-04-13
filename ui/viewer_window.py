@@ -698,28 +698,30 @@ class ViewerWindow(QWidget):
         self._top_right.setGeometry(tr_x, margin, tr_w, btn_sz)
         self._close_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
-        # Top center: viewer tools — hide progressively when no space
+        # Viewer tools — horizontal at top, or vertical on left if too narrow
         tl_right = margin + btn_sz + gap
         center_btns = [self._bw_btn, self._grid_btn,
                        self._fliph_btn, self._flipv_btn]
-        available = tr_x - gap - tl_right
-        visible_count = min(4, max(0, int((available + gap) / (btn_sz + gap))))
-        for i, btn in enumerate(center_btns):
-            if i < visible_count:
-                btn.show()
-            else:
-                btn.hide()
-        if visible_count == 0:
-            self._top_center.hide()
-        else:
-            self._top_center.show()
-            tc_w = btn_sz * visible_count + gap * (visible_count - 1)
-            tc_x = max(tl_right, (w - tc_w) // 2)
-            if tc_x + tc_w > tr_x - gap:
+        tc_w = btn_sz * 4 + gap * 3
+        fits_horizontal = tl_right + tc_w + gap + tr_w <= w - margin
+
+        self._top_center.show()
+        for btn in center_btns:
+            btn.show()
+
+        if fits_horizontal:
+            tc_x = (w - tc_w) // 2
+            if tc_x < tl_right:
                 tc_x = tl_right
             self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
-            for i in range(visible_count):
-                center_btns[i].setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
+            for i, btn in enumerate(center_btns):
+                btn.setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
+        else:
+            tc_h = btn_sz * 4 + gap * 3
+            tc_y = margin + btn_sz + gap
+            self._top_center.setGeometry(margin, tc_y, btn_sz, tc_h)
+            for i, btn in enumerate(center_btns):
+                btn.setGeometry(0, i * (btn_sz + gap), btn_sz, btn_sz)
 
         # Center
         self._center_btn.move((w - S.VIEWER_CENTER_BTN) // 2, (h - S.VIEWER_CENTER_BTN) // 2)
