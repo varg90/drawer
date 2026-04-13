@@ -50,6 +50,7 @@ class S(metaclass=_SMeta):
     # Window
     MAIN_W = 250
     MAIN_H = 250
+    MAIN_MIN = 220
     EDITOR_W = 250
     WINDOW_RADIUS = 8
 
