@@ -852,22 +852,22 @@ class ViewerWindow(QWidget):
         corner = self._resize_corner
 
         if corner in ("br", "r", "b"):
-            new_w = max(S.VIEWER_MIN_W, geom.width() + dx)
-            new_h = max(S.VIEWER_MIN_H, int(new_w / self._aspect))
+            new_w = min(self._screen_max_w, max(S.VIEWER_MIN_W, geom.width() + dx))
+            new_h = min(self._screen_max_h, max(S.VIEWER_MIN_H, int(new_w / self._aspect)))
             self.setGeometry(geom.x(), geom.y(), new_w, new_h)
         elif corner in ("bl", "l"):
-            new_w = max(S.VIEWER_MIN_W, geom.width() - dx)
-            new_h = max(S.VIEWER_MIN_H, int(new_w / self._aspect))
+            new_w = min(self._screen_max_w, max(S.VIEWER_MIN_W, geom.width() - dx))
+            new_h = min(self._screen_max_h, max(S.VIEWER_MIN_H, int(new_w / self._aspect)))
             new_x = geom.right() - new_w
             self.setGeometry(new_x, geom.y(), new_w, new_h)
         elif corner in ("tr",):
-            new_w = max(S.VIEWER_MIN_W, geom.width() + dx)
-            new_h = max(S.VIEWER_MIN_H, int(new_w / self._aspect))
+            new_w = min(self._screen_max_w, max(S.VIEWER_MIN_W, geom.width() + dx))
+            new_h = min(self._screen_max_h, max(S.VIEWER_MIN_H, int(new_w / self._aspect)))
             new_y = geom.bottom() - new_h
             self.setGeometry(geom.x(), new_y, new_w, new_h)
         elif corner in ("tl", "t"):
-            new_w = max(S.VIEWER_MIN_W, geom.width() - dx)
-            new_h = max(S.VIEWER_MIN_H, int(new_w / self._aspect))
+            new_w = min(self._screen_max_w, max(S.VIEWER_MIN_W, geom.width() - dx))
+            new_h = min(self._screen_max_h, max(S.VIEWER_MIN_H, int(new_w / self._aspect)))
             new_x = geom.right() - new_w
             new_y = geom.bottom() - new_h
             self.setGeometry(new_x, new_y, new_w, new_h)
