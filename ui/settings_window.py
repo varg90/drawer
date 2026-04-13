@@ -316,21 +316,18 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         return new_geo
 
     def _show_resize_outline(self):
-        """Create a translucent overlay showing the target resize rectangle."""
+        """Create a semi-transparent overlay showing the target resize rectangle."""
         self._resize_outline = QWidget()
         self._resize_outline.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.Tool)
-        self._resize_outline.setAttribute(
-            Qt.WidgetAttribute.WA_TranslucentBackground)
-        self._resize_outline.setAttribute(
-            Qt.WidgetAttribute.WA_ShowWithoutActivating)
         t = self.theme
         self._resize_outline.setStyleSheet(
-            f"background-color: rgba({t.bg_rgb}, 120);"
+            f"background-color: {t.bg};"
             f"border: 2px solid {t.accent};"
             f"border-radius: {S.WINDOW_RADIUS}px;")
+        self._resize_outline.setWindowOpacity(0.5)
         self._resize_outline.setGeometry(self.geometry())
         self._resize_outline.show()
 
