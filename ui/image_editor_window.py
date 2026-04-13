@@ -6,7 +6,7 @@ from PyQt6.QtGui import QColor, QLinearGradient
 import qtawesome as qta
 from ui.editor_panel import EditorPanel
 from ui.icons import Icons
-from ui.scales import S
+from ui.scales import S, base_value
 from ui.widgets import make_icon_btn
 from ui.snap import SnapMixin
 from ui.rounded_window import RoundedWindowMixin
@@ -28,7 +28,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self._parent_ref = weakref.ref(parent) if parent else lambda: None
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
         self._shuffle_init = shuffle
-        self.setMinimumSize(S.EDITOR_MIN_W, S.EDITOR_MIN_H)
+        self.setMinimumSize(base_value("EDITOR_MIN_W"), base_value("EDITOR_MIN_H"))
         self._resizing = False
         self._resize_edge = None
         self._resize_start = None
