@@ -169,9 +169,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             for img in self.images:
                 img.timer = timer
         else:
-            if self.images:
-                self._timer_panel.auto_distribute(len(self.images))
-                self._apply_class_timers()
+            self._reapply_timers()
         self._update_summary()
         if self._editor_visible:
             self.editor.refresh(self.images)
@@ -616,11 +614,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _on_editor_update(self, images):
         self.images = list(images)
+        before = [img.timer for img in self.images]
         self._reapply_timers()
         self._update_summary()
-        if self._editor_visible and self._timer_panel.timer_mode == "class":
-            # Redistribute happened — push updated timers back to the
-            # editor so the list/grid view reflects the right tier groups.
+        # Skip the editor refresh unless a class-mode redistribute actually
+        # changed any per-image timer. Keeps reorders in quick mode from
+        # paying a double-rebuild cost.
+        if any(img.timer != t for img, t in zip(self.images, before)):
             self.editor.refresh(self.images)
 
     # ------------------------------------------------------------------ Drag and drop
