@@ -648,13 +648,20 @@ class ViewerWindow(QWidget):
     def keyPressEvent(self, event):
         # Use scan codes for letter keys so hotkeys work on any keyboard layout
         sc = event.nativeScanCode()
+        # Help overlay is modal: only Escape and H dismiss it; eat every
+        # other key so the user can't pause/seek/etc while reading help.
+        if self._help_overlay is not None:
+            if event.key() == Qt.Key.Key_Escape or sc == SC_H:
+                self._dismiss_help()
+            return
         if event.key() == Qt.Key.Key_F11:
             self._toggle_fullscreen()
         elif event.key() == Qt.Key.Key_Escape:
-            if self.isFullScreen():
+            # Don't toggle on auto-repeat: a long Escape press that just
+            # dismissed help would otherwise trip the fullscreen exit on
+            # the next repeat event.
+            if self.isFullScreen() and not event.isAutoRepeat():
                 self._toggle_fullscreen()
-            elif hasattr(self, "_help_overlay") and self._help_overlay.isVisible():
-                self._help_overlay.hide()
         elif event.key() == Qt.Key.Key_Space:
             self._toggle_pause()
         elif event.key() == Qt.Key.Key_Left:
@@ -769,6 +776,11 @@ class ViewerWindow(QWidget):
         self._coffee_label.raise_()
         self._alarm_label.raise_()
         self._fade_controls(True)
+        # Keep the help overlay on top of any controls we just re-raised,
+        # otherwise clicks land on the underlying buttons and the user can
+        # play/pause while reading help.
+        if self._help_overlay is not None:
+            self._help_overlay.raise_()
 
     def leaveEvent(self, event):
         super().leaveEvent(event)
