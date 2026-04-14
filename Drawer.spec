@@ -1,26 +1,36 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# Drawer build spec. Used by both local builds and GitHub Actions CI.
+# Drawer build spec. Used by local builds and GitHub Actions CI on both
+# Windows and macOS.
 #
-# Build mode is controlled by DRAWER_BUILD_MODE env var:
-#   - "onefile" (default): single portable Drawer.exe
-#   - "onedir": folder layout used as source for the Inno Setup installer
+# Build mode:
+#   macOS: always produces a Drawer.app bundle (onedir + BUNDLE)
+#   Windows: controlled by DRAWER_BUILD_MODE env var
+#     - "onefile" (default): single portable Drawer.exe
+#     - "onedir":            folder used as source for the Inno Setup installer
 #
-# Size optimizations applied to both modes:
-#   - Drop opengl32sw.dll (software OpenGL fallback, ~5 MB compressed, unused)
-#   - Drop Qt6Pdf/Network/OpenGL/Svg DLLs (modules excluded but DLLs otherwise shipped)
-#   - Drop all Qt translations except English
+# Size optimizations applied on both platforms:
+#   - Drop opengl32sw (Windows software OpenGL fallback, ~5 MB)
+#   - Drop Qt Pdf/Network/OpenGL/Svg binaries (modules already excluded,
+#     but PyInstaller still copies the DLLs/frameworks)
+#   - Drop all Qt translations except *_en.qm
 
 import os
+import sys
 
-ONEFILE = os.environ.get("DRAWER_BUILD_MODE", "onefile") == "onefile"
+IS_MACOS = sys.platform == 'darwin'
+ONEFILE = not IS_MACOS and os.environ.get("DRAWER_BUILD_MODE", "onefile") == "onefile"
 
+# Substrings matched against binary destination paths.
+# Windows dll names and macOS framework paths are both covered:
+#   Windows: PyQt6\Qt6\bin\Qt6Pdf.dll
+#   macOS:   PyQt6/Qt6/lib/QtPdf.framework/Versions/A/QtPdf
 DROP_BINARIES_SUBSTRINGS = (
     "opengl32sw",
-    "Qt6Pdf",
-    "Qt6Network",
-    "Qt6OpenGL",
-    "Qt6Svg",
+    "Qt6Pdf",     "QtPdf",
+    "Qt6Network", "QtNetwork",
+    "Qt6OpenGL",  "QtOpenGL",
+    "Qt6Svg",     "QtSvg",
 )
 
 def _keep_binary(entry):
@@ -66,7 +76,40 @@ a.datas = [d for d in a.datas if _keep_data(d)]
 
 pyz = PYZ(a.pure)
 
-if ONEFILE:
+if IS_MACOS:
+    exe = EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name='Drawer',
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=True,
+        upx=True,
+        console=False,
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+    )
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.datas,
+        strip=True,
+        upx=True,
+        upx_exclude=[],
+        name='Drawer',
+    )
+    app = BUNDLE(
+        coll,
+        name='Drawer.app',
+        icon='drawer.icns',
+        bundle_identifier='com.drawer.app',
+    )
+elif ONEFILE:
     exe = EXE(
         pyz,
         a.scripts,
