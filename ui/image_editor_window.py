@@ -11,6 +11,7 @@ from ui.widgets import make_icon_btn
 from ui.snap import SnapMixin
 from ui.rounded_window import RoundedWindowMixin
 from ui.platform import setup_frameless_native
+from ui.resize_cursor import install_resize_cursor_guard
 
 
 class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
@@ -39,8 +40,18 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         SnapMixin.__init__(self)
         self.rounded_init()
         self.setMouseTracking(True)
+        install_resize_cursor_guard(self)
 
     def _build_ui(self):
+        # Preserve editor panel state across rebuilds (e.g. main window resize
+        # triggers _build_ui, which would otherwise reset every tier to expanded
+        # and drop the pixmap cache, reloading all thumbnails from disk).
+        saved_collapsed = None
+        saved_pix_cache = None
+        if hasattr(self, "_panel") and self._panel is not None:
+            saved_collapsed = set(self._panel._collapsed_tiers)
+            saved_pix_cache = self._panel._pix_cache
+
         # Clear old layout if rebuilding
         old = self.layout()
         if old is not None:
@@ -77,7 +88,8 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         init_view = self.__dict__.get('_view_mode_init', 'list')
         self._panel = EditorPanel(
             self.images, self.theme, parent=self, view_mode=init_view,
-            shuffle=self._shuffle_init)
+            shuffle=self._shuffle_init, collapsed_tiers=saved_collapsed,
+            pix_cache=saved_pix_cache)
         self._panel.images_updated.connect(self._on_panel_update)
         self._panel.shuffle_changed.connect(self.shuffle_changed.emit)
         self._panel.close_requested.connect(self.close)

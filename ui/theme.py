@@ -118,6 +118,9 @@ class Theme:
         if self._cache_key != key:
             base = dict(_BASES[self._name])
             base.update(_accent_colors(self._accent, self._name))
+            # Ghost: barely-visible tint for easter-egg icons. 10% toward
+            # text_hint — legible if you look for it, invisible at a glance.
+            base["text_ghost"] = _mix(base["bg"], base["text_hint"], 0.1)
             for k in list(base):
                 if not base[k]:
                     continue
