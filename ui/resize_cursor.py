@@ -11,6 +11,8 @@ widgets. When the mouse enters any descendant of a registered window, clear
 the window's cursor — unless a resize drag is in progress.
 """
 
+import weakref
+
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject
 from PyQt6.QtWidgets import QWidget
 
@@ -25,15 +27,14 @@ def _window_is_resizing(w):
 
 class _ResizeCursorGuard(QObject):
     _instance = None
-    _windows = []
+    _windows = weakref.WeakSet()
 
     @classmethod
     def register(cls, window):
         if cls._instance is None:
             cls._instance = cls()
             QCoreApplication.instance().installEventFilter(cls._instance)
-        if window not in cls._windows:
-            cls._windows.append(window)
+        cls._windows.add(window)
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Type.Enter and isinstance(obj, QWidget):
