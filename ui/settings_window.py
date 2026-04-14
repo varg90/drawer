@@ -100,7 +100,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                                        size=S.ICON_HEADER, tooltip="Help")
         self._help_btn.clicked.connect(self._show_help)
 
-        self._cat_btn = make_icon_btn(Icons.CAT, self.theme.text_hint,
+        self._cat_btn = make_icon_btn(Icons.CAT, self.theme.text_ghost,
                                        size=S.ICON_HEADER, tooltip="Cat")
         self._cat_btn.clicked.connect(self._show_cat)
 
@@ -218,7 +218,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         # Header icons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
-        self._cat_btn.setIcon(qta.icon(Icons.CAT, color=t.text_hint))
+        self._cat_btn.setIcon(qta.icon(Icons.CAT, color=t.text_ghost))
         _theme_icon = Icons.THEME_DARK if t.name == "dark" else Icons.THEME_LIGHT
         self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
         self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
