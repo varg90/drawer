@@ -84,6 +84,7 @@ jobs:
             --add-data "info_viewer.txt;." \
             --add-data "drawer.ico;." \
             --add-data "fonts;fonts" \
+            --add-data "Cat;Cat" \
             $PYINSTALLER_EXCLUDES \
             main.py
 
@@ -98,6 +99,7 @@ jobs:
             --add-data "info_viewer.txt;." \
             --add-data "drawer.ico;." \
             --add-data "fonts;fonts" \
+            --add-data "Cat;Cat" \
             $PYINSTALLER_EXCLUDES \
             main.py
 
@@ -149,6 +151,7 @@ jobs:
             --add-data "info_viewer.txt:." \
             --add-data "drawer.ico:." \
             --add-data "fonts:fonts" \
+            --add-data "Cat:Cat" \
             $PYINSTALLER_EXCLUDES \
             main.py
           xattr -cr dist/Drawer.app
