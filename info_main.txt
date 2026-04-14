@@ -7,19 +7,20 @@ TIMER
 Quick - same timer for all images
 Class - auto-distribute by tiers (manual distribution available in file manager)
 Set session time limit - lmk forward, rmk back (no limit by default)
-Pause with (on/off) - pick an app to track so the session is automatically paused when chosen app is not in focus
+Pause with (on/off) - pick an app to track and drawer will automatically pause a session when chosen app is not in focus
 Pencil - start session
 
 FILE MANAGER
 Open on image button next to start
 Drag and drop to upload files
-Google drive and yandex disk url upload (must be public); files remain in cache until manual clearing (peep the bin when filled)
++- or ctrl+scroll for preview resize
 Select multiple files through shift or ctrl
 Delete to..delete
 Eraser clears the file list
 Toggle shuffle to unlock manual reorder
 Rmk to redistribute or pin files 
 File manager can be dettached and resized
+(BETA) Google drive and yandex disk url upload (must be public); files remain in cache until manual clearing (peep the bin when filled)
 
 Contact info - valerianashot@gmail.com
 Claude did the job, I complained and picked icons. My husband Alex allowed me to waste tokens. My cat Bulka meowed. 
