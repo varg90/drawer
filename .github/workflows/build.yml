@@ -20,26 +20,6 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PYINSTALLER_EXCLUDES: >-
-    --exclude-module PyQt6.QtNetwork
-    --exclude-module PyQt6.QtQml
-    --exclude-module PyQt6.QtQuick
-    --exclude-module PyQt6.QtWebEngine
-    --exclude-module PyQt6.QtMultimedia
-    --exclude-module PyQt6.QtSvg
-    --exclude-module PyQt6.QtOpenGL
-    --exclude-module PyQt6.QtDBus
-    --exclude-module PyQt6.QtSql
-    --exclude-module PyQt6.QtPdf
-    --exclude-module PyQt6.QtBluetooth
-    --exclude-module PyQt6.QtSerialPort
-    --exclude-module PyQt6.QtDesigner
-    --exclude-module PyQt6.QtHelp
-    --exclude-module PyQt6.QtTest
-    --exclude-module PIL
-    --exclude-module unittest
-    --exclude-module test
-    --exclude-module sqlite3
 
 jobs:
   build:
@@ -127,17 +107,7 @@ jobs:
       - name: Build (macOS)
         if: runner.os == 'macOS'
         run: |
-          pyinstaller --noconfirm --onedir --windowed \
-            --name Drawer --strip \
-            --icon drawer.icns \
-            --osx-bundle-identifier com.drawer.app \
-            --add-data "info_main.txt:." \
-            --add-data "info_viewer.txt:." \
-            --add-data "drawer.ico:." \
-            --add-data "fonts:fonts" \
-            --add-data "Cat:Cat" \
-            $PYINSTALLER_EXCLUDES \
-            main.py
+          pyinstaller --noconfirm Drawer.spec
           xattr -cr dist/Drawer.app
           hdiutil create -volname Drawer \
             -srcfolder dist/Drawer.app \
