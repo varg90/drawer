@@ -196,6 +196,15 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                     continue
                 img.timer = timers[i] if i < len(timers) else timers[-1]
 
+    def _reapply_timers(self):
+        """Re-run current mode's timer assignment on self.images. Call
+        after any image-list change so newly added files land in the
+        right tier in class mode instead of sitting at the add-time
+        default."""
+        if self._timer_panel.timer_mode == "class" and self.images:
+            self._timer_panel.auto_distribute(len(self.images))
+            self._apply_class_timers()
+
     def _update_summary(self):
         n = len(self.images)
         mode = self._timer_panel.timer_mode
@@ -570,6 +579,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._on_images_changed()
 
     def _on_images_changed(self):
+        self._reapply_timers()
         self._update_summary()
         self.images_changed.emit()
         if self._editor_visible:
@@ -606,7 +616,12 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _on_editor_update(self, images):
         self.images = list(images)
+        self._reapply_timers()
         self._update_summary()
+        if self._editor_visible and self._timer_panel.timer_mode == "class":
+            # Redistribute happened — push updated timers back to the
+            # editor so the list/grid view reflects the right tier groups.
+            self.editor.refresh(self.images)
 
     # ------------------------------------------------------------------ Drag and drop
 

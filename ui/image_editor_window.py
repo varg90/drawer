@@ -42,6 +42,15 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self.setMouseTracking(True)
         install_resize_cursor_guard(self)
 
+    def get_timer_seconds(self):
+        """Delegate to the settings window's timer panel so editor-added
+        files inherit the current mode/tier timer instead of a hardcoded
+        default."""
+        parent = self._parent_ref()
+        if parent is not None and hasattr(parent, "get_timer_seconds"):
+            return parent.get_timer_seconds()
+        return 300
+
     def _build_ui(self):
         # Preserve editor panel state across rebuilds (e.g. main window resize
         # triggers _build_ui, which would otherwise reset every tier to expanded
