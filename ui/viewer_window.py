@@ -10,6 +10,7 @@ from core.timer_logic import format_time, auto_warn_seconds
 from ui.icons import Icons
 from ui.scales import S
 from ui.platform import setup_frameless_native
+from ui.resize_cursor import install_resize_cursor_guard
 from core.focus_monitor import get_foreground_app
 
 # Native scan codes for physical key positions (layout-independent hotkeys)
@@ -304,6 +305,7 @@ class ViewerWindow(QWidget):
             self.resize(min(800, max_w), min(600, max_h))
 
         self._show_current_image()
+        install_resize_cursor_guard(self)
 
     # ------------------------------------------------------------------ Icons
 
