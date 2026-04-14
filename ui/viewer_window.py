@@ -657,7 +657,10 @@ class ViewerWindow(QWidget):
         if event.key() == Qt.Key.Key_F11:
             self._toggle_fullscreen()
         elif event.key() == Qt.Key.Key_Escape:
-            if self.isFullScreen():
+            # Don't toggle on auto-repeat: a long Escape press that just
+            # dismissed help would otherwise trip the fullscreen exit on
+            # the next repeat event.
+            if self.isFullScreen() and not event.isAutoRepeat():
                 self._toggle_fullscreen()
         elif event.key() == Qt.Key.Key_Space:
             self._toggle_pause()

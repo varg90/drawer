@@ -21,29 +21,20 @@ import sys
 IS_MACOS = sys.platform == 'darwin'
 WINDOWS_ONEFILE = not IS_MACOS and os.environ.get("DRAWER_BUILD_MODE", "onefile") == "onefile"
 
-# Substrings matched against binary destination paths.
-# Windows dll names and macOS framework paths are both covered:
-#   Windows: PyQt6\Qt6\bin\Qt6Pdf.dll
-#   macOS:   PyQt6/Qt6/lib/QtPdf.framework/Versions/A/QtPdf
-# Exact filenames we drop from the bundle. Substring matching is too loose:
-# e.g. "Qt6OpenGL" would also match "Qt6OpenGLWidgets.dll", which is needed
-# at runtime by PyQt6 and whose absence surfaces as a generic
-# "Failed to load Python DLL python3XX.dll" at launch (PyInstaller reports
-# early-bootstrap failures with that message).
+# Files dropped from the bundle. Use exact-name matching, not substring:
+# substring "Qt6OpenGL" would also catch "Qt6OpenGLWidgets.dll", which is
+# needed by PyQt6 at runtime and whose absence surfaces as a generic
+# "Failed to load Python DLL python3XX.dll" at launch.
 DROP_BINARY_BASENAMES = frozenset((
-    # Windows DLLs
     "opengl32sw.dll",
     "Qt6Pdf.dll",
     "Qt6Network.dll",
     "Qt6OpenGL.dll",
     "Qt6Svg.dll",
-    # macOS frameworks — PyInstaller copies the inner binary as well as
-    # framework-internal Resources/Info.plist etc.; matching on the plain
-    # binary name inside the framework is sufficient, since every entry
-    # for a given framework has the framework name as a path segment.
 ))
 
-# macOS path-segment matches (framework directories we drop entirely).
+# macOS framework directories — every TOC entry for a given framework
+# carries the framework name as a path segment, so we match on that.
 DROP_FRAMEWORK_DIRS = frozenset((
     "QtPdf.framework",
     "QtNetwork.framework",
