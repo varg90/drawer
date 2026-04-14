@@ -154,7 +154,8 @@ class EditorPanel(QWidget):
     close_requested = pyqtSignal()
     shuffle_changed = pyqtSignal(bool)
 
-    def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True):
+    def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True,
+                 collapsed_tiers=None, pix_cache=None):
         super().__init__(parent)
         self.images = list(images)
         self.theme = theme
@@ -162,7 +163,9 @@ class EditorPanel(QWidget):
         self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
         self._shuffle = shuffle
 
-        self._pix_cache = {}          # path -> QPixmap
+        # Pass `pix_cache` from a previous panel to skip re-loading images
+        # from disk across editor recreation (main window resize triggers it).
+        self._pix_cache = dict(pix_cache) if pix_cache is not None else {}
         self._loader = None           # PixmapLoader thread
         self._selected_tiles = set()  # set of ClickableLabel
         self._last_clicked_tile = None
@@ -173,7 +176,9 @@ class EditorPanel(QWidget):
 
         # Per-group collapsed state, keyed by timer_val (0 = reserve).
         # Preserved across rebuilds so toggling tiers doesn't force-expand groups.
-        self._collapsed_tiers = {0}
+        # Pass `collapsed_tiers` from a previous panel to keep state across
+        # editor recreation (e.g. during main window user-scale rebuild).
+        self._collapsed_tiers = set(collapsed_tiers) if collapsed_tiers is not None else {0}
 
         self._needs_initial_rebuild = True
 
