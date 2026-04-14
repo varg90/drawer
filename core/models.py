@@ -1,9 +1,14 @@
 from dataclasses import dataclass
 
+# Default per-image timer in seconds. Used as the add-time fallback
+# before a mode-aware redistribute kicks in, and as the on-disk default
+# when a saved session is missing a timer field.
+DEFAULT_TIMER_SECONDS = 300
+
 @dataclass
 class ImageItem:
     path: str
-    timer: int = 300
+    timer: int = DEFAULT_TIMER_SECONDS
     source_url: str = ""
     pinned: bool = False
 
@@ -19,7 +24,7 @@ class ImageItem:
     def from_dict(cls, d):
         return cls(
             path=d["path"],
-            timer=d.get("timer", 300),
+            timer=d.get("timer", DEFAULT_TIMER_SECONDS),
             source_url=d.get("source_url", ""),
             pinned=d.get("pinned", False),
         )

@@ -167,11 +167,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         if mode == "quick":
             timer = self._timer_panel.get_timer_seconds()
             for img in self.images:
-                img.timer = timer
+                if not getattr(img, "pinned", False):
+                    img.timer = timer
         else:
-            if self.images:
-                self._timer_panel.auto_distribute(len(self.images))
-                self._apply_class_timers()
+            self._reapply_timers()
         self._update_summary()
         if self._editor_visible:
             self.editor.refresh(self.images)
@@ -195,6 +194,15 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                 if getattr(img, "pinned", False):
                     continue
                 img.timer = timers[i] if i < len(timers) else timers[-1]
+
+    def _reapply_timers(self):
+        """Re-run current mode's timer assignment on self.images. Call
+        after any image-list change so newly added files land in the
+        right tier in class mode instead of sitting at the add-time
+        default."""
+        if self._timer_panel.timer_mode == "class" and self.images:
+            self._timer_panel.auto_distribute(len(self.images))
+            self._apply_class_timers()
 
     def _update_summary(self):
         n = len(self.images)
@@ -570,6 +578,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._on_images_changed()
 
     def _on_images_changed(self):
+        self._reapply_timers()
         self._update_summary()
         self.images_changed.emit()
         if self._editor_visible:
@@ -606,7 +615,14 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _on_editor_update(self, images):
         self.images = list(images)
+        before = [img.timer for img in self.images]
+        self._reapply_timers()
         self._update_summary()
+        # Skip the editor refresh unless a class-mode redistribute actually
+        # changed any per-image timer. Keeps reorders in quick mode from
+        # paying a double-rebuild cost.
+        if any(img.timer != t for img, t in zip(self.images, before)):
+            self.editor.refresh(self.images)
 
     # ------------------------------------------------------------------ Drag and drop
 
