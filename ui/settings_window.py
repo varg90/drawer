@@ -24,6 +24,7 @@ from ui.rounded_window import RoundedWindowMixin
 from ui.timer_panel import TimerPanel
 from ui.bottom_bar import BottomBar
 from ui.platform import setup_frameless_native
+from ui.resize_cursor import install_resize_cursor_guard
 
 
 class _InsetPanel(QWidget):
@@ -78,6 +79,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.rounded_init()
         self._restore_session()
         self.setAcceptDrops(True)
+        install_resize_cursor_guard(self)
 
     @property
     def _editor_visible(self):

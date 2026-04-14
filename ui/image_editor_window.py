@@ -11,6 +11,7 @@ from ui.widgets import make_icon_btn
 from ui.snap import SnapMixin
 from ui.rounded_window import RoundedWindowMixin
 from ui.platform import setup_frameless_native
+from ui.resize_cursor import install_resize_cursor_guard
 
 
 class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
@@ -39,6 +40,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         SnapMixin.__init__(self)
         self.rounded_init()
         self.setMouseTracking(True)
+        install_resize_cursor_guard(self)
 
     def _build_ui(self):
         # Clear old layout if rebuilding
