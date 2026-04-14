@@ -33,6 +33,18 @@ DROP_BINARIES_SUBSTRINGS = (
     "Qt6Svg",     "QtSvg",
 )
 
+# UPX corrupts some Windows runtime DLLs — never compress these.
+# python3*.dll is the critical one: UPX'd python3XX.dll fails to load
+# at startup with "invalid attempt to access memory address".
+UPX_EXCLUDES = [
+    "python3*.dll",
+    "vcruntime*.dll",
+    "msvcp*.dll",
+    "msvcr*.dll",
+    "api-ms-win-*.dll",
+    "ucrtbase.dll",
+]
+
 def _keep_binary(entry):
     dest = entry[0].replace("\\", "/")
     return not any(s in dest for s in DROP_BINARIES_SUBSTRINGS)
@@ -102,7 +114,7 @@ if IS_MACOS:
         a.datas,
         strip=True,
         upx=True,
-        upx_exclude=[],
+        upx_exclude=UPX_EXCLUDES,
         name='Drawer',
     )
     app = BUNDLE(
@@ -123,7 +135,7 @@ elif WINDOWS_ONEFILE:
         bootloader_ignore_signals=False,
         strip=True,
         upx=True,
-        upx_exclude=[],
+        upx_exclude=UPX_EXCLUDES,
         runtime_tmpdir=None,
         console=False,
         disable_windowed_traceback=False,
@@ -158,6 +170,6 @@ else:
         a.datas,
         strip=True,
         upx=True,
-        upx_exclude=[],
+        upx_exclude=UPX_EXCLUDES,
         name='Drawer',
     )
