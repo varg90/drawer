@@ -1,4 +1,4 @@
-Drawer 0.4.3
+Drawer 0.4.4
 
 Palette - accent color
 Sun/Moon - theme toggle
