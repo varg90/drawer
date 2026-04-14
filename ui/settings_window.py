@@ -167,7 +167,8 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         if mode == "quick":
             timer = self._timer_panel.get_timer_seconds()
             for img in self.images:
-                img.timer = timer
+                if not getattr(img, "pinned", False):
+                    img.timer = timer
         else:
             self._reapply_timers()
         self._update_summary()
