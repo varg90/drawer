@@ -110,8 +110,8 @@ jobs:
           pyinstaller --noconfirm Drawer.spec
           # Dropping Qt framework binaries leaves dangling symlinks (e.g.
           # Contents/Frameworks/QtPdf -> ..) — purge them before xattr.
-          find dist/Drawer.app -type l ! -exec test -e {} \; -delete || true
-          find dist/Drawer.app -type d -empty -delete || true
+          find dist/Drawer.app -type l ! -exec test -e {} \; -delete
+          find dist/Drawer.app -type d -empty -delete
           xattr -cr dist/Drawer.app
           sync
           sleep 2

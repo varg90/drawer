@@ -19,7 +19,7 @@ import os
 import sys
 
 IS_MACOS = sys.platform == 'darwin'
-ONEFILE = not IS_MACOS and os.environ.get("DRAWER_BUILD_MODE", "onefile") == "onefile"
+WINDOWS_ONEFILE = not IS_MACOS and os.environ.get("DRAWER_BUILD_MODE", "onefile") == "onefile"
 
 # Substrings matched against binary destination paths.
 # Windows dll names and macOS framework paths are both covered:
@@ -68,9 +68,11 @@ a = Analysis(
         'PIL', 'unittest', 'test', 'sqlite3',
     ],
     noarchive=False,
-    optimize=2,
+    optimize=2,  # strips docstrings + asserts
 )
 
+# PyInstaller has no flag to exclude binaries by path, so post-filter the
+# Analysis TOC in place. This is the idiomatic workaround.
 a.binaries = [b for b in a.binaries if _keep_binary(b)]
 a.datas = [d for d in a.datas if _keep_data(d)]
 
@@ -109,7 +111,7 @@ if IS_MACOS:
         icon='drawer.icns',
         bundle_identifier='com.drawer.app',
     )
-elif ONEFILE:
+elif WINDOWS_ONEFILE:
     exe = EXE(
         pyz,
         a.scripts,
