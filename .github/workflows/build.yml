@@ -43,6 +43,7 @@ env:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -113,17 +114,27 @@ jobs:
       - name: Generate macOS icns
         if: runner.os == 'macOS'
         run: |
-          mkdir -p Drawer.iconset
-          sips -z 16 16     drawer.ico --out Drawer.iconset/icon_16x16.png
-          sips -z 32 32     drawer.ico --out Drawer.iconset/icon_16x16@2x.png
-          sips -z 32 32     drawer.ico --out Drawer.iconset/icon_32x32.png
-          sips -z 64 64     drawer.ico --out Drawer.iconset/icon_32x32@2x.png
-          sips -z 128 128   drawer.ico --out Drawer.iconset/icon_128x128.png
-          sips -z 256 256   drawer.ico --out Drawer.iconset/icon_128x128@2x.png
-          sips -z 256 256   drawer.ico --out Drawer.iconset/icon_256x256.png
-          sips -z 512 512   drawer.ico --out Drawer.iconset/icon_256x256@2x.png
-          sips -z 512 512   drawer.ico --out Drawer.iconset/icon_512x512.png
-          sips -z 1024 1024 drawer.ico --out Drawer.iconset/icon_512x512@2x.png
+          python -m pip install Pillow
+          python <<'PY'
+          import os
+          from PIL import Image
+          src = Image.open("drawer.ico")
+          best = None
+          for i in range(getattr(src, "n_frames", 1)):
+              src.seek(i)
+              if best is None or src.size[0] > best.size[0]:
+                  best = src.copy()
+          best = best.convert("RGBA")
+          os.makedirs("Drawer.iconset", exist_ok=True)
+          for sz, name in [
+              (16,  "16x16"),    (32,  "16x16@2x"),
+              (32,  "32x32"),    (64,  "32x32@2x"),
+              (128, "128x128"),  (256, "128x128@2x"),
+              (256, "256x256"),  (512, "256x256@2x"),
+              (512, "512x512"),  (1024,"512x512@2x"),
+          ]:
+              best.resize((sz, sz), Image.LANCZOS).save(f"Drawer.iconset/icon_{name}.png")
+          PY
           iconutil -c icns Drawer.iconset -o drawer.icns
 
       - name: Build (macOS)
