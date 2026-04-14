@@ -18,7 +18,7 @@ from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread
 
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder
-from core.models import ImageItem
+from core.models import ImageItem, DEFAULT_TIMER_SECONDS
 from core.timer_logic import format_time
 from ui.theme import _mix, _darken
 from core.cloud.cache import CacheManager
@@ -1030,6 +1030,14 @@ class EditorPanel(QWidget):
     # Actions
     # ------------------------------------------------------------------
 
+    def _default_add_timer(self):
+        """Initial timer for newly added files. In class mode this value
+        is overwritten by settings_window's redistribute step, so we just
+        return the quick-preset (or the global default if no parent)."""
+        if self._parent is not None and hasattr(self._parent, "get_timer_seconds"):
+            return self._parent.get_timer_seconds()
+        return DEFAULT_TIMER_SECONDS
+
     def _add_files(self):
         exts = " ".join(f"*{e}" for e in SUPPORTED_FORMATS)
         paths, _ = QFileDialog.getOpenFileNames(
@@ -1037,25 +1045,24 @@ class EditorPanel(QWidget):
             f"Images ({exts});;All files (*)",
         )
         if paths:
+            timer = self._default_add_timer()
             for p in filter_image_files(paths):
-                self.images.append(ImageItem(path=p, timer=300))
+                self.images.append(ImageItem(path=p, timer=timer))
             self._rebuild()
             self._emit()
 
     def _add_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select folder")
         if folder:
+            timer = self._default_add_timer()
             for p in scan_folder(folder):
-                self.images.append(ImageItem(path=p, timer=300))
+                self.images.append(ImageItem(path=p, timer=timer))
             self._rebuild()
             self._emit()
 
     def _add_from_url(self):
         from ui.url_dialog import UrlDialog
-        timer = 300
-        if self._parent and hasattr(self._parent, "get_timer_seconds"):
-            timer = self._parent.get_timer_seconds()
-        dlg = UrlDialog(self.theme, timer=timer, parent=self)
+        dlg = UrlDialog(self.theme, timer=self._default_add_timer(), parent=self)
         dlg.images_loaded.connect(self._on_url_images)
         dlg.exec()
 
@@ -1103,15 +1110,16 @@ class EditorPanel(QWidget):
     def _drop_event(self, event):
         urls = event.mimeData().urls()
         added = False
+        timer = self._default_add_timer()
         for url in urls:
             if url.isLocalFile():
                 path = url.toLocalFile()
                 if os.path.isdir(path):
                     for p in scan_folder(path):
-                        self.images.append(ImageItem(path=p, timer=300))
+                        self.images.append(ImageItem(path=p, timer=timer))
                         added = True
                 elif any(path.lower().endswith(e) for e in SUPPORTED_FORMATS):
-                    self.images.append(ImageItem(path=path, timer=300))
+                    self.images.append(ImageItem(path=path, timer=timer))
                     added = True
         if added:
             self._rebuild()

@@ -3,7 +3,7 @@ import random
 import qtawesome as qta
 from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QGraphicsOpacityEffect,
                               QApplication)
-from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon, QTransform, QImage, QFont
+from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon, QTransform, QImage, QFont, QFontMetrics
 from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
                            QEasingCurve)
 from core.timer_logic import format_time, auto_warn_seconds
@@ -156,6 +156,7 @@ class ViewerWindow(QWidget):
         self._flip_v = False
         self._grid_thirds = False
         self._topmost = bool(settings.get("topmost"))
+        self._cached_label_widths = None
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
@@ -337,12 +338,34 @@ class ViewerWindow(QWidget):
             self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
             self._coffee_label.move(x, bottom_y + S.VIEWER_BOTTOM_ICON_Y_OFFSET)
             x += S.VIEWER_BOTTOM_ICON_SPACING
+
         # Center timer
-        self._timer_label.setGeometry((w - 80) // 2, bottom_y, 80, lbl_h)
+        timer_w, counter_w = self._label_widths()
+        self._timer_label.setGeometry((w - timer_w) // 2, bottom_y, timer_w, lbl_h)
         self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._counter_label.setGeometry(w - 70, bottom_y, 60, lbl_h)
+        self._counter_label.setGeometry(
+            w - counter_w - S.VIEWER_BOTTOM_LABEL_X, bottom_y, counter_w, lbl_h)
         self._counter_label.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+    def _label_widths(self):
+        """Compute timer and counter label widths from font metrics, once.
+        FONT_TIMER/FONT_COUNTER are DPI-scaled at startup and never change
+        during viewer lifetime, so the result is cached on self."""
+        if self._cached_label_widths is None:
+            # Widest realistic text: "0:00:00" (hours format) and
+            # "9999/9999" (4-digit playlist). Add half-a-glyph of slack
+            # on top so we never touch the edges.
+            timer_font = QFont("Lora")
+            timer_font.setPixelSize(S.FONT_TIMER)
+            timer_w = QFontMetrics(timer_font).horizontalAdvance("0:00:00") + S.FONT_TIMER // 2
+
+            counter_font = QFont("Lexend")
+            counter_font.setPixelSize(S.FONT_COUNTER)
+            counter_w = QFontMetrics(counter_font).horizontalAdvance("9999/9999") + S.FONT_COUNTER // 2
+
+            self._cached_label_widths = (timer_w, counter_w)
+        return self._cached_label_widths
 
     # ------------------------------------------------------------------ Image display
 

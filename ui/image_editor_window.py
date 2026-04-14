@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLab
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QColor, QLinearGradient
 import qtawesome as qta
+from core.models import DEFAULT_TIMER_SECONDS
 from ui.editor_panel import EditorPanel
 from ui.icons import Icons
 from ui.scales import S, base_value
@@ -41,6 +42,14 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self.rounded_init()
         self.setMouseTracking(True)
         install_resize_cursor_guard(self)
+
+    def get_timer_seconds(self):
+        """Delegate to the settings window's timer panel so editor-added
+        files inherit the current mode/tier timer."""
+        parent = self._parent_ref()
+        if parent is not None and hasattr(parent, "get_timer_seconds"):
+            return parent.get_timer_seconds()
+        return DEFAULT_TIMER_SECONDS
 
     def _build_ui(self):
         # Preserve editor panel state across rebuilds (e.g. main window resize
