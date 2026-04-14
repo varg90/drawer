@@ -25,17 +25,34 @@ WINDOWS_ONEFILE = not IS_MACOS and os.environ.get("DRAWER_BUILD_MODE", "onefile"
 # Windows dll names and macOS framework paths are both covered:
 #   Windows: PyQt6\Qt6\bin\Qt6Pdf.dll
 #   macOS:   PyQt6/Qt6/lib/QtPdf.framework/Versions/A/QtPdf
-DROP_BINARIES_SUBSTRINGS = (
-    "opengl32sw",
-    "Qt6Pdf",     "QtPdf",
-    "Qt6Network", "QtNetwork",
-    "Qt6OpenGL",  "QtOpenGL",
-    "Qt6Svg",     "QtSvg",
-)
+# Exact filenames we drop from the bundle. Substring matching is too loose:
+# e.g. "Qt6OpenGL" would also match "Qt6OpenGLWidgets.dll", which is needed
+# at runtime by PyQt6 and whose absence surfaces as a generic
+# "Failed to load Python DLL python3XX.dll" at launch (PyInstaller reports
+# early-bootstrap failures with that message).
+DROP_BINARY_BASENAMES = frozenset((
+    # Windows DLLs
+    "opengl32sw.dll",
+    "Qt6Pdf.dll",
+    "Qt6Network.dll",
+    "Qt6OpenGL.dll",
+    "Qt6Svg.dll",
+    # macOS frameworks — PyInstaller copies the inner binary as well as
+    # framework-internal Resources/Info.plist etc.; matching on the plain
+    # binary name inside the framework is sufficient, since every entry
+    # for a given framework has the framework name as a path segment.
+))
+
+# macOS path-segment matches (framework directories we drop entirely).
+DROP_FRAMEWORK_DIRS = frozenset((
+    "QtPdf.framework",
+    "QtNetwork.framework",
+    "QtOpenGL.framework",
+    "QtSvg.framework",
+))
 
 # UPX corrupts some Windows runtime DLLs — never compress these.
-# python3*.dll is the critical one: UPX'd python3XX.dll fails to load
-# at startup with "invalid attempt to access memory address".
+# python3*.dll is the critical one.
 UPX_EXCLUDES = [
     "python3*.dll",
     "vcruntime*.dll",
@@ -47,7 +64,13 @@ UPX_EXCLUDES = [
 
 def _keep_binary(entry):
     dest = entry[0].replace("\\", "/")
-    return not any(s in dest for s in DROP_BINARIES_SUBSTRINGS)
+    basename = dest.rsplit("/", 1)[-1]
+    if basename in DROP_BINARY_BASENAMES:
+        return False
+    for fw in DROP_FRAMEWORK_DIRS:
+        if f"/{fw}/" in dest or dest.startswith(f"{fw}/"):
+            return False
+    return True
 
 def _keep_data(entry):
     dest = entry[0].replace("\\", "/")
