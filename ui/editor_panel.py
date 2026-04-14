@@ -171,6 +171,10 @@ class EditorPanel(QWidget):
         self._grid_groups = []   # list of (header_btn, grid_widget)
         self._all_tier_timers = []  # all configured tier timer values
 
+        # Per-group collapsed state, keyed by timer_val (0 = reserve).
+        # Preserved across rebuilds so toggling tiers doesn't force-expand groups.
+        self._collapsed_tiers = {0}
+
         self._needs_initial_rebuild = True
 
         self._build_ui()
@@ -455,6 +459,19 @@ class EditorPanel(QWidget):
                 self._header_reserve_style if is_reserve else self._header_style)
 
     # ------------------------------------------------------------------
+    # Group expand/collapse
+    # ------------------------------------------------------------------
+
+    def _toggle_group(self, timer_val, widget):
+        """Toggle a group body's visibility and remember the state."""
+        new_visible = not widget.isVisible()
+        widget.setVisible(new_visible)
+        if new_visible:
+            self._collapsed_tiers.discard(timer_val)
+        else:
+            self._collapsed_tiers.add(timer_val)
+
+    # ------------------------------------------------------------------
     # Rebuild
     # ------------------------------------------------------------------
 
@@ -548,11 +565,9 @@ class EditorPanel(QWidget):
             lw.customContextMenuRequested.connect(
                 lambda pos, w=lw: self._show_context_menu(pos, w))
 
-            # Reserve starts collapsed
-            if is_reserve:
-                lw.setVisible(False)
-
-            header.clicked.connect(lambda checked, w=lw: w.setVisible(not w.isVisible()))
+            lw.setVisible(timer_val not in self._collapsed_tiers)
+            header.clicked.connect(
+                lambda checked, tv=timer_val, w=lw: self._toggle_group(tv, w))
 
             self._list_layout.insertWidget(insert_pos, header)
             self._list_layout.insertWidget(insert_pos + 1, lw)
@@ -655,11 +670,9 @@ class EditorPanel(QWidget):
             grid.setFixedHeight(h)
             grid._labels = labels
 
-            # Reserve starts collapsed
-            if is_reserve:
-                grid.setVisible(False)
-
-            header.clicked.connect(lambda checked, g=grid: g.setVisible(not g.isVisible()))
+            grid.setVisible(timer_val not in self._collapsed_tiers)
+            header.clicked.connect(
+                lambda checked, tv=timer_val, g=grid: self._toggle_group(tv, g))
 
             self._grid_layout.insertWidget(insert_pos, header)
             self._grid_layout.insertWidget(insert_pos + 1, grid)
