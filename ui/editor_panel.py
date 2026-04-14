@@ -154,7 +154,8 @@ class EditorPanel(QWidget):
     close_requested = pyqtSignal()
     shuffle_changed = pyqtSignal(bool)
 
-    def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True):
+    def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True,
+                 collapsed_tiers=None, pix_cache=None):
         super().__init__(parent)
         self.images = list(images)
         self.theme = theme
@@ -162,7 +163,9 @@ class EditorPanel(QWidget):
         self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
         self._shuffle = shuffle
 
-        self._pix_cache = {}          # path -> QPixmap
+        # Pass `pix_cache` from a previous panel to skip re-loading images
+        # from disk across editor recreation (main window resize triggers it).
+        self._pix_cache = dict(pix_cache) if pix_cache is not None else {}
         self._loader = None           # PixmapLoader thread
         self._selected_tiles = set()  # set of ClickableLabel
         self._last_clicked_tile = None
@@ -170,6 +173,12 @@ class EditorPanel(QWidget):
         self._list_groups = []   # list of (header_btn, list_widget)
         self._grid_groups = []   # list of (header_btn, grid_widget)
         self._all_tier_timers = []  # all configured tier timer values
+
+        # Per-group collapsed state, keyed by timer_val (0 = reserve).
+        # Preserved across rebuilds so toggling tiers doesn't force-expand groups.
+        # Pass `collapsed_tiers` from a previous panel to keep state across
+        # editor recreation (e.g. during main window user-scale rebuild).
+        self._collapsed_tiers = set(collapsed_tiers) if collapsed_tiers is not None else {0}
 
         self._needs_initial_rebuild = True
 
@@ -455,6 +464,19 @@ class EditorPanel(QWidget):
                 self._header_reserve_style if is_reserve else self._header_style)
 
     # ------------------------------------------------------------------
+    # Group expand/collapse
+    # ------------------------------------------------------------------
+
+    def _toggle_group(self, timer_val, widget):
+        """Toggle a group body's visibility and remember the state."""
+        new_visible = not widget.isVisible()
+        widget.setVisible(new_visible)
+        if new_visible:
+            self._collapsed_tiers.discard(timer_val)
+        else:
+            self._collapsed_tiers.add(timer_val)
+
+    # ------------------------------------------------------------------
     # Rebuild
     # ------------------------------------------------------------------
 
@@ -548,11 +570,9 @@ class EditorPanel(QWidget):
             lw.customContextMenuRequested.connect(
                 lambda pos, w=lw: self._show_context_menu(pos, w))
 
-            # Reserve starts collapsed
-            if is_reserve:
-                lw.setVisible(False)
-
-            header.clicked.connect(lambda checked, w=lw: w.setVisible(not w.isVisible()))
+            lw.setVisible(timer_val not in self._collapsed_tiers)
+            header.clicked.connect(
+                lambda checked, tv=timer_val, w=lw: self._toggle_group(tv, w))
 
             self._list_layout.insertWidget(insert_pos, header)
             self._list_layout.insertWidget(insert_pos + 1, lw)
@@ -655,11 +675,9 @@ class EditorPanel(QWidget):
             grid.setFixedHeight(h)
             grid._labels = labels
 
-            # Reserve starts collapsed
-            if is_reserve:
-                grid.setVisible(False)
-
-            header.clicked.connect(lambda checked, g=grid: g.setVisible(not g.isVisible()))
+            grid.setVisible(timer_val not in self._collapsed_tiers)
+            header.clicked.connect(
+                lambda checked, tv=timer_val, g=grid: self._toggle_group(tv, g))
 
             self._grid_layout.insertWidget(insert_pos, header)
             self._grid_layout.insertWidget(insert_pos + 1, grid)

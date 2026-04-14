@@ -15,7 +15,7 @@ from core.file_utils import filter_image_files, scan_folder
 from core.session import save_session, load_session
 from core.models import ImageItem
 from ui.theme import Theme
-from ui.scales import S, base_value
+from ui.scales import S, base_value, sc
 from ui.icons import Icons
 from ui.widgets import (make_icon_btn, make_icon_toggle,
                          make_centered_header)
@@ -24,6 +24,7 @@ from ui.rounded_window import RoundedWindowMixin
 from ui.timer_panel import TimerPanel
 from ui.bottom_bar import BottomBar
 from ui.platform import setup_frameless_native
+from ui.resize_cursor import install_resize_cursor_guard
 
 
 class _InsetPanel(QWidget):
@@ -78,6 +79,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.rounded_init()
         self._restore_session()
         self.setAcceptDrops(True)
+        install_resize_cursor_guard(self)
 
     @property
     def _editor_visible(self):
@@ -98,7 +100,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                                        size=S.ICON_HEADER, tooltip="Help")
         self._help_btn.clicked.connect(self._show_help)
 
-        self._cat_btn = make_icon_btn(Icons.CAT, self.theme.text_hint,
+        self._cat_btn = make_icon_btn(Icons.CAT, self.theme.text_ghost,
                                        size=S.ICON_HEADER, tooltip="Cat")
         self._cat_btn.clicked.connect(self._show_cat)
 
@@ -216,7 +218,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         # Header icons
         self._help_btn.setIcon(qta.icon(Icons.INFO, color=t.text_hint))
-        self._cat_btn.setIcon(qta.icon(Icons.CAT, color=t.text_hint))
+        self._cat_btn.setIcon(qta.icon(Icons.CAT, color=t.text_ghost))
         _theme_icon = Icons.THEME_DARK if t.name == "dark" else Icons.THEME_LIGHT
         self._theme_btn.setIcon(qta.icon(_theme_icon, color=t.text_hint))
         self._min_btn.setIcon(qta.icon(Icons.MINIMIZE, color=t.text_hint))
@@ -495,7 +497,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         content.setStyleSheet("background: transparent;")
         content.mousePressEvent = lambda e: self._dismiss_help()
         inner = QVBoxLayout(content)
-        inner.setContentsMargins(16, 14, 16, 12)
+        inner.setContentsMargins(sc(16), sc(14), sc(16), sc(12))
 
         info_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "info_main.txt")
         try:
@@ -504,7 +506,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         except FileNotFoundError:
             info_text = "Drawer 0.3.1"
         lbl = QLabel(info_text)
-        lbl.setStyleSheet(f"color: {t.text_primary}; font-size: 11px;")
+        lbl.setStyleSheet(f"color: {t.text_primary}; font-size: {S.FONT_HELP}px;")
         lbl.setWordWrap(True)
         lbl.mousePressEvent = lambda e: self._dismiss_help()
         inner.addWidget(lbl)
