@@ -548,9 +548,11 @@ class ViewerWindow(QWidget):
             info_text = "H - help"
 
         lbl = QLabel(info_text)
-        # Viewer window doesn't use the S.* UI-scale system, so size the help
-        # text proportionally to current window height instead.
-        help_font = max(S.FONT_HELP, round(self.height() / 45))
+        # S.FONT_HELP is DPI-scaled, but user_factor tracks the settings
+        # window's size — not the viewer's. So on a big viewer the help text
+        # stays tiny unless we also scale by current viewer height.
+        HEIGHT_PER_FONT_PX = 45  # 600px viewer → ~14px font, 1800px → ~40px
+        help_font = max(S.FONT_HELP, round(self.height() / HEIGHT_PER_FONT_PX))
         lbl.setStyleSheet(f"color: rgba(255,255,255,200); font-size: {help_font}px;")
         lbl.setWordWrap(True)
         lbl.mousePressEvent = lambda e: self._dismiss_help()
