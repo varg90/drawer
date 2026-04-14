@@ -548,7 +548,10 @@ class ViewerWindow(QWidget):
             info_text = "H - help"
 
         lbl = QLabel(info_text)
-        lbl.setStyleSheet(f"color: rgba(255,255,255,200); font-size: {S.FONT_HELP}px;")
+        # Viewer window doesn't use the S.* UI-scale system, so size the help
+        # text proportionally to current window height instead.
+        help_font = max(S.FONT_HELP, round(self.height() / 45))
+        lbl.setStyleSheet(f"color: rgba(255,255,255,200); font-size: {help_font}px;")
         lbl.setWordWrap(True)
         lbl.mousePressEvent = lambda e: self._dismiss_help()
         inner.addWidget(lbl)
