@@ -12,6 +12,7 @@ on:
       - "*.ico"
       - "*.txt"
       - "*.iss"
+  workflow_dispatch:
 
 concurrency:
   group: build-${{ github.ref }}
