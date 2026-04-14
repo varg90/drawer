@@ -1,6 +1,5 @@
 RMB + drag - move window
-Always on top - pin toggle in main window
-Three dots - reopen main window and file manager
+Always on top - P or pin icon toggle
 
 Space - pause/resume (peep the coffee symbol when the session is on pause)
 Left/Right - prev / next
