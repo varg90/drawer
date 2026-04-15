@@ -252,18 +252,16 @@ class ViewerWindow(QWidget):
         # Alarm icon (session warning)
         self._alarm_label = QLabel(self)
         self._alarm_label.setPixmap(
-            _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), 24))
+            _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), S.VIEWER_ICON_LABEL))
         self._alarm_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
-        self._alarm_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._alarm_label.setStyleSheet("background: transparent;")
         self._alarm_label.hide()
 
         # Coffee icon (always visible when paused) — drop shadow for visibility on light images
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), 24))
+            _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), S.VIEWER_ICON_LABEL))
         self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
-        self._coffee_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._coffee_label.setStyleSheet("background: transparent;")
         _shadow = QGraphicsDropShadowEffect(self._coffee_label)
         _shadow.setBlurRadius(35)
@@ -792,8 +790,8 @@ class ViewerWindow(QWidget):
             f"font-size: {self._current_font_counter}px; background: transparent;")
 
         # Coffee/alarm icon sizes and pixmaps
-        self._current_icon_px = max(12, round(24 * scale))
         icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
+        self._current_icon_px = icon_lbl
         self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
         self._alarm_label.setPixmap(_dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), self._current_icon_px))
         self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
