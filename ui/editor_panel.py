@@ -622,22 +622,7 @@ class EditorPanel(QWidget):
 
                 pix = self._get_pixmap(img.path)
                 if not pix.isNull():
-                    scaled = pix.scaled(
-                        sz, sz,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                    # Clip to rounded rect
-                    rounded = QPixmap(scaled.size())
-                    rounded.fill(QColor(0, 0, 0, 0))
-                    rp = QPainter(rounded)
-                    rp.setRenderHint(QPainter.RenderHint.Antialiasing)
-                    rpath = QPainterPath()
-                    rpath.addRoundedRect(QRectF(rounded.rect()), S.GRID_TILE_RADIUS, S.GRID_TILE_RADIUS)
-                    rp.setClipPath(rpath)
-                    rp.drawPixmap(0, 0, scaled)
-                    rp.end()
-                    lbl.setPixmap(rounded)
+                    lbl.setPixmap(self._tile_pixmap(pix, sz))
 
                 lbl.setProperty("img_idx", idx)
 
@@ -688,17 +673,28 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _get_pixmap(self, path):
-        pix = self._pix_cache.get(path)
-        if pix is None:
-            pix = QPixmap(path)
-            if not pix.isNull():
-                pix = pix.scaled(
-                    S.GRID_MAX, S.GRID_MAX,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-            self._pix_cache[path] = pix
-        return pix
+        """Return cached pixmap for path, or null QPixmap if not yet loaded.
+        PixmapLoader fills the cache asynchronously after _rebuild()."""
+        return self._pix_cache.get(path, QPixmap())
+
+    @staticmethod
+    def _tile_pixmap(pix, sz):
+        """Scale pix to sz×sz and clip to rounded rect for grid tiles."""
+        scaled = pix.scaled(
+            sz, sz,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        rounded = QPixmap(scaled.size())
+        rounded.fill(QColor(0, 0, 0, 0))
+        rp = QPainter(rounded)
+        rp.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rpath = QPainterPath()
+        rpath.addRoundedRect(QRectF(rounded.rect()), S.GRID_TILE_RADIUS, S.GRID_TILE_RADIUS)
+        rp.setClipPath(rpath)
+        rp.drawPixmap(0, 0, scaled)
+        rp.end()
+        return rounded
 
     def _on_pixmap_loaded(self, path, image):
         pix = QPixmap.fromImage(image)
@@ -719,12 +715,7 @@ class EditorPanel(QWidget):
                     idx = lbl.property("img_idx")
                     if (idx is not None and idx < len(self.images)
                             and self.images[idx].path == path):
-                        scaled = pix.scaled(
-                            sz, sz,
-                            Qt.AspectRatioMode.KeepAspectRatio,
-                            Qt.TransformationMode.SmoothTransformation,
-                        )
-                        lbl.setPixmap(scaled)
+                        lbl.setPixmap(self._tile_pixmap(pix, sz))
             self._reflow_grid()
 
     @staticmethod
