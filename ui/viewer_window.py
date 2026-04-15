@@ -350,23 +350,23 @@ class ViewerWindow(QWidget):
         bottom_offset = max(4, round(S.VIEWER_BOTTOM_OFFSET * sc))
         bottom_lbl_x = max(6, round(S.VIEWER_BOTTOM_LABEL_X * sc))
         icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * sc))
-        icon_spacing = max(20, round(S.VIEWER_BOTTOM_ICON_SPACING * sc))
+        icon_step = icon_lbl + 2  # tight packing: icon width + 2px gap
         icon_y_offset = round(S.VIEWER_BOTTOM_ICON_Y_OFFSET * sc)
+
+        # Center timer — compute first so icons know where to stop
+        timer_w, counter_w = self._label_widths()
+        timer_x = (w - timer_w) // 2
 
         bottom_y = h - lbl_h - bottom_offset
         x = bottom_lbl_x
-        if self._alarm_label.isVisible():
-            self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
-            self._alarm_label.move(x, bottom_y + icon_y_offset)
-            x += icon_spacing
-        if self._coffee_label.isVisible():
-            self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
-            self._coffee_label.move(x, bottom_y + icon_y_offset)
-            x += icon_spacing
-
-        # Center timer
-        timer_w, counter_w = self._label_widths()
-        self._timer_label.setGeometry((w - timer_w) // 2, bottom_y, timer_w, lbl_h)
+        for label in [self._alarm_label, self._coffee_label]:
+            if label.isVisible():
+                if x + icon_lbl + bottom_lbl_x > timer_x:
+                    break  # no room — don't overlap the timer
+                label.setFixedSize(icon_lbl, icon_lbl)
+                label.move(x, bottom_y + icon_y_offset)
+                x += icon_step
+        self._timer_label.setGeometry(timer_x, bottom_y, timer_w, lbl_h)
         self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._counter_label.setGeometry(
             w - counter_w - bottom_lbl_x, bottom_y, counter_w, lbl_h)
@@ -795,11 +795,13 @@ class ViewerWindow(QWidget):
             f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
             f"font-size: {self._current_font_counter}px; background: transparent;")
 
-        # Coffee/alarm icon sizes
+        # Coffee/alarm icon sizes and pixmaps
         self._current_icon_px = max(12, round(24 * scale))
         icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
         self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
+        self._alarm_label.setPixmap(_dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), self._current_icon_px))
         self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
+        self._coffee_label.setPixmap(_dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), self._current_icon_px))
 
         # Top left: info
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
