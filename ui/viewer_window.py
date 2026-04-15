@@ -775,6 +775,8 @@ class ViewerWindow(QWidget):
         controls_visible = h >= 180
         self._top_left.setVisible(controls_visible)
         self._top_right.setVisible(controls_visible)
+        if not controls_visible:
+            self._top_center.hide()
 
         # Resize all top-bar icon buttons
         for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,
