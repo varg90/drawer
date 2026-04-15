@@ -773,8 +773,6 @@ class ViewerWindow(QWidget):
 
         # Hide all controls when window is too small to be useful
         controls_visible = h >= 180
-        self._top_left.setVisible(controls_visible)
-        self._top_right.setVisible(controls_visible)
 
         # Resize all top-bar icon buttons
         for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,
