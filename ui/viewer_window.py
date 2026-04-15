@@ -160,8 +160,8 @@ class ViewerWindow(QWidget):
         self._current_scale = 1.0
         self._current_font_timer = S.FONT_TIMER
         self._current_font_counter = S.FONT_COUNTER
-        self._current_icon_px = 24
-        self._current_btn_icon = 20
+        self._current_icon_px = S.VIEWER_ICON_LABEL
+        self._current_btn_icon = S.VIEWER_ICON_BTN
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
@@ -342,7 +342,7 @@ class ViewerWindow(QWidget):
         bottom_offset = max(4, round(S.VIEWER_BOTTOM_OFFSET * sc))
         bottom_lbl_x = max(6, round(S.VIEWER_BOTTOM_LABEL_X * sc))
         icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * sc))
-        icon_step = icon_lbl + 2
+        icon_step = icon_lbl + S.VIEWER_BOTTOM_ICON_GAP
         icon_y_offset = round(S.VIEWER_BOTTOM_ICON_Y_OFFSET * sc)
 
         timer_w, counter_w = self._label_widths()
@@ -761,8 +761,7 @@ class ViewerWindow(QWidget):
         self._grid_overlay.setGeometry(0, 0, w, h)
         self._gradient.setGeometry(0, 0, w, h)
 
-        # Scale factor based on window height; 450px = 1.0 reference
-        scale = max(1.0, min(2.5, h / 450.0))
+        scale = max(1.0, min(S.VIEWER_SCALE_MAX, h / S.VIEWER_SCALE_REF_H))
         self._current_scale = scale
 
         btn_sz = max(16, round(S.VIEWER_ICON_BTN * scale))
@@ -771,8 +770,7 @@ class ViewerWindow(QWidget):
         gap = max(2, round(S.VIEWER_ICON_GAP * scale))
         progress_h = max(2, round(S.VIEWER_PROGRESS_H * scale))
 
-        # Hide all controls when window is too small to be useful
-        controls_visible = h >= 180
+        controls_visible = h >= S.VIEWER_CONTROLS_MIN_H
 
         # Resize all top-bar icon buttons
         for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,

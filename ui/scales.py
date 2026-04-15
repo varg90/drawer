@@ -119,6 +119,12 @@ class S(metaclass=_SMeta):
     VIEWER_LEFT_NAV_W = 25
     VIEWER_LEFT_NAV_H = 40
     VIEWER_HELP_MARGIN = 20
+    VIEWER_CONTROLS_MIN_H = 180   # min window height to show all controls
+    VIEWER_SCALE_REF_H = 450      # window height at which scale = 1.0
+    VIEWER_BOTTOM_ICON_GAP = 2    # tight gap between alarm/coffee icons in bottom bar
+
+    # Viewer scaling (ratios — NOT DPI-scaled)
+    VIEWER_SCALE_MAX = 2.5        # maximum scale factor
 
     # Viewer fonts (px)
     FONT_TIMER = 20
