@@ -798,40 +798,25 @@ class ViewerWindow(QWidget):
         self._top_right.setGeometry(tr_x, margin, btn_sz, btn_sz)
         self._close_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
-        # Viewer tools — reflow based on available space:
-        # 1) horizontal at top if wide enough
-        # 2) vertical column on left if tall enough
-        # 3) hide if too small or controls hidden (keyboard shortcuts still work)
+        # Viewer tools — show horizontally if wide enough, hide otherwise
+        # (keyboard shortcuts remain active when hidden)
         if not controls_visible:
             self._top_center.hide()
         else:
-            tl_right = margin + btn_sz + gap
             all_btns = [self._bw_btn, self._grid_btn,
                         self._fliph_btn, self._flipv_btn, self._pin_btn]
             n = len(all_btns)
             tc_w = btn_sz * n + gap * (n - 1)
+            tl_right = margin + btn_sz + gap
             fits_horizontal = tl_right + tc_w + gap + btn_sz <= w - margin
-            col_h = btn_sz * n + gap * (n - 1)
-            col_y = margin + btn_sz + gap
-            fits_vertical = col_y + col_h < h // 2
-
             if fits_horizontal:
-                self._top_center.show()
-                for btn in all_btns:
-                    btn.show()
                 tc_x = (w - tc_w) // 2
                 if tc_x < tl_right:
                     tc_x = tl_right
                 self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
                 for i, btn in enumerate(all_btns):
                     btn.setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
-            elif fits_vertical:
                 self._top_center.show()
-                for btn in all_btns:
-                    btn.show()
-                self._top_center.setGeometry(margin, col_y, btn_sz, col_h)
-                for i, btn in enumerate(all_btns):
-                    btn.setGeometry(0, i * (btn_sz + gap), btn_sz, btn_sz)
             else:
                 self._top_center.hide()
 
