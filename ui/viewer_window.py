@@ -397,12 +397,12 @@ class ViewerWindow(QWidget):
         if pix.isNull():
             self._advance()
             return
-        if self._restore_at_min:
-            was_at_min = True
-            self._restore_at_min = False
-        else:
-            was_at_min = self.is_at_min()
-        old_longer = max(self.width(), self.height())
+        old_min_w, old_min_h = self._effective_min()
+        was_at_min = self._restore_at_min or (
+            abs(self.width() - old_min_w) < 2 and
+            abs(self.height() - old_min_h) < 2
+        )
+        self._restore_at_min = False
 
         self._pixmap = pix
         self._aspect = pix.width() / pix.height() if pix.height() else 1.0
@@ -412,6 +412,7 @@ class ViewerWindow(QWidget):
         if was_at_min:
             w, h = min_w, min_h
         else:
+            old_longer = max(self.width(), self.height())
             if self._aspect >= 1.0:
                 w = old_longer
                 h = int(w / self._aspect)
