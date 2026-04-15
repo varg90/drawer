@@ -12,6 +12,7 @@ on:
       - "*.ico"
       - "*.txt"
       - "*.iss"
+      - "*.spec"
   workflow_dispatch:
 
 concurrency:
