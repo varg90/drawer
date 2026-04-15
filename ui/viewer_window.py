@@ -398,15 +398,17 @@ class ViewerWindow(QWidget):
             return
         self._pixmap = pix
         self._aspect = pix.width() / pix.height() if pix.height() else 1.0
+        min_w, min_h = self._effective_min()
+        self.setMinimumSize(min_w, min_h)
 
-        w = self.width()
-        h = max(S.VIEWER_MIN_H, int(w / self._aspect))
+        w = max(min_w, self.width())
+        h = max(min_h, int(w / self._aspect))
         if h > self._screen_max_h:
             h = self._screen_max_h
-            w = max(S.VIEWER_MIN_W, int(h * self._aspect))
+            w = max(min_w, int(h * self._aspect))
         if w > self._screen_max_w:
             w = self._screen_max_w
-            h = max(S.VIEWER_MIN_H, int(w / self._aspect))
+            h = max(min_h, int(w / self._aspect))
         self.resize(w, h)
 
         self._rebuild_processed()
@@ -970,6 +972,12 @@ class ViewerWindow(QWidget):
         else:
             self.unsetCursor()
 
+    def _effective_min(self):
+        """Smallest window that fits the full image without black bars."""
+        min_w = max(S.VIEWER_MIN_W, int(S.VIEWER_MIN_H * self._aspect))
+        min_h = max(S.VIEWER_MIN_H, int(min_w / self._aspect))
+        return min_w, min_h
+
     def _do_resize(self, global_pos):
         if not self._resize_start_pos or not self._resize_start_geom:
             return
@@ -978,23 +986,25 @@ class ViewerWindow(QWidget):
         geom = self._resize_start_geom
         corner = self._resize_corner
 
+        min_w, min_h = self._effective_min()
+
         if corner in ("br", "r", "b"):
-            new_w = min(self._screen_max_w, max(S.VIEWER_MIN_W, geom.width() + dx))
-            new_h = min(self._screen_max_h, max(S.VIEWER_MIN_H, int(new_w / self._aspect)))
+            new_w = min(self._screen_max_w, max(min_w, geom.width() + dx))
+            new_h = min(self._screen_max_h, max(min_h, int(new_w / self._aspect)))
             self.setGeometry(geom.x(), geom.y(), new_w, new_h)
         elif corner in ("bl", "l"):
-            new_w = min(self._screen_max_w, max(S.VIEWER_MIN_W, geom.width() - dx))
-            new_h = min(self._screen_max_h, max(S.VIEWER_MIN_H, int(new_w / self._aspect)))
+            new_w = min(self._screen_max_w, max(min_w, geom.width() - dx))
+            new_h = min(self._screen_max_h, max(min_h, int(new_w / self._aspect)))
             new_x = geom.right() - new_w
             self.setGeometry(new_x, geom.y(), new_w, new_h)
         elif corner in ("tr",):
-            new_w = min(self._screen_max_w, max(S.VIEWER_MIN_W, geom.width() + dx))
-            new_h = min(self._screen_max_h, max(S.VIEWER_MIN_H, int(new_w / self._aspect)))
+            new_w = min(self._screen_max_w, max(min_w, geom.width() + dx))
+            new_h = min(self._screen_max_h, max(min_h, int(new_w / self._aspect)))
             new_y = geom.bottom() - new_h
             self.setGeometry(geom.x(), new_y, new_w, new_h)
         elif corner in ("tl", "t"):
-            new_w = min(self._screen_max_w, max(S.VIEWER_MIN_W, geom.width() - dx))
-            new_h = min(self._screen_max_h, max(S.VIEWER_MIN_H, int(new_w / self._aspect)))
+            new_w = min(self._screen_max_w, max(min_w, geom.width() - dx))
+            new_h = min(self._screen_max_h, max(min_h, int(new_w / self._aspect)))
             new_x = geom.right() - new_w
             new_y = geom.bottom() - new_h
             self.setGeometry(new_x, new_y, new_w, new_h)
