@@ -156,6 +156,10 @@ class ViewerWindow(QWidget):
         self._grid_thirds = False
         self._topmost = bool(settings.get("topmost"))
         self._cached_label_widths = None
+        self._current_scale = 1.0
+        self._current_font_timer = S.FONT_TIMER
+        self._current_font_counter = S.FONT_COUNTER
+        self._current_icon_px = 24
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
@@ -325,50 +329,56 @@ class ViewerWindow(QWidget):
     def _update_coffee(self):
         if self._paused:
             self._coffee_label.setPixmap(
-                _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), 24))
-            self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
+                _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), self._current_icon_px))
+            icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * self._current_scale))
+            self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
             self._coffee_label.show()
         else:
             self._coffee_label.hide()
         self._layout_bottom(self.width(), self.height())
 
     def _layout_bottom(self, w, h):
-        lbl_h = S.VIEWER_BOTTOM_LABEL_H
-        bottom_y = h - lbl_h - S.VIEWER_BOTTOM_OFFSET
-        x = S.VIEWER_BOTTOM_LABEL_X
+        sc = self._current_scale
+        lbl_h = max(16, round(S.VIEWER_BOTTOM_LABEL_H * sc))
+        bottom_offset = max(4, round(S.VIEWER_BOTTOM_OFFSET * sc))
+        bottom_lbl_x = max(6, round(S.VIEWER_BOTTOM_LABEL_X * sc))
+        icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * sc))
+        icon_spacing = max(20, round(S.VIEWER_BOTTOM_ICON_SPACING * sc))
+        icon_y_offset = round(S.VIEWER_BOTTOM_ICON_Y_OFFSET * sc)
+
+        bottom_y = h - lbl_h - bottom_offset
+        x = bottom_lbl_x
         if self._alarm_label.isVisible():
-            self._alarm_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
-            self._alarm_label.move(x, bottom_y + S.VIEWER_BOTTOM_ICON_Y_OFFSET)
-            x += S.VIEWER_BOTTOM_ICON_SPACING
+            self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
+            self._alarm_label.move(x, bottom_y + icon_y_offset)
+            x += icon_spacing
         if self._coffee_label.isVisible():
-            self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
-            self._coffee_label.move(x, bottom_y + S.VIEWER_BOTTOM_ICON_Y_OFFSET)
-            x += S.VIEWER_BOTTOM_ICON_SPACING
+            self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
+            self._coffee_label.move(x, bottom_y + icon_y_offset)
+            x += icon_spacing
 
         # Center timer
         timer_w, counter_w = self._label_widths()
         self._timer_label.setGeometry((w - timer_w) // 2, bottom_y, timer_w, lbl_h)
         self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._counter_label.setGeometry(
-            w - counter_w - S.VIEWER_BOTTOM_LABEL_X, bottom_y, counter_w, lbl_h)
+            w - counter_w - bottom_lbl_x, bottom_y, counter_w, lbl_h)
         self._counter_label.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     def _label_widths(self):
-        """Compute timer and counter label widths from font metrics, once.
-        FONT_TIMER/FONT_COUNTER are DPI-scaled at startup and never change
-        during viewer lifetime, so the result is cached on self."""
+        """Compute timer and counter label widths from font metrics.
+        Cached and invalidated when font sizes change due to window scaling."""
         if self._cached_label_widths is None:
-            # Widest realistic text: "0:00:00" (hours format) and
-            # "9999/9999" (4-digit playlist). Add half-a-glyph of slack
-            # on top so we never touch the edges.
+            ft = self._current_font_timer
+            fc = self._current_font_counter
             timer_font = QFont("Lora")
-            timer_font.setPixelSize(S.FONT_TIMER)
-            timer_w = QFontMetrics(timer_font).horizontalAdvance("0:00:00") + S.FONT_TIMER // 2
+            timer_font.setPixelSize(ft)
+            timer_w = QFontMetrics(timer_font).horizontalAdvance("0:00:00") + ft // 2
 
             counter_font = QFont("Lexend")
-            counter_font.setPixelSize(S.FONT_COUNTER)
-            counter_w = QFontMetrics(counter_font).horizontalAdvance("9999/9999") + S.FONT_COUNTER // 2
+            counter_font.setPixelSize(fc)
+            counter_w = QFontMetrics(counter_font).horizontalAdvance("9999/9999") + fc // 2
 
             self._cached_label_widths = (timer_w, counter_w)
         return self._cached_label_widths
@@ -465,7 +475,7 @@ class ViewerWindow(QWidget):
             if not self._controls_visible:
                 self._opacity_effects[idx].setOpacity(0.0)
         self._timer_label.setStyleSheet(
-            f"color: {self._timer_color}; font-family: Lora; font-size: {S.FONT_TIMER}px; background: transparent;")
+            f"color: {self._timer_color}; font-family: Lora; font-size: {self._current_font_timer}px; background: transparent;")
         self._timer_label.setText(t)
 
         self._update_coffee()
@@ -734,19 +744,62 @@ class ViewerWindow(QWidget):
         self._grid_overlay.setGeometry(0, 0, w, h)
         self._gradient.setGeometry(0, 0, w, h)
 
-        # Fixed sizes
-        btn_sz = S.VIEWER_ICON_BTN
-        margin = S.VIEWER_ICON_MARGIN
+        # Scale factor based on window height; 600px = 1.0 reference
+        scale = max(0.5, min(2.5, h / 600.0))
+        self._current_scale = scale
+
+        btn_sz = max(16, round(S.VIEWER_ICON_BTN * scale))
+        btn_icon = max(10, btn_sz - 6)
+        margin = max(4, round(S.VIEWER_ICON_MARGIN * scale))
+        gap = max(2, round(S.VIEWER_ICON_GAP * scale))
+        center_sz = max(30, round(S.VIEWER_CENTER_BTN * scale))
+        progress_h = max(2, round(S.VIEWER_PROGRESS_H * scale))
+
+        # Resize all top-bar icon buttons
+        for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,
+                    self._fliph_btn, self._flipv_btn, self._pin_btn]:
+            btn.setFixedSize(btn_sz, btn_sz)
+            btn.setIconSize(QSize(btn_icon, btn_icon))
+
+        # Center play/pause button
+        self._center_btn.setFixedSize(center_sz, center_sz)
+        self._center_btn.setIconSize(QSize(round(center_sz * 0.65), round(center_sz * 0.65)))
+
+        # Font sizes — invalidate label width cache when they change
+        font_timer = max(10, round(S.FONT_TIMER * scale))
+        font_counter = max(8, round(S.FONT_COUNTER * scale))
+        if font_timer != self._current_font_timer or font_counter != self._current_font_counter:
+            self._current_font_timer = font_timer
+            self._current_font_counter = font_counter
+            self._cached_label_widths = None
+            self._timer_label.setStyleSheet(
+                f"color: rgba(204,192,174,255); font-family: Lora; "
+                f"font-size: {font_timer}px; background: transparent;")
+            self._counter_label.setStyleSheet(
+                f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
+                f"font-size: {font_counter}px; background: transparent;")
+
+        # Coffee/alarm icon pixmap size
+        icon_px = max(12, round(24 * scale))
+        if icon_px != self._current_icon_px:
+            self._current_icon_px = icon_px
+            icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
+            self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
+            if self._alarm_label.isVisible():
+                self._alarm_label.setPixmap(
+                    _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), icon_px))
+            self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
+            if self._coffee_label.isVisible():
+                self._coffee_label.setPixmap(
+                    _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), icon_px))
 
         # Top left: info
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
         self._info_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
         # Top right: close
-        gap = S.VIEWER_ICON_GAP
-        tr_w = btn_sz
-        tr_x = w - tr_w - margin
-        self._top_right.setGeometry(tr_x, margin, tr_w, btn_sz)
+        tr_x = w - btn_sz - margin
+        self._top_right.setGeometry(tr_x, margin, btn_sz, btn_sz)
         self._close_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
         # Viewer tools — reflow based on available space:
@@ -758,10 +811,10 @@ class ViewerWindow(QWidget):
                     self._fliph_btn, self._flipv_btn, self._pin_btn]
         n = len(all_btns)
         tc_w = btn_sz * n + gap * (n - 1)
-        fits_horizontal = tl_right + tc_w + gap + tr_w <= w - margin
+        fits_horizontal = tl_right + tc_w + gap + btn_sz <= w - margin
         col_h = btn_sz * n + gap * (n - 1)
         col_y = margin + btn_sz + gap
-        fits_vertical = col_y + col_h < (h - S.VIEWER_CENTER_BTN) // 2
+        fits_vertical = col_y + col_h < (h - center_sz) // 2
 
         if fits_horizontal:
             self._top_center.show()
@@ -784,13 +837,14 @@ class ViewerWindow(QWidget):
             self._top_center.hide()
 
         # Center
-        self._center_btn.move((w - S.VIEWER_CENTER_BTN) // 2, (h - S.VIEWER_CENTER_BTN) // 2)
+        self._center_btn.move((w - center_sz) // 2, (h - center_sz) // 2)
 
         # Bottom layout
         self._layout_bottom(w, h)
 
         # Progress bar at very bottom
-        self._progress_bar.setGeometry(0, h - S.VIEWER_PROGRESS_H, w, S.VIEWER_PROGRESS_H)
+        self._progress_bar.setFixedHeight(progress_h)
+        self._progress_bar.setGeometry(0, h - progress_h, w, progress_h)
 
         self._update_display()
 
