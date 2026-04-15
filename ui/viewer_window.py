@@ -760,7 +760,7 @@ class ViewerWindow(QWidget):
         self._gradient.setGeometry(0, 0, w, h)
 
         # Scale factor based on window height; 450px = 1.0 reference
-        scale = max(0.5, min(2.5, h / 450.0))
+        scale = max(1.0, min(2.5, h / 450.0))
         self._current_scale = scale
 
         btn_sz = max(16, round(S.VIEWER_ICON_BTN * scale))
