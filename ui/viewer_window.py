@@ -260,7 +260,7 @@ class ViewerWindow(QWidget):
         self._coffee_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._coffee_label.setStyleSheet("background: transparent;")
         _shadow = QGraphicsDropShadowEffect(self._coffee_label)
-        _shadow.setBlurRadius(20)
+        _shadow.setBlurRadius(35)
         _shadow.setOffset(0, 0)
         _shadow.setColor(QColor(0, 0, 0, 180))
         self._coffee_label.setGraphicsEffect(_shadow)
