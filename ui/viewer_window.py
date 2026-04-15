@@ -807,7 +807,7 @@ class ViewerWindow(QWidget):
                         self._fliph_btn, self._flipv_btn, self._pin_btn]
             n = len(all_btns)
             tc_w = btn_sz * n + gap * (n - 1)
-            if w >= round(250 * scale):
+            if w >= round(240 * scale):
                 tl_right = margin + btn_sz + gap
                 tc_x = max((w - tc_w) // 2, tl_right)
                 self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
