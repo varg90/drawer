@@ -160,6 +160,7 @@ class ViewerWindow(QWidget):
         self._current_font_timer = S.FONT_TIMER
         self._current_font_counter = S.FONT_COUNTER
         self._current_icon_px = 24
+        self._current_btn_icon = 20
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
@@ -296,6 +297,12 @@ class ViewerWindow(QWidget):
         self._qtimer.setInterval(1000)
         self._qtimer.timeout.connect(self._tick)
 
+        # Debounce timer: switch from fast→smooth image scaling after resize stops
+        self._smooth_timer = QTimer(self)
+        self._smooth_timer.setSingleShot(True)
+        self._smooth_timer.setInterval(150)
+        self._smooth_timer.timeout.connect(self._update_display)
+
         # Focus polling timer (checks foreground window every 500ms)
         self._focus_timer = QTimer(self)
         self._focus_timer.setInterval(500)
@@ -413,7 +420,7 @@ class ViewerWindow(QWidget):
         self._update_counter()
         self._update_session_display()
 
-    def _update_display(self):
+    def _update_display(self, fast=False):
         if self._pixmap is None:
             return
         pix = self._pixmap
@@ -426,10 +433,12 @@ class ViewerWindow(QWidget):
         if self._grayscale:
             img = pix.toImage().convertToFormat(QImage.Format.Format_Grayscale8)
             pix = QPixmap.fromImage(img)
+        transform = (Qt.TransformationMode.FastTransformation if fast
+                     else Qt.TransformationMode.SmoothTransformation)
         scaled = pix.scaled(
             self._img_label.size(),
             Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
+            transform,
         )
         self._img_label.setPixmap(scaled)
 
@@ -628,7 +637,7 @@ class ViewerWindow(QWidget):
         self._grayscale = not self._grayscale
         icon_name = Icons.BW_ON if self._grayscale else Icons.BW_OFF
         self._bw_btn.setIcon(_icon(icon_name, CLR_NORMAL))
-        self._bw_btn.setIconSize(QSize(20, 20))
+        self._bw_btn.setIconSize(QSize(self._current_btn_icon, self._current_btn_icon))
         self._update_display()
 
     def _toggle_grid(self):
@@ -659,7 +668,7 @@ class ViewerWindow(QWidget):
         icon_name = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
         color = CLR_NORMAL if self._topmost else CLR_DIM
         self._pin_btn.setIcon(_icon(icon_name, color))
-        self._pin_btn.setIconSize(QSize(20, 20))
+        self._pin_btn.setIconSize(QSize(self._current_btn_icon, self._current_btn_icon))
 
     # ------------------------------------------------------------------ Fade animation
 
@@ -744,16 +753,22 @@ class ViewerWindow(QWidget):
         self._grid_overlay.setGeometry(0, 0, w, h)
         self._gradient.setGeometry(0, 0, w, h)
 
-        # Scale factor based on window height; 600px = 1.0 reference
-        scale = max(0.5, min(2.5, h / 600.0))
+        # Scale factor based on window height; 450px = 1.0 reference
+        scale = max(0.5, min(2.5, h / 450.0))
         self._current_scale = scale
 
         btn_sz = max(16, round(S.VIEWER_ICON_BTN * scale))
         btn_icon = max(10, btn_sz - 6)
+        self._current_btn_icon = btn_icon
         margin = max(4, round(S.VIEWER_ICON_MARGIN * scale))
         gap = max(2, round(S.VIEWER_ICON_GAP * scale))
         center_sz = max(30, round(S.VIEWER_CENTER_BTN * scale))
         progress_h = max(2, round(S.VIEWER_PROGRESS_H * scale))
+
+        # Hide all controls when window is too small to be useful
+        controls_visible = h >= 180
+        self._top_left.setVisible(controls_visible)
+        self._top_right.setVisible(controls_visible)
 
         # Resize all top-bar icon buttons
         for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,
@@ -846,7 +861,9 @@ class ViewerWindow(QWidget):
         self._progress_bar.setFixedHeight(progress_h)
         self._progress_bar.setGeometry(0, h - progress_h, w, progress_h)
 
-        self._update_display()
+        # Fast render during drag; smooth render fires after resize stops
+        self._update_display(fast=True)
+        self._smooth_timer.start()
 
     def enterEvent(self, event):
         super().enterEvent(event)
