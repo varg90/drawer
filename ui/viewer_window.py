@@ -272,10 +272,13 @@ class ViewerWindow(QWidget):
         if not self._session_limit:
             self._progress_bar.hide()
 
-        # Collect hover-only widgets
+        # Widgets that fade in/out on hover.
+        # top_left, top_right, counter are excluded — no effect means no
+        # async intermediate pixmap, which eliminates the right-edge float
+        # artifact during resize. Close/info are always visible anyway.
         self._hover_widgets = [
-            self._top_left, self._top_center, self._top_right,
-            self._timer_label, self._counter_label,
+            self._top_center,
+            self._timer_label,
             self._progress_bar,
         ]
 
@@ -857,6 +860,9 @@ class ViewerWindow(QWidget):
         # Raise all controls above gradient
         for w in self._hover_widgets:
             w.raise_()
+        self._top_left.raise_()
+        self._top_right.raise_()
+        self._counter_label.raise_()
         self._coffee_label.raise_()
         self._alarm_label.raise_()
         self._fade_controls(True)
