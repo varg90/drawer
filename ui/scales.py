@@ -103,10 +103,10 @@ class S(metaclass=_SMeta):
     # Viewer window
     VIEWER_MIN_W = 150
     VIEWER_MIN_H = 100
+    VIEWER_TOP_FIT_MIN_W = 240  # min window width to show top-center tool row
     VIEWER_CORNER_GRIP = 50
     VIEWER_NAV_ZONE = 40
-    VIEWER_CENTER_BTN = 60
-    VIEWER_ICON_LABEL = 20
+    VIEWER_ICON_LABEL = 26
     VIEWER_ICON_BTN = 26
     VIEWER_ICON_MARGIN = 8
     VIEWER_ICON_GAP = 4
@@ -114,12 +114,17 @@ class S(metaclass=_SMeta):
     VIEWER_BOTTOM_LABEL_H = 24
     VIEWER_BOTTOM_OFFSET = 8
     VIEWER_BOTTOM_LABEL_X = 10
-    VIEWER_BOTTOM_ICON_SPACING = 26
-    VIEWER_BOTTOM_ICON_Y_OFFSET = 2
+    VIEWER_BOTTOM_ICON_Y_OFFSET = -2
     VIEWER_LEFT_NAV_X = 4
     VIEWER_LEFT_NAV_W = 25
     VIEWER_LEFT_NAV_H = 40
     VIEWER_HELP_MARGIN = 20
+    VIEWER_CONTROLS_MIN_H = 180   # min window height to show all controls
+    VIEWER_SCALE_REF_H = 450      # window height at which scale = 1.0
+    VIEWER_BOTTOM_ICON_GAP = 2    # tight gap between alarm/coffee icons in bottom bar
+
+    # Viewer scaling (ratios — NOT DPI-scaled)
+    VIEWER_SCALE_MAX = 2.5        # maximum scale factor
 
     # Viewer fonts (px)
     FONT_TIMER = 20

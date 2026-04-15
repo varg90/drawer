@@ -2,7 +2,7 @@ import os
 import random
 import qtawesome as qta
 from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QGraphicsOpacityEffect,
-                              QApplication)
+                              QGraphicsDropShadowEffect, QApplication)
 from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon, QTransform, QImage, QFont, QFontMetrics
 from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
                            QEasingCurve)
@@ -37,6 +37,7 @@ CLR_NORMAL = QColor(204, 192, 174, 255)
 CLR_HOVER = QColor(204, 192, 174, 200)
 CLR_DIM = QColor(204, 192, 174, 100)
 CLR_WARNING = QColor(230, 120, 100, 200)
+CLR_WHITE = QColor(255, 255, 255, 200)
 
 
 def _icon(name, color=CLR_NORMAL, size=15):
@@ -53,16 +54,14 @@ def _dpi_pixmap(icon, size):
     return pm
 
 
-def _icon_btn(icon_name, size, parent, color=CLR_NORMAL, tooltip=""):
+def _icon_btn(icon_name, size, parent, color=CLR_NORMAL):
     btn = QPushButton(parent)
     btn.setIcon(_icon(icon_name, color))
     btn.setIconSize(QSize(size, size))
-    btn.setFixedSize(size + 6, size + 6)
+    btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
     btn.setStyleSheet("background: transparent; border: none;")
-    if tooltip:
-        btn.setToolTip(tooltip)
     return btn
 
 
@@ -157,6 +156,12 @@ class ViewerWindow(QWidget):
         self._grid_thirds = False
         self._topmost = bool(settings.get("topmost"))
         self._cached_label_widths = None
+        self._processed_pixmap = None  # pixmap after flip/grayscale, before scaling
+        self._current_scale = 1.0
+        self._current_font_timer = S.FONT_TIMER
+        self._current_font_counter = S.FONT_COUNTER
+        self._current_icon_px = S.VIEWER_ICON_LABEL
+        self._current_btn_icon = S.VIEWER_ICON_BTN
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
@@ -199,40 +204,36 @@ class ViewerWindow(QWidget):
         # Top bar
         self._top_left = QWidget(self)
         self._top_left.setStyleSheet("background: transparent;")
-        self._info_btn = _icon_btn(Icons.INFO, 20, self._top_left, tooltip="Инфо")
+        self._info_btn = _icon_btn(Icons.INFO, 20, self._top_left)
         self._info_btn.clicked.connect(self._show_help)
         self._info_btn.move(0, 0)
 
         # Top center: viewer tools
         self._top_center = QWidget(self)
         self._top_center.setStyleSheet("background: transparent;")
-        self._bw_btn = _icon_btn(Icons.BW_OFF, 20, self._top_center, tooltip="B&W (G)")
+        self._bw_btn = _icon_btn(Icons.BW_OFF, 20, self._top_center)
         self._bw_btn.clicked.connect(self._toggle_grayscale)
-        self._grid_btn = _icon_btn(Icons.GRID_OVERLAY, 20, self._top_center, tooltip="Grid (R)")
+        self._grid_btn = _icon_btn(Icons.GRID_OVERLAY, 20, self._top_center)
         self._grid_btn.clicked.connect(self._toggle_grid)
-        self._fliph_btn = _icon_btn(Icons.FLIP_H, 20, self._top_center, tooltip="Flip H (F)")
+        self._fliph_btn = _icon_btn(Icons.FLIP_H, 20, self._top_center)
         self._fliph_btn.clicked.connect(self._toggle_flip_h)
-        self._flipv_btn = _icon_btn(Icons.FLIP_V, 20, self._top_center, tooltip="Flip V (V)")
+        self._flipv_btn = _icon_btn(Icons.FLIP_V, 20, self._top_center)
         self._flipv_btn.clicked.connect(self._toggle_flip_v)
         pin_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
         pin_color = CLR_NORMAL if self._topmost else CLR_DIM
-        self._pin_btn = _icon_btn(pin_icon, 20, self._top_center, color=pin_color, tooltip="Pin on top (P)")
+        self._pin_btn = _icon_btn(pin_icon, 20, self._top_center, color=pin_color)
         self._pin_btn.clicked.connect(self._toggle_topmost)
 
         self._top_right = QWidget(self)
         self._top_right.setStyleSheet("background: transparent;")
-        self._close_btn = _icon_btn(Icons.CLOSE, 20, self._top_right, tooltip="Закрыть")
+        self._close_btn = _icon_btn(Icons.CLOSE, 20, self._top_right)
         self._close_btn.clicked.connect(self.close)
 
-        # Center play/pause
+        # Center play/pause — invisible click zone over free center area
         self._center_btn = QPushButton(self)
-        self._center_btn.setFixedSize(S.VIEWER_CENTER_BTN, S.VIEWER_CENTER_BTN)
-        self._center_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._center_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._center_btn.setStyleSheet("background: transparent; border: none;")
-        self._center_btn.setIconSize(QSize(40, 40))
         self._center_btn.clicked.connect(self._toggle_pause)
-        self._update_center_icon()
 
         # Bottom: timer + counter
         self._timer_label = QLabel(self)
@@ -248,17 +249,22 @@ class ViewerWindow(QWidget):
         # Alarm icon (session warning)
         self._alarm_label = QLabel(self)
         self._alarm_label.setPixmap(
-            _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), 20))
+            _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), S.VIEWER_ICON_LABEL))
         self._alarm_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
         self._alarm_label.setStyleSheet("background: transparent;")
         self._alarm_label.hide()
 
-        # Coffee icon (always visible when paused)
+        # Coffee icon (always visible when paused) — drop shadow for visibility on light images
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 20))
+            _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), S.VIEWER_ICON_LABEL))
         self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
         self._coffee_label.setStyleSheet("background: transparent;")
+        _shadow = QGraphicsDropShadowEffect(self._coffee_label)
+        _shadow.setBlurRadius(35)
+        _shadow.setOffset(0, 0)
+        _shadow.setColor(QColor(0, 0, 0, 200))
+        self._coffee_label.setGraphicsEffect(_shadow)
         self._coffee_label.hide()
 
         # Progress bar — only visible when session limit is set
@@ -268,10 +274,14 @@ class ViewerWindow(QWidget):
 
         # Collect hover-only widgets
         self._hover_widgets = [
-            self._top_left, self._top_center, self._top_right, self._center_btn,
+            self._top_left, self._top_center, self._top_right,
             self._timer_label, self._counter_label,
             self._progress_bar,
         ]
+
+        # Center click zone sits below all named controls so they receive
+        # their own clicks; it catches everything in the free center area.
+        self._center_btn.lower()
 
         # Setup opacity effects for fade
         self._opacity_effects = []
@@ -285,6 +295,12 @@ class ViewerWindow(QWidget):
         self._qtimer = QTimer(self)
         self._qtimer.setInterval(1000)
         self._qtimer.timeout.connect(self._tick)
+
+        # Debounce timer: switch from fast→smooth image scaling after resize stops
+        self._smooth_timer = QTimer(self)
+        self._smooth_timer.setSingleShot(True)
+        self._smooth_timer.setInterval(150)
+        self._smooth_timer.timeout.connect(self._update_display)
 
         # Focus polling timer (checks foreground window every 500ms)
         self._focus_timer = QTimer(self)
@@ -310,59 +326,60 @@ class ViewerWindow(QWidget):
 
     # ------------------------------------------------------------------ Icons
 
-    def _update_center_icon(self):
-        if self._paused:
-            self._center_btn.setIcon(_icon("ph.play-fill", CLR_HOVER, 40))
-        else:
-            self._center_btn.setIcon(_icon("ph.pause-fill", CLR_HOVER, 40))
-
     def _update_coffee(self):
         if self._paused:
             self._coffee_label.setPixmap(
-                _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 20))
-            self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
+                _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), self._current_icon_px))
+            self._layout_bottom(self.width(), self.height())  # position while still hidden
             self._coffee_label.show()
         else:
             self._coffee_label.hide()
-        self._layout_bottom(self.width(), self.height())
+            self._layout_bottom(self.width(), self.height())
 
     def _layout_bottom(self, w, h):
-        lbl_h = S.VIEWER_BOTTOM_LABEL_H
-        bottom_y = h - lbl_h - S.VIEWER_BOTTOM_OFFSET
-        x = S.VIEWER_BOTTOM_LABEL_X
-        if self._alarm_label.isVisible():
-            self._alarm_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
-            self._alarm_label.move(x, bottom_y + S.VIEWER_BOTTOM_ICON_Y_OFFSET)
-            x += S.VIEWER_BOTTOM_ICON_SPACING
-        if self._coffee_label.isVisible():
-            self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
-            self._coffee_label.move(x, bottom_y + S.VIEWER_BOTTOM_ICON_Y_OFFSET)
-            x += S.VIEWER_BOTTOM_ICON_SPACING
+        sc = self._current_scale
+        lbl_h = max(16, round(S.VIEWER_BOTTOM_LABEL_H * sc))
+        bottom_offset = max(4, round(S.VIEWER_BOTTOM_OFFSET * sc))
+        bottom_lbl_x = max(6, round(S.VIEWER_BOTTOM_LABEL_X * sc))
+        icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * sc))
+        icon_step = icon_lbl + S.VIEWER_BOTTOM_ICON_GAP
+        icon_y_offset = round(S.VIEWER_BOTTOM_ICON_Y_OFFSET * sc)
 
-        # Center timer
         timer_w, counter_w = self._label_widths()
-        self._timer_label.setGeometry((w - timer_w) // 2, bottom_y, timer_w, lbl_h)
-        self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        bottom_y = h - lbl_h - bottom_offset
+        x = bottom_lbl_x
+        for label in [self._alarm_label, self._coffee_label]:
+            label.setFixedSize(icon_lbl, icon_lbl)
+            label.move(x, bottom_y + icon_y_offset)
+            if label.isVisible():
+                x += icon_step
+        if self._counter_label.isVisible():
+            timer_x = (w - timer_w) // 2
+            timer_align = Qt.AlignmentFlag.AlignCenter
+        else:
+            timer_x = w - timer_w - bottom_lbl_x
+            timer_align = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        self._timer_label.setGeometry(timer_x, bottom_y, timer_w, lbl_h)
+        self._timer_label.setAlignment(timer_align)
         self._counter_label.setGeometry(
-            w - counter_w - S.VIEWER_BOTTOM_LABEL_X, bottom_y, counter_w, lbl_h)
+            w - counter_w - bottom_lbl_x, bottom_y, counter_w, lbl_h)
         self._counter_label.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     def _label_widths(self):
-        """Compute timer and counter label widths from font metrics, once.
-        FONT_TIMER/FONT_COUNTER are DPI-scaled at startup and never change
-        during viewer lifetime, so the result is cached on self."""
+        """Compute timer and counter label widths from font metrics.
+        Cached and invalidated when font sizes change due to window scaling."""
         if self._cached_label_widths is None:
-            # Widest realistic text: "0:00:00" (hours format) and
-            # "9999/9999" (4-digit playlist). Add half-a-glyph of slack
-            # on top so we never touch the edges.
+            ft = self._current_font_timer
+            fc = self._current_font_counter
             timer_font = QFont("Lora")
-            timer_font.setPixelSize(S.FONT_TIMER)
-            timer_w = QFontMetrics(timer_font).horizontalAdvance("0:00:00") + S.FONT_TIMER // 2
+            timer_font.setPixelSize(ft)
+            timer_w = QFontMetrics(timer_font).horizontalAdvance("0:00:00") + ft // 2
 
             counter_font = QFont("Lexend")
-            counter_font.setPixelSize(S.FONT_COUNTER)
-            counter_w = QFontMetrics(counter_font).horizontalAdvance("9999/9999") + S.FONT_COUNTER // 2
+            counter_font.setPixelSize(fc)
+            counter_w = QFontMetrics(counter_font).horizontalAdvance("9999/9999") + fc // 2
 
             self._cached_label_widths = (timer_w, counter_w)
         return self._cached_label_widths
@@ -392,30 +409,39 @@ class ViewerWindow(QWidget):
             h = max(S.VIEWER_MIN_H, int(w / self._aspect))
         self.resize(w, h)
 
+        self._rebuild_processed()
         self._update_display()
         self._schedule_next(img.timer)
         self._update_counter()
         self._update_session_display()
 
-    def _update_display(self):
+    def _update_display(self, fast=False):
+        if self._processed_pixmap is None:
+            return
+        transform = (Qt.TransformationMode.FastTransformation if fast
+                     else Qt.TransformationMode.SmoothTransformation)
+        scaled = self._processed_pixmap.scaled(
+            self._img_label.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            transform,
+        )
+        self._img_label.setPixmap(scaled)
+
+    def _rebuild_processed(self):
+        """Recompute cached pixmap after applying flip/grayscale. Call whenever
+        the source image or filter settings change — not on every resize."""
         if self._pixmap is None:
+            self._processed_pixmap = None
             return
         pix = self._pixmap
-        # Flip
         if self._flip_h or self._flip_v:
             sx = -1 if self._flip_h else 1
             sy = -1 if self._flip_v else 1
             pix = pix.transformed(QTransform().scale(sx, sy))
-        # Grayscale
         if self._grayscale:
             img = pix.toImage().convertToFormat(QImage.Format.Format_Grayscale8)
             pix = QPixmap.fromImage(img)
-        scaled = pix.scaled(
-            self._img_label.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        self._img_label.setPixmap(scaled)
+        self._processed_pixmap = pix
 
     # ------------------------------------------------------------------ Timer
 
@@ -459,7 +485,7 @@ class ViewerWindow(QWidget):
             if not self._controls_visible:
                 self._opacity_effects[idx].setOpacity(0.0)
         self._timer_label.setStyleSheet(
-            f"color: {self._timer_color}; font-family: Lora; font-size: {S.FONT_TIMER}px; background: transparent;")
+            f"color: {self._timer_color}; font-family: Lora; font-size: {self._current_font_timer}px; background: transparent;")
         self._timer_label.setText(t)
 
         self._update_coffee()
@@ -474,7 +500,12 @@ class ViewerWindow(QWidget):
         warn_at = min(300, int(self._session_limit * 0.2))
         is_warning = remaining <= warn_at
         if is_warning:
-            self._alarm_label.show()
+            if not self._alarm_label.isVisible():
+                self._alarm_label.setFixedSize(self._current_icon_px, self._current_icon_px)
+                self._alarm_label.setPixmap(
+                    _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), self._current_icon_px))
+                self._alarm_label.show()
+                self._layout_bottom(self.width(), self.height())
         else:
             self._alarm_label.hide()
         progress = self._session_elapsed / self._session_limit
@@ -504,7 +535,6 @@ class ViewerWindow(QWidget):
             self._qtimer.stop()
         else:
             self._qtimer.start()
-        self._update_center_icon()
         self._update_coffee()
 
     def _check_focus(self):
@@ -540,8 +570,7 @@ class ViewerWindow(QWidget):
         self._help_overlay.setGeometry(self.rect())
         self._help_overlay.setCursor(Qt.CursorShape.ArrowCursor)
         self._help_overlay.setStyleSheet(
-            f"background-color: rgba(0, 0, 0, 210);"
-            f"border-radius: {S.WINDOW_RADIUS}px;")
+            "background-color: rgba(0, 0, 0, 210);")
         self._help_overlay.mousePressEvent = lambda e: self._dismiss_help()
 
         layout = QVBoxLayout(self._help_overlay)
@@ -613,7 +642,8 @@ class ViewerWindow(QWidget):
         self._grayscale = not self._grayscale
         icon_name = Icons.BW_ON if self._grayscale else Icons.BW_OFF
         self._bw_btn.setIcon(_icon(icon_name, CLR_NORMAL))
-        self._bw_btn.setIconSize(QSize(20, 20))
+        self._bw_btn.setIconSize(QSize(self._current_btn_icon, self._current_btn_icon))
+        self._rebuild_processed()
         self._update_display()
 
     def _toggle_grid(self):
@@ -626,10 +656,12 @@ class ViewerWindow(QWidget):
 
     def _toggle_flip_h(self):
         self._flip_h = not self._flip_h
+        self._rebuild_processed()
         self._update_display()
 
     def _toggle_flip_v(self):
         self._flip_v = not self._flip_v
+        self._rebuild_processed()
         self._update_display()
 
     def _toggle_topmost(self):
@@ -644,7 +676,7 @@ class ViewerWindow(QWidget):
         icon_name = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
         color = CLR_NORMAL if self._topmost else CLR_DIM
         self._pin_btn.setIcon(_icon(icon_name, color))
-        self._pin_btn.setIconSize(QSize(20, 20))
+        self._pin_btn.setIconSize(QSize(self._current_btn_icon, self._current_btn_icon))
 
     # ------------------------------------------------------------------ Fade animation
 
@@ -729,65 +761,96 @@ class ViewerWindow(QWidget):
         self._grid_overlay.setGeometry(0, 0, w, h)
         self._gradient.setGeometry(0, 0, w, h)
 
-        # Fixed sizes
-        btn_sz = S.VIEWER_ICON_BTN
-        margin = S.VIEWER_ICON_MARGIN
+        scale = max(1.0, min(S.VIEWER_SCALE_MAX, h / S.VIEWER_SCALE_REF_H))
+        self._current_scale = scale
+
+        btn_sz = max(16, round(S.VIEWER_ICON_BTN * scale))
+        self._current_btn_icon = btn_sz
+        margin = max(4, round(S.VIEWER_ICON_MARGIN * scale))
+        gap = max(2, round(S.VIEWER_ICON_GAP * scale))
+        progress_h = max(2, round(S.VIEWER_PROGRESS_H * scale))
+
+        controls_visible = h >= S.VIEWER_CONTROLS_MIN_H
+
+        # Resize all top-bar icon buttons
+        for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,
+                    self._fliph_btn, self._flipv_btn, self._pin_btn]:
+            btn.setFixedSize(btn_sz, btn_sz)
+            btn.setIconSize(QSize(btn_sz, btn_sz))
+
+        # Font sizes — only update stylesheets and invalidate cache when sizes change
+        old_ft = self._current_font_timer
+        old_fc = self._current_font_counter
+        self._current_font_timer = max(10, round(S.FONT_TIMER * scale))
+        self._current_font_counter = max(8, round(S.FONT_COUNTER * scale))
+        if self._current_font_timer != old_ft or self._current_font_counter != old_fc:
+            self._cached_label_widths = None
+        if self._current_font_timer != old_ft:
+            self._timer_label.setStyleSheet(
+                f"color: rgba(204,192,174,255); font-family: Lora; "
+                f"font-size: {self._current_font_timer}px; background: transparent;")
+        if self._current_font_counter != old_fc:
+            self._counter_label.setStyleSheet(
+                f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
+                f"font-size: {self._current_font_counter}px; background: transparent;")
+
+        # Coffee/alarm icon sizes and pixmaps
+        icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
+        self._current_icon_px = icon_lbl
+        self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
+        self._alarm_label.setPixmap(_dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), self._current_icon_px))
+        self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
+        self._coffee_label.setPixmap(_dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), self._current_icon_px))
 
         # Top left: info
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
         self._info_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
         # Top right: close
-        gap = S.VIEWER_ICON_GAP
-        tr_w = btn_sz
-        tr_x = w - tr_w - margin
-        self._top_right.setGeometry(tr_x, margin, tr_w, btn_sz)
+        tr_x = w - btn_sz - margin
+        self._top_right.setGeometry(tr_x, margin, btn_sz, btn_sz)
         self._close_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
-        # Viewer tools — reflow based on available space:
-        # 1) horizontal at top if wide enough
-        # 2) vertical column on left if tall enough
-        # 3) hide if too small (keyboard shortcuts still work)
-        tl_right = margin + btn_sz + gap
-        all_btns = [self._bw_btn, self._grid_btn,
-                    self._fliph_btn, self._flipv_btn, self._pin_btn]
-        n = len(all_btns)
-        tc_w = btn_sz * n + gap * (n - 1)
-        fits_horizontal = tl_right + tc_w + gap + tr_w <= w - margin
-        col_h = btn_sz * n + gap * (n - 1)
-        col_y = margin + btn_sz + gap
-        fits_vertical = col_y + col_h < (h - S.VIEWER_CENTER_BTN) // 2
-
-        if fits_horizontal:
-            self._top_center.show()
-            for btn in all_btns:
-                btn.show()
-            tc_x = (w - tc_w) // 2
-            if tc_x < tl_right:
-                tc_x = tl_right
-            self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
-            for i, btn in enumerate(all_btns):
-                btn.setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
-        elif fits_vertical:
-            self._top_center.show()
-            for btn in all_btns:
-                btn.show()
-            self._top_center.setGeometry(margin, col_y, btn_sz, col_h)
-            for i, btn in enumerate(all_btns):
-                btn.setGeometry(0, i * (btn_sz + gap), btn_sz, btn_sz)
-        else:
+        # Viewer tools — show horizontally if wide enough, hide otherwise
+        # (keyboard shortcuts remain active when hidden)
+        if not controls_visible:
             self._top_center.hide()
+        else:
+            all_btns = [self._bw_btn, self._grid_btn,
+                        self._fliph_btn, self._flipv_btn, self._pin_btn]
+            n = len(all_btns)
+            tc_w = btn_sz * n + gap * (n - 1)
+            if w >= round(S.VIEWER_TOP_FIT_MIN_W * scale):
+                tl_right = margin + btn_sz + gap
+                tc_x = max((w - tc_w) // 2, tl_right)
+                self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
+                for i, btn in enumerate(all_btns):
+                    btn.setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
+                self._top_center.show()
+            else:
+                self._top_center.hide()
 
-        # Center
-        self._center_btn.move((w - S.VIEWER_CENTER_BTN) // 2, (h - S.VIEWER_CENTER_BTN) // 2)
+        # Counter visible only when top-center tools are visible
+        self._counter_label.setVisible(self._top_center.isVisible())
+
+        # Invisible center click zone — covers free area between nav zones and UI bars
+        nav_zone = max(30, round(S.VIEWER_NAV_ZONE * scale))
+        zone_top = margin + btn_sz + gap
+        lbl_h_v = max(16, round(S.VIEWER_BOTTOM_LABEL_H * scale))
+        bot_offset_v = max(4, round(S.VIEWER_BOTTOM_OFFSET * scale))
+        zone_h = h - zone_top - lbl_h_v - bot_offset_v - progress_h
+        self._center_btn.setGeometry(nav_zone, zone_top, w - 2 * nav_zone, max(1, zone_h))
 
         # Bottom layout
         self._layout_bottom(w, h)
 
         # Progress bar at very bottom
-        self._progress_bar.setGeometry(0, h - S.VIEWER_PROGRESS_H, w, S.VIEWER_PROGRESS_H)
+        self._progress_bar.setFixedHeight(progress_h)
+        self._progress_bar.setGeometry(0, h - progress_h, w, progress_h)
 
-        self._update_display()
+        # Fast render during drag; smooth render fires after resize stops
+        self._update_display(fast=True)
+        self._smooth_timer.start()
 
     def enterEvent(self, event):
         super().enterEvent(event)

@@ -77,7 +77,6 @@ class FocusTrackerWidget(QWidget):
 
         # Toggle button (icon style)
         self._toggle_btn = IconButton(size=S.ICON_HEADER)
-        self._toggle_btn.setToolTip("Focus-aware pause")
         self._toggle_btn.clicked.connect(self._on_toggle)
         layout.addWidget(self._toggle_btn)
 
@@ -89,7 +88,6 @@ class FocusTrackerWidget(QWidget):
         # App selector button (cycles on click)
         self._app_btn = QPushButton("Select")
         self._app_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._app_btn.setToolTip("Left-click: next app | Right-click: prev app")
         self._app_btn.clicked.connect(self._on_next)
         self._app_btn.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu)
@@ -188,7 +186,6 @@ class FocusTrackerWidget(QWidget):
             # Show X to clear
             self._action_btn.setIcon(
                 qta.icon(Icons.CLOSE, color=t.text_hint))
-            self._action_btn.setToolTip("Clear this slot")
         else:
             self._app_btn.setText("Select")
             self._app_btn.setStyleSheet(
@@ -198,7 +195,6 @@ class FocusTrackerWidget(QWidget):
             # Show arrow to pick
             self._action_btn.setIcon(
                 qta.icon(Icons.CARET_DOWN, color=t.text_hint))
-            self._action_btn.setToolTip("Choose app to track")
 
         self._app_btn.show()
         self._action_btn.show()

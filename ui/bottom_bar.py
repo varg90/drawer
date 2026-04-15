@@ -49,7 +49,6 @@ class BottomBar(QWidget):
 
         self._limit_btn = QPushButton("no limit")
         self._limit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._limit_btn.setToolTip("Session time limit")
         self._limit_btn.clicked.connect(self._next_limit)
         self._limit_btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._limit_btn.customContextMenuRequested.connect(self._prev_limit)
@@ -68,7 +67,7 @@ class BottomBar(QWidget):
 
         # Add button (right side)
         self._add_btn = make_icon_btn(Icons.PLUS, self.theme.text_hint,
-                                      size=S.VIEWER_ICON_BTN, tooltip="Add files")
+                                      size=S.VIEWER_ICON_BTN)
         self._add_btn.clicked.connect(self.add_clicked.emit)
 
         self._start_btn = make_start_btn(self.theme)

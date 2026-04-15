@@ -76,11 +76,11 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         title_bar.setSpacing(S.EDITOR_TITLE_SPACING)
 
         self._add_files_btn = make_icon_btn(Icons.ADD_FILE, self.theme.text_hint,
-                                             size=S.ICON_HEADER, tooltip="Add files")
+                                             size=S.ICON_HEADER)
         self._add_folder_btn = make_icon_btn(Icons.ADD_FOLDER, self.theme.text_hint,
-                                              size=S.ICON_HEADER, tooltip="Add folder")
+                                              size=S.ICON_HEADER)
         self._add_url_btn = make_icon_btn(Icons.ADD_URL, self.theme.text_hint,
-                                           size=S.ICON_HEADER, tooltip="Load from URL")
+                                           size=S.ICON_HEADER)
 
         title_bar.addWidget(self._add_files_btn)
         title_bar.addWidget(self._add_folder_btn)
