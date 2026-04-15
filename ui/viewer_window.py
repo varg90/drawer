@@ -37,7 +37,7 @@ CLR_NORMAL = QColor(204, 192, 174, 255)
 CLR_HOVER = QColor(204, 192, 174, 200)
 CLR_DIM = QColor(204, 192, 174, 100)
 CLR_WARNING = QColor(230, 120, 100, 200)
-CLR_WHITE = QColor(255, 255, 255, 255)
+CLR_WHITE = QColor(255, 255, 255, 200)
 
 
 def _icon(name, color=CLR_NORMAL, size=15):
