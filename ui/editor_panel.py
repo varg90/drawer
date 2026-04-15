@@ -167,6 +167,10 @@ class EditorPanel(QWidget):
         # from disk across editor recreation (main window resize triggers it).
         self._pix_cache = dict(pix_cache) if pix_cache is not None else {}
         self._loader = None           # PixmapLoader thread
+        self._reflow_timer = QTimer(self)
+        self._reflow_timer.setSingleShot(True)
+        self._reflow_timer.setInterval(0)
+        self._reflow_timer.timeout.connect(self._reflow_grid)
         self._selected_tiles = set()  # set of ClickableLabel
         self._last_clicked_tile = None
 
@@ -716,7 +720,7 @@ class EditorPanel(QWidget):
                     if (idx is not None and idx < len(self.images)
                             and self.images[idx].path == path):
                         lbl.setPixmap(self._tile_pixmap(pix, sz))
-            self._reflow_grid()
+            self._reflow_timer.start()  # batch: fires once after last loaded signal
 
     @staticmethod
     def _short_name(path, max_len=16):
@@ -786,22 +790,7 @@ class EditorPanel(QWidget):
                 if idx is not None and idx < len(self.images):
                     pix = self._get_pixmap(self.images[idx].path)
                     if not pix.isNull():
-                        scaled = pix.scaled(
-                            value, value,
-                            Qt.AspectRatioMode.KeepAspectRatio,
-                            Qt.TransformationMode.SmoothTransformation,
-                        )
-                        # Clip to rounded rect
-                        rounded = QPixmap(scaled.size())
-                        rounded.fill(QColor(0, 0, 0, 0))
-                        rp = QPainter(rounded)
-                        rp.setRenderHint(QPainter.RenderHint.Antialiasing)
-                        rpath = QPainterPath()
-                        rpath.addRoundedRect(QRectF(rounded.rect()), S.GRID_TILE_RADIUS, S.GRID_TILE_RADIUS)
-                        rp.setClipPath(rpath)
-                        rp.drawPixmap(0, 0, scaled)
-                        rp.end()
-                        lbl.setPixmap(rounded)
+                        lbl.setPixmap(self._tile_pixmap(pix, value))
                 # Update pin overlay size and position
                 po = getattr(lbl, '_pin_overlay', None)
                 if po:
