@@ -97,15 +97,15 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         # ── 1. Header ──────────────────────────────────────────────────────
         self._help_btn = make_icon_btn(Icons.INFO, self.theme.text_hint,
-                                       size=S.ICON_HEADER, tooltip="Help")
+                                       size=S.ICON_HEADER)
         self._help_btn.clicked.connect(self._show_help)
 
         self._cat_btn = make_icon_btn(Icons.CAT, self.theme.text_ghost,
-                                       size=S.ICON_HEADER, tooltip="Cat")
+                                       size=S.ICON_HEADER)
         self._cat_btn.clicked.connect(self._show_cat)
 
         self._accent_btn = make_icon_btn(Icons.PALETTE, self.theme.accent,
-                                          size=S.ICON_HEADER, tooltip="Accent color")
+                                          size=S.ICON_HEADER)
         self._accent_btn.clicked.connect(self._pick_accent)
 
         self._theme_btn = make_icon_btn(
@@ -114,11 +114,11 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._theme_btn.clicked.connect(self._toggle_theme)
 
         self._min_btn = make_icon_btn(Icons.MINIMIZE, self.theme.text_hint,
-                                      size=S.ICON_HEADER, tooltip="Minimize")
+                                      size=S.ICON_HEADER)
         self._min_btn.clicked.connect(self.showMinimized)
 
         self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint,
-                                        size=S.ICON_HEADER, tooltip="Close")
+                                        size=S.ICON_HEADER)
         self._close_btn.clicked.connect(self.close)
 
         header_layout, self._title = make_centered_header(

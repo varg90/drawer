@@ -49,7 +49,6 @@ class ImageListWidget(QListWidget):
                 t = f"{secs//60} мин"
             else:
                 t = f"{secs} сек"
-            item.setToolTip(f"Таймер: {t}")
             item.setData(Qt.ItemDataRole.UserRole, i)
             self.addItem(item)
 
