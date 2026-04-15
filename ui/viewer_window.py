@@ -162,7 +162,6 @@ class ViewerWindow(QWidget):
         self._current_font_counter = S.FONT_COUNTER
         self._current_icon_px = 24
         self._current_btn_icon = 20
-        self._first_reflow = True
 
         # Window flags
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
@@ -297,14 +296,11 @@ class ViewerWindow(QWidget):
         self._qtimer.setInterval(1000)
         self._qtimer.timeout.connect(self._tick)
 
-        # Debounce timer: after resize stops, apply scale-dependent sizes
-        # (setFixedSize/pixmap changes) and do a smooth image render. During
-        # the drag itself, only positions update — sizes stay cached so the
-        # opacity effects don't get their pixmap cache invalidated mid-animation.
+        # Debounce timer: switch from fast→smooth image scaling after resize stops
         self._smooth_timer = QTimer(self)
         self._smooth_timer.setSingleShot(True)
         self._smooth_timer.setInterval(150)
-        self._smooth_timer.timeout.connect(self._on_resize_stopped)
+        self._smooth_timer.timeout.connect(self._update_display)
 
         # Focus polling timer (checks foreground window every 500ms)
         self._focus_timer = QTimer(self)
@@ -766,70 +762,50 @@ class ViewerWindow(QWidget):
         self._grid_overlay.setGeometry(0, 0, w, h)
         self._gradient.setGeometry(0, 0, w, h)
 
-        # First call applies sizes so initial layout matches the window scale.
-        # Subsequent calls (during drag) only reposition — sizes update once
-        # when drag stops, via _on_resize_stopped.
-        apply_sizes = self._first_reflow
-        self._first_reflow = False
-        self._reflow(w, h, update_sizes=apply_sizes)
+        # Scale factor based on window height; 450px = 1.0 reference
+        scale = max(1.0, min(2.5, h / 450.0))
+        self._current_scale = scale
 
-        self._update_display(fast=True)
-        self._smooth_timer.start()
-
-    def _on_resize_stopped(self):
-        """Fires ~150ms after the last resize event. Applies new scale-dependent
-        sizes and does a smooth image render."""
-        w, h = self.width(), self.height()
-        self._reflow(w, h, update_sizes=True)
-        self._update_display()
-
-    def _reflow(self, w, h, update_sizes):
-        """Layout all UI elements. When update_sizes=True, also recompute the
-        scale factor and apply setFixedSize/font/pixmap changes. When False,
-        reuse cached sizes and only reposition — this avoids invalidating the
-        opacity-effect pixmap caches during active resize."""
-        if update_sizes:
-            scale = max(1.0, min(2.5, h / 450.0))
-            self._current_scale = scale
-            self._current_btn_icon = max(16, round(S.VIEWER_ICON_BTN * scale))
-            self._current_font_timer = max(10, round(S.FONT_TIMER * scale))
-            self._current_font_counter = max(8, round(S.FONT_COUNTER * scale))
-            self._current_icon_px = max(16, round(S.VIEWER_ICON_LABEL * scale))
-            self._cached_label_widths = None
-
-        scale = self._current_scale
-        btn_sz = self._current_btn_icon
-        icon_lbl = self._current_icon_px
+        btn_sz = max(16, round(S.VIEWER_ICON_BTN * scale))
+        self._current_btn_icon = btn_sz
         margin = max(4, round(S.VIEWER_ICON_MARGIN * scale))
         gap = max(2, round(S.VIEWER_ICON_GAP * scale))
         progress_h = max(2, round(S.VIEWER_PROGRESS_H * scale))
 
-        if update_sizes:
-            for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,
-                        self._fliph_btn, self._flipv_btn, self._pin_btn]:
-                btn.setFixedSize(btn_sz, btn_sz)
-                btn.setIconSize(QSize(btn_sz, btn_sz))
-            self._timer_label.setStyleSheet(
-                f"color: rgba(204,192,174,255); font-family: Lora; "
-                f"font-size: {self._current_font_timer}px; background: transparent;")
-            self._counter_label.setStyleSheet(
-                f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
-                f"font-size: {self._current_font_counter}px; background: transparent;")
-            self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
-            self._alarm_label.setPixmap(_dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), icon_lbl))
-            self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
-            self._coffee_label.setPixmap(_dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), icon_lbl))
-            self._progress_bar.setFixedHeight(progress_h)
-
         # Hide all controls when window is too small to be useful
         controls_visible = h >= 180
+
+        # Resize all top-bar icon buttons
+        for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,
+                    self._fliph_btn, self._flipv_btn, self._pin_btn]:
+            btn.setFixedSize(btn_sz, btn_sz)
+            btn.setIconSize(QSize(btn_sz, btn_sz))
+
+        # Font sizes
+        self._current_font_timer = max(10, round(S.FONT_TIMER * scale))
+        self._current_font_counter = max(8, round(S.FONT_COUNTER * scale))
+        self._cached_label_widths = None
+        self._timer_label.setStyleSheet(
+            f"color: rgba(204,192,174,255); font-family: Lora; "
+            f"font-size: {self._current_font_timer}px; background: transparent;")
+        self._counter_label.setStyleSheet(
+            f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
+            f"font-size: {self._current_font_counter}px; background: transparent;")
+
+        # Coffee/alarm icon sizes and pixmaps
+        icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
+        self._current_icon_px = icon_lbl
+        self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
+        self._alarm_label.setPixmap(_dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), self._current_icon_px))
+        self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
+        self._coffee_label.setPixmap(_dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), self._current_icon_px))
 
         # Top left: info
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
         self._info_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
-        # Top right: close — clamped so it never leaves the window frame
-        tr_x = max(margin, w - btn_sz - margin)
+        # Top right: close
+        tr_x = w - btn_sz - margin
         self._top_right.setGeometry(tr_x, margin, btn_sz, btn_sz)
         self._close_btn.setGeometry(0, 0, btn_sz, btn_sz)
 
@@ -867,7 +843,12 @@ class ViewerWindow(QWidget):
         self._layout_bottom(w, h)
 
         # Progress bar at very bottom
+        self._progress_bar.setFixedHeight(progress_h)
         self._progress_bar.setGeometry(0, h - progress_h, w, progress_h)
+
+        # Fast render during drag; smooth render fires after resize stops
+        self._update_display(fast=True)
+        self._smooth_timer.start()
 
     def enterEvent(self, event):
         super().enterEvent(event)
