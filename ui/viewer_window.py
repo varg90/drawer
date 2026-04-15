@@ -775,8 +775,6 @@ class ViewerWindow(QWidget):
         controls_visible = h >= 180
         self._top_left.setVisible(controls_visible)
         self._top_right.setVisible(controls_visible)
-        if not controls_visible:
-            self._top_center.hide()
 
         # Resize all top-bar icon buttons
         for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,
@@ -828,36 +826,39 @@ class ViewerWindow(QWidget):
         # Viewer tools — reflow based on available space:
         # 1) horizontal at top if wide enough
         # 2) vertical column on left if tall enough
-        # 3) hide if too small (keyboard shortcuts still work)
-        tl_right = margin + btn_sz + gap
-        all_btns = [self._bw_btn, self._grid_btn,
-                    self._fliph_btn, self._flipv_btn, self._pin_btn]
-        n = len(all_btns)
-        tc_w = btn_sz * n + gap * (n - 1)
-        fits_horizontal = tl_right + tc_w + gap + btn_sz <= w - margin
-        col_h = btn_sz * n + gap * (n - 1)
-        col_y = margin + btn_sz + gap
-        fits_vertical = col_y + col_h < (h - center_sz) // 2
-
-        if fits_horizontal:
-            self._top_center.show()
-            for btn in all_btns:
-                btn.show()
-            tc_x = (w - tc_w) // 2
-            if tc_x < tl_right:
-                tc_x = tl_right
-            self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
-            for i, btn in enumerate(all_btns):
-                btn.setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
-        elif fits_vertical:
-            self._top_center.show()
-            for btn in all_btns:
-                btn.show()
-            self._top_center.setGeometry(margin, col_y, btn_sz, col_h)
-            for i, btn in enumerate(all_btns):
-                btn.setGeometry(0, i * (btn_sz + gap), btn_sz, btn_sz)
-        else:
+        # 3) hide if too small or controls hidden (keyboard shortcuts still work)
+        if not controls_visible:
             self._top_center.hide()
+        else:
+            tl_right = margin + btn_sz + gap
+            all_btns = [self._bw_btn, self._grid_btn,
+                        self._fliph_btn, self._flipv_btn, self._pin_btn]
+            n = len(all_btns)
+            tc_w = btn_sz * n + gap * (n - 1)
+            fits_horizontal = tl_right + tc_w + gap + btn_sz <= w - margin
+            col_h = btn_sz * n + gap * (n - 1)
+            col_y = margin + btn_sz + gap
+            fits_vertical = col_y + col_h < (h - center_sz) // 2
+
+            if fits_horizontal:
+                self._top_center.show()
+                for btn in all_btns:
+                    btn.show()
+                tc_x = (w - tc_w) // 2
+                if tc_x < tl_right:
+                    tc_x = tl_right
+                self._top_center.setGeometry(tc_x, margin, tc_w, btn_sz)
+                for i, btn in enumerate(all_btns):
+                    btn.setGeometry(i * (btn_sz + gap), 0, btn_sz, btn_sz)
+            elif fits_vertical:
+                self._top_center.show()
+                for btn in all_btns:
+                    btn.show()
+                self._top_center.setGeometry(margin, col_y, btn_sz, col_h)
+                for i, btn in enumerate(all_btns):
+                    btn.setGeometry(0, i * (btn_sz + gap), btn_sz, btn_sz)
+            else:
+                self._top_center.hide()
 
         # Center
         self._center_btn.move((w - center_sz) // 2, (h - center_sz) // 2)
