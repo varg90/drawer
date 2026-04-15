@@ -251,13 +251,13 @@ class EditorPanel(QWidget):
         bs = S.EDITOR_BTN_BOTTOM
         self._list_btn = make_icon_btn(
             Icons.LIST, self.theme.text_secondary,
-            size=bs, tooltip="List view",
+            size=bs,
         )
         self._list_btn.clicked.connect(lambda: self._set_view_mode("list"))
 
         self._grid_btn = make_icon_btn(
             Icons.GRID, self.theme.text_secondary,
-            size=bs, tooltip="Grid view",
+            size=bs,
         )
         self._grid_btn.clicked.connect(lambda: self._set_view_mode("grid"))
 
@@ -275,11 +275,11 @@ class EditorPanel(QWidget):
         # Zoom icon buttons (grid mode only)
         self._zoom_out_btn = make_icon_btn(
             Icons.ZOOM_OUT, self.theme.text_hint,
-            size=bs, tooltip="Zoom out",
+            size=bs,
         )
         self._zoom_in_btn = make_icon_btn(
             Icons.ZOOM_IN, self.theme.text_hint,
-            size=bs, tooltip="Zoom in",
+            size=bs,
         )
 
         self._zoom_out_btn.clicked.connect(
@@ -296,14 +296,14 @@ class EditorPanel(QWidget):
         # Shuffle
         self._shuffle_btn = make_icon_btn(
             Icons.SHUFFLE, self.theme.accent if self._shuffle else self.theme.text_hint,
-            size=bs, tooltip="Shuffle on start",
+            size=bs,
         )
         self._shuffle_btn.clicked.connect(self._toggle_shuffle)
 
         # Cache trash + size
         self._cache_btn = make_icon_btn(
             Icons.TRASH, self.theme.text_hint,
-            size=bs, tooltip="Clear cache",
+            size=bs,
         )
         self._cache_btn.clicked.connect(self._clear_cache)
         self._cache_size_label = QLabel("")
@@ -311,7 +311,7 @@ class EditorPanel(QWidget):
         # Clear all
         self._clear_btn = make_icon_btn(
             Icons.ERASER, self.theme.text_hint,
-            size=bs, tooltip="Clear all",
+            size=bs,
         )
         self._clear_btn.clicked.connect(self._clear)
 
@@ -640,7 +640,6 @@ class EditorPanel(QWidget):
                     lbl.setPixmap(rounded)
 
                 lbl.setProperty("img_idx", idx)
-                lbl.setToolTip(os.path.basename(img.path))
 
                 # Border style per state — all tiles get rounded corners
                 pinned = getattr(img, "pinned", False)

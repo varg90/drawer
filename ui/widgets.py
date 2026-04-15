@@ -67,12 +67,10 @@ class IconButton(QWidget):
             self.clicked.emit()
 
 
-def make_icon_btn(icon_name, color, size=S.ICON_HEADER, tooltip=""):
+def make_icon_btn(icon_name, color, size=S.ICON_HEADER):
     """Small icon button — pixmap fills full widget, no internal padding."""
     btn = IconButton(size)
     btn.setIcon(qta.icon(icon_name, color=color))
-    if tooltip:
-        btn.setToolTip(tooltip)
     return btn
 
 

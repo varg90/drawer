@@ -53,7 +53,7 @@ def _dpi_pixmap(icon, size):
     return pm
 
 
-def _icon_btn(icon_name, size, parent, color=CLR_NORMAL, tooltip=""):
+def _icon_btn(icon_name, size, parent, color=CLR_NORMAL):
     btn = QPushButton(parent)
     btn.setIcon(_icon(icon_name, color))
     btn.setIconSize(QSize(size, size))
@@ -61,8 +61,6 @@ def _icon_btn(icon_name, size, parent, color=CLR_NORMAL, tooltip=""):
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
     btn.setStyleSheet("background: transparent; border: none;")
-    if tooltip:
-        btn.setToolTip(tooltip)
     return btn
 
 
@@ -199,29 +197,29 @@ class ViewerWindow(QWidget):
         # Top bar
         self._top_left = QWidget(self)
         self._top_left.setStyleSheet("background: transparent;")
-        self._info_btn = _icon_btn(Icons.INFO, 20, self._top_left, tooltip="Инфо")
+        self._info_btn = _icon_btn(Icons.INFO, 20, self._top_left)
         self._info_btn.clicked.connect(self._show_help)
         self._info_btn.move(0, 0)
 
         # Top center: viewer tools
         self._top_center = QWidget(self)
         self._top_center.setStyleSheet("background: transparent;")
-        self._bw_btn = _icon_btn(Icons.BW_OFF, 20, self._top_center, tooltip="B&W (G)")
+        self._bw_btn = _icon_btn(Icons.BW_OFF, 20, self._top_center)
         self._bw_btn.clicked.connect(self._toggle_grayscale)
-        self._grid_btn = _icon_btn(Icons.GRID_OVERLAY, 20, self._top_center, tooltip="Grid (R)")
+        self._grid_btn = _icon_btn(Icons.GRID_OVERLAY, 20, self._top_center)
         self._grid_btn.clicked.connect(self._toggle_grid)
-        self._fliph_btn = _icon_btn(Icons.FLIP_H, 20, self._top_center, tooltip="Flip H (F)")
+        self._fliph_btn = _icon_btn(Icons.FLIP_H, 20, self._top_center)
         self._fliph_btn.clicked.connect(self._toggle_flip_h)
-        self._flipv_btn = _icon_btn(Icons.FLIP_V, 20, self._top_center, tooltip="Flip V (V)")
+        self._flipv_btn = _icon_btn(Icons.FLIP_V, 20, self._top_center)
         self._flipv_btn.clicked.connect(self._toggle_flip_v)
         pin_icon = Icons.TOPMOST_ON if self._topmost else Icons.TOPMOST_OFF
         pin_color = CLR_NORMAL if self._topmost else CLR_DIM
-        self._pin_btn = _icon_btn(pin_icon, 20, self._top_center, color=pin_color, tooltip="Pin on top (P)")
+        self._pin_btn = _icon_btn(pin_icon, 20, self._top_center, color=pin_color)
         self._pin_btn.clicked.connect(self._toggle_topmost)
 
         self._top_right = QWidget(self)
         self._top_right.setStyleSheet("background: transparent;")
-        self._close_btn = _icon_btn(Icons.CLOSE, 20, self._top_right, tooltip="Закрыть")
+        self._close_btn = _icon_btn(Icons.CLOSE, 20, self._top_right)
         self._close_btn.clicked.connect(self.close)
 
         # Center play/pause
