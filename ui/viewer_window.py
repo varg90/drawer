@@ -2,7 +2,7 @@ import os
 import random
 import qtawesome as qta
 from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QGraphicsOpacityEffect,
-                              QApplication)
+                              QGraphicsDropShadowEffect, QApplication)
 from PyQt6.QtGui import QPixmap, QColor, QPainter, QIcon, QTransform, QImage, QFont, QFontMetrics
 from PyQt6.QtCore import (Qt, QTimer, QPoint, QSize, QRect, QPropertyAnimation,
                            QEasingCurve)
@@ -243,24 +243,27 @@ class ViewerWindow(QWidget):
             f"color: rgba(204,192,174,200); font-family: 'Lexend'; font-size: {S.FONT_COUNTER}px; background: transparent;")
         self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        _badge = "background: rgba(0,0,0,140); border-radius: 5px;"
-
         # Alarm icon (session warning)
         self._alarm_label = QLabel(self)
         self._alarm_label.setPixmap(
             _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), 24))
         self._alarm_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
         self._alarm_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._alarm_label.setStyleSheet(_badge)
+        self._alarm_label.setStyleSheet("background: transparent;")
         self._alarm_label.hide()
 
-        # Coffee icon (always visible when paused)
+        # Coffee icon (always visible when paused) — drop shadow for visibility on light images
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
             _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 24))
         self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
         self._coffee_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._coffee_label.setStyleSheet(_badge)
+        self._coffee_label.setStyleSheet("background: transparent;")
+        _shadow = QGraphicsDropShadowEffect(self._coffee_label)
+        _shadow.setBlurRadius(10)
+        _shadow.setOffset(0, 0)
+        _shadow.setColor(QColor(0, 0, 0, 180))
+        self._coffee_label.setGraphicsEffect(_shadow)
         self._coffee_label.hide()
 
         # Progress bar — only visible when session limit is set
