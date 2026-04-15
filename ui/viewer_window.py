@@ -337,12 +337,11 @@ class ViewerWindow(QWidget):
         if self._paused:
             self._coffee_label.setPixmap(
                 _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), self._current_icon_px))
-            icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * self._current_scale))
-            self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
+            self._layout_bottom(self.width(), self.height())  # position while still hidden
             self._coffee_label.show()
         else:
             self._coffee_label.hide()
-        self._layout_bottom(self.width(), self.height())
+            self._layout_bottom(self.width(), self.height())
 
     def _layout_bottom(self, w, h):
         sc = self._current_scale
@@ -360,12 +359,14 @@ class ViewerWindow(QWidget):
         bottom_y = h - lbl_h - bottom_offset
         x = bottom_lbl_x
         for label in [self._alarm_label, self._coffee_label]:
+            fits = x + icon_lbl + bottom_lbl_x <= timer_x
+            label.setFixedSize(icon_lbl, icon_lbl)
+            label.move(x, bottom_y + icon_y_offset)  # always position, even if hidden
             if label.isVisible():
-                if x + icon_lbl + bottom_lbl_x > timer_x:
-                    break  # no room — don't overlap the timer
-                label.setFixedSize(icon_lbl, icon_lbl)
-                label.move(x, bottom_y + icon_y_offset)
-                x += icon_step
+                if not fits:
+                    label.hide()  # hide if no room
+                else:
+                    x += icon_step
         self._timer_label.setGeometry(timer_x, bottom_y, timer_w, lbl_h)
         self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._counter_label.setGeometry(
