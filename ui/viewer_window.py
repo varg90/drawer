@@ -345,7 +345,6 @@ class ViewerWindow(QWidget):
         icon_y_offset = round(S.VIEWER_BOTTOM_ICON_Y_OFFSET * sc)
 
         timer_w, counter_w = self._label_widths()
-        timer_x = (w - timer_w) // 2
 
         bottom_y = h - lbl_h - bottom_offset
         x = bottom_lbl_x
@@ -354,8 +353,14 @@ class ViewerWindow(QWidget):
             label.move(x, bottom_y + icon_y_offset)
             if label.isVisible():
                 x += icon_step
+        if self._counter_label.isVisible():
+            timer_x = (w - timer_w) // 2
+            timer_align = Qt.AlignmentFlag.AlignCenter
+        else:
+            timer_x = w - timer_w - bottom_lbl_x
+            timer_align = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         self._timer_label.setGeometry(timer_x, bottom_y, timer_w, lbl_h)
-        self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._timer_label.setAlignment(timer_align)
         self._counter_label.setGeometry(
             w - counter_w - bottom_lbl_x, bottom_y, counter_w, lbl_h)
         self._counter_label.setAlignment(
