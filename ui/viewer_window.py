@@ -500,13 +500,12 @@ class ViewerWindow(QWidget):
         warn_at = min(300, int(self._session_limit * 0.2))
         is_warning = remaining <= warn_at
         if is_warning:
-            # Render pixmap at current scale and position before making visible
-            icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * self._current_scale))
-            self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
-            self._alarm_label.setPixmap(
-                _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), self._current_icon_px))
-            self._alarm_label.show()
-            self._layout_bottom(self.width(), self.height())
+            if not self._alarm_label.isVisible():
+                self._alarm_label.setFixedSize(self._current_icon_px, self._current_icon_px)
+                self._alarm_label.setPixmap(
+                    _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), self._current_icon_px))
+                self._alarm_label.show()
+                self._layout_bottom(self.width(), self.height())
         else:
             self._alarm_label.hide()
         progress = self._session_elapsed / self._session_limit
@@ -781,16 +780,21 @@ class ViewerWindow(QWidget):
             btn.setFixedSize(btn_sz, btn_sz)
             btn.setIconSize(QSize(btn_sz, btn_sz))
 
-        # Font sizes
+        # Font sizes — only update stylesheets and invalidate cache when sizes change
+        old_ft = self._current_font_timer
+        old_fc = self._current_font_counter
         self._current_font_timer = max(10, round(S.FONT_TIMER * scale))
         self._current_font_counter = max(8, round(S.FONT_COUNTER * scale))
-        self._cached_label_widths = None
-        self._timer_label.setStyleSheet(
-            f"color: rgba(204,192,174,255); font-family: Lora; "
-            f"font-size: {self._current_font_timer}px; background: transparent;")
-        self._counter_label.setStyleSheet(
-            f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
-            f"font-size: {self._current_font_counter}px; background: transparent;")
+        if self._current_font_timer != old_ft or self._current_font_counter != old_fc:
+            self._cached_label_widths = None
+        if self._current_font_timer != old_ft:
+            self._timer_label.setStyleSheet(
+                f"color: rgba(204,192,174,255); font-family: Lora; "
+                f"font-size: {self._current_font_timer}px; background: transparent;")
+        if self._current_font_counter != old_fc:
+            self._counter_label.setStyleSheet(
+                f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
+                f"font-size: {self._current_font_counter}px; background: transparent;")
 
         # Coffee/alarm icon sizes and pixmaps
         icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
