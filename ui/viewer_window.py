@@ -784,33 +784,22 @@ class ViewerWindow(QWidget):
         self._center_btn.setFixedSize(center_sz, center_sz)
         self._center_btn.setIconSize(QSize(round(center_sz * 0.65), round(center_sz * 0.65)))
 
-        # Font sizes — invalidate label width cache when they change
-        font_timer = max(10, round(S.FONT_TIMER * scale))
-        font_counter = max(8, round(S.FONT_COUNTER * scale))
-        if font_timer != self._current_font_timer or font_counter != self._current_font_counter:
-            self._current_font_timer = font_timer
-            self._current_font_counter = font_counter
-            self._cached_label_widths = None
-            self._timer_label.setStyleSheet(
-                f"color: rgba(204,192,174,255); font-family: Lora; "
-                f"font-size: {font_timer}px; background: transparent;")
-            self._counter_label.setStyleSheet(
-                f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
-                f"font-size: {font_counter}px; background: transparent;")
+        # Font sizes
+        self._current_font_timer = max(10, round(S.FONT_TIMER * scale))
+        self._current_font_counter = max(8, round(S.FONT_COUNTER * scale))
+        self._cached_label_widths = None
+        self._timer_label.setStyleSheet(
+            f"color: rgba(204,192,174,255); font-family: Lora; "
+            f"font-size: {self._current_font_timer}px; background: transparent;")
+        self._counter_label.setStyleSheet(
+            f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
+            f"font-size: {self._current_font_counter}px; background: transparent;")
 
-        # Coffee/alarm icon pixmap size
-        icon_px = max(12, round(24 * scale))
-        if icon_px != self._current_icon_px:
-            self._current_icon_px = icon_px
-            icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
-            self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
-            if self._alarm_label.isVisible():
-                self._alarm_label.setPixmap(
-                    _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), icon_px))
-            self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
-            if self._coffee_label.isVisible():
-                self._coffee_label.setPixmap(
-                    _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), icon_px))
+        # Coffee/alarm icon sizes
+        self._current_icon_px = max(12, round(24 * scale))
+        icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
+        self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
+        self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
 
         # Top left: info
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
