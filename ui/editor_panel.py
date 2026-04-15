@@ -1138,7 +1138,7 @@ class EditorPanel(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._reflow_grid()
+        self._reflow_timer.start()
 
     def eventFilter(self, obj, event):
         if (event.type() == event.Type.Wheel
