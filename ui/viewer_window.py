@@ -352,19 +352,21 @@ class ViewerWindow(QWidget):
         icon_step = icon_lbl + 2  # tight packing: icon width + 2px gap
         icon_y_offset = round(S.VIEWER_BOTTOM_ICON_Y_OFFSET * sc)
 
+        # Center timer — compute first so icons know where to stop
         timer_w, counter_w = self._label_widths()
+        timer_x = (w - timer_w) // 2
 
         bottom_y = h - lbl_h - bottom_offset
         x = bottom_lbl_x
         for label in [self._alarm_label, self._coffee_label]:
+            fits = x + icon_lbl + bottom_lbl_x <= timer_x
             label.setFixedSize(icon_lbl, icon_lbl)
             label.move(x, bottom_y + icon_y_offset)  # always position, even if hidden
             if label.isVisible():
-                x += icon_step
-        icon_end = x  # x after last visible icon
-
-        # Timer: centered ideally, but pushed right if icons would overlap
-        timer_x = max((w - timer_w) // 2, icon_end + bottom_lbl_x)
+                if not fits:
+                    label.hide()  # hide if no room
+                else:
+                    x += icon_step
         self._timer_label.setGeometry(timer_x, bottom_y, timer_w, lbl_h)
         self._timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._counter_label.setGeometry(
