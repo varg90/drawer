@@ -830,6 +830,9 @@ class ViewerWindow(QWidget):
             else:
                 self._top_center.hide()
 
+        # Counter visible only when top-center tools are visible
+        self._counter_label.setVisible(self._top_center.isVisible())
+
         # Invisible center click zone — covers free area between nav zones and UI bars
         nav_zone = max(30, round(S.VIEWER_NAV_ZONE * scale))
         zone_top = margin + btn_sz + gap
