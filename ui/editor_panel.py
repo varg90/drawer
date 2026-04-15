@@ -167,6 +167,10 @@ class EditorPanel(QWidget):
         # from disk across editor recreation (main window resize triggers it).
         self._pix_cache = dict(pix_cache) if pix_cache is not None else {}
         self._loader = None           # PixmapLoader thread
+        self._reflow_timer = QTimer(self)
+        self._reflow_timer.setSingleShot(True)
+        self._reflow_timer.setInterval(0)
+        self._reflow_timer.timeout.connect(self._reflow_grid)
         self._selected_tiles = set()  # set of ClickableLabel
         self._last_clicked_tile = None
 
@@ -622,22 +626,7 @@ class EditorPanel(QWidget):
 
                 pix = self._get_pixmap(img.path)
                 if not pix.isNull():
-                    scaled = pix.scaled(
-                        sz, sz,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                    # Clip to rounded rect
-                    rounded = QPixmap(scaled.size())
-                    rounded.fill(QColor(0, 0, 0, 0))
-                    rp = QPainter(rounded)
-                    rp.setRenderHint(QPainter.RenderHint.Antialiasing)
-                    rpath = QPainterPath()
-                    rpath.addRoundedRect(QRectF(rounded.rect()), S.GRID_TILE_RADIUS, S.GRID_TILE_RADIUS)
-                    rp.setClipPath(rpath)
-                    rp.drawPixmap(0, 0, scaled)
-                    rp.end()
-                    lbl.setPixmap(rounded)
+                    lbl.setPixmap(self._tile_pixmap(pix, sz))
 
                 lbl.setProperty("img_idx", idx)
 
@@ -688,17 +677,28 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _get_pixmap(self, path):
-        pix = self._pix_cache.get(path)
-        if pix is None:
-            pix = QPixmap(path)
-            if not pix.isNull():
-                pix = pix.scaled(
-                    S.GRID_MAX, S.GRID_MAX,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-            self._pix_cache[path] = pix
-        return pix
+        """Return cached pixmap for path, or null QPixmap if not yet loaded.
+        PixmapLoader fills the cache asynchronously after _rebuild()."""
+        return self._pix_cache.get(path, QPixmap())
+
+    @staticmethod
+    def _tile_pixmap(pix, sz):
+        """Scale pix to sz×sz and clip to rounded rect for grid tiles."""
+        scaled = pix.scaled(
+            sz, sz,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        rounded = QPixmap(scaled.size())
+        rounded.fill(QColor(0, 0, 0, 0))
+        rp = QPainter(rounded)
+        rp.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rpath = QPainterPath()
+        rpath.addRoundedRect(QRectF(rounded.rect()), S.GRID_TILE_RADIUS, S.GRID_TILE_RADIUS)
+        rp.setClipPath(rpath)
+        rp.drawPixmap(0, 0, scaled)
+        rp.end()
+        return rounded
 
     def _on_pixmap_loaded(self, path, image):
         pix = QPixmap.fromImage(image)
@@ -719,13 +719,8 @@ class EditorPanel(QWidget):
                     idx = lbl.property("img_idx")
                     if (idx is not None and idx < len(self.images)
                             and self.images[idx].path == path):
-                        scaled = pix.scaled(
-                            sz, sz,
-                            Qt.AspectRatioMode.KeepAspectRatio,
-                            Qt.TransformationMode.SmoothTransformation,
-                        )
-                        lbl.setPixmap(scaled)
-            self._reflow_grid()
+                        lbl.setPixmap(self._tile_pixmap(pix, sz))
+            self._reflow_timer.start()  # batch: fires once after last loaded signal
 
     @staticmethod
     def _short_name(path, max_len=16):
@@ -795,22 +790,7 @@ class EditorPanel(QWidget):
                 if idx is not None and idx < len(self.images):
                     pix = self._get_pixmap(self.images[idx].path)
                     if not pix.isNull():
-                        scaled = pix.scaled(
-                            value, value,
-                            Qt.AspectRatioMode.KeepAspectRatio,
-                            Qt.TransformationMode.SmoothTransformation,
-                        )
-                        # Clip to rounded rect
-                        rounded = QPixmap(scaled.size())
-                        rounded.fill(QColor(0, 0, 0, 0))
-                        rp = QPainter(rounded)
-                        rp.setRenderHint(QPainter.RenderHint.Antialiasing)
-                        rpath = QPainterPath()
-                        rpath.addRoundedRect(QRectF(rounded.rect()), S.GRID_TILE_RADIUS, S.GRID_TILE_RADIUS)
-                        rp.setClipPath(rpath)
-                        rp.drawPixmap(0, 0, scaled)
-                        rp.end()
-                        lbl.setPixmap(rounded)
+                        lbl.setPixmap(self._tile_pixmap(pix, value))
                 # Update pin overlay size and position
                 po = getattr(lbl, '_pin_overlay', None)
                 if po:
@@ -1158,7 +1138,7 @@ class EditorPanel(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._reflow_grid()
+        self._reflow_timer.start()
 
     def eventFilter(self, obj, event):
         if (event.type() == event.Type.Wheel
@@ -1173,7 +1153,7 @@ class EditorPanel(QWidget):
         return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Delete:
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
             self._delete_selected()
         else:
             super().keyPressEvent(event)
