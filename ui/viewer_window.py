@@ -314,6 +314,7 @@ class ViewerWindow(QWidget):
         self._screen_max_w = screen.width() - 20
         self._screen_max_h = screen.height() - 20
         saved = settings.get("viewer_size")
+        self._restore_at_min = settings.get("viewer_at_min", False)
         if saved and len(saved) == 2:
             self.resize(min(saved[0], self._screen_max_w), min(saved[1], self._screen_max_h))
         else:
@@ -396,9 +397,11 @@ class ViewerWindow(QWidget):
         if pix.isNull():
             self._advance()
             return
-        old_min_w, old_min_h = self._effective_min()
-        was_at_min = (abs(self.width() - old_min_w) < 2 and
-                      abs(self.height() - old_min_h) < 2)
+        if self._restore_at_min:
+            was_at_min = True
+            self._restore_at_min = False
+        else:
+            was_at_min = self.is_at_min()
         old_longer = max(self.width(), self.height())
 
         self._pixmap = pix
@@ -995,6 +998,12 @@ class ViewerWindow(QWidget):
         min_w = max(S.VIEWER_MIN_W, int(S.VIEWER_MIN_H * self._aspect))
         min_h = max(S.VIEWER_MIN_H, int(min_w / self._aspect))
         return min_w, min_h
+
+    def is_at_min(self):
+        """True if the window currently matches its aspect-aware minimum."""
+        min_w, min_h = self._effective_min()
+        return (abs(self.width() - min_w) < 2 and
+                abs(self.height() - min_h) < 2)
 
     def _do_resize(self, global_pos):
         if not self._resize_start_pos or not self._resize_start_geom:
