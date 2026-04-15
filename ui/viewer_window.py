@@ -37,6 +37,7 @@ CLR_NORMAL = QColor(204, 192, 174, 255)
 CLR_HOVER = QColor(204, 192, 174, 200)
 CLR_DIM = QColor(204, 192, 174, 100)
 CLR_WARNING = QColor(230, 120, 100, 200)
+CLR_WHITE = QColor(255, 255, 255, 255)
 
 
 def _icon(name, color=CLR_NORMAL, size=15):
@@ -255,7 +256,7 @@ class ViewerWindow(QWidget):
         # Coffee icon (always visible when paused) — drop shadow for visibility on light images
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 24))
+            _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), 24))
         self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
         self._coffee_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._coffee_label.setStyleSheet("background: transparent;")
@@ -324,7 +325,7 @@ class ViewerWindow(QWidget):
     def _update_coffee(self):
         if self._paused:
             self._coffee_label.setPixmap(
-                _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 24))
+                _dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), 24))
             self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
             self._coffee_label.show()
         else:
