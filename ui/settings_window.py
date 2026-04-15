@@ -683,6 +683,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             "order": "sequential",
             "topmost": self._topmost,
             "viewer_size": getattr(self, "_last_viewer_size", None),
+            "viewer_at_min": getattr(self, "_last_viewer_at_min", False),
             "session_limit": self._bottom_bar.get_session_limit(),
             "focus_enabled": self._bottom_bar.focus_enabled,
             "focus_app": self._bottom_bar.focus_app,
@@ -700,6 +701,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         if self.viewer:
             if not self.viewer.isFullScreen():
                 self._last_viewer_size = [self.viewer.width(), self.viewer.height()]
+                self._last_viewer_at_min = self.viewer.is_at_min()
             self._topmost = self.viewer._topmost
         if return_only:
             self.show()
@@ -723,6 +725,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._shuffle = data.get("shuffle", True)
         self._last_editor_view = data.get("editor_view", "list")
         self._last_viewer_size = data.get("viewer_size")
+        self._last_viewer_at_min = data.get("viewer_at_min", False)
 
         # Restore composed widgets
         self._timer_panel.restore_state(data)
@@ -769,6 +772,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                 else getattr(self, "_last_editor_view", "list")
             ),
             "viewer_size": getattr(self, "_last_viewer_size", None),
+            "viewer_at_min": getattr(self, "_last_viewer_at_min", False),
             "editor_pos": [self.editor.x(), self.editor.y()] if self.editor and self.editor.isVisible() else None,
             "editor_size": [self.editor.width(), self.editor.height()] if self.editor and self.editor.isVisible() else None,
             "window_size": self.width(),
