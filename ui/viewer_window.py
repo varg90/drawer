@@ -58,7 +58,7 @@ def _icon_btn(icon_name, size, parent, color=CLR_NORMAL):
     btn = QPushButton(parent)
     btn.setIcon(_icon(icon_name, color))
     btn.setIconSize(QSize(size, size))
-    btn.setFixedSize(size + 6, size + 6)
+    btn.setFixedSize(size, size)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
     btn.setStyleSheet("background: transparent; border: none;")
@@ -758,8 +758,7 @@ class ViewerWindow(QWidget):
         self._current_scale = scale
 
         btn_sz = max(16, round(S.VIEWER_ICON_BTN * scale))
-        btn_icon = max(10, btn_sz - 6)
-        self._current_btn_icon = btn_icon
+        self._current_btn_icon = btn_sz
         margin = max(4, round(S.VIEWER_ICON_MARGIN * scale))
         gap = max(2, round(S.VIEWER_ICON_GAP * scale))
         center_sz = max(30, round(S.VIEWER_CENTER_BTN * scale))
@@ -772,7 +771,7 @@ class ViewerWindow(QWidget):
         for btn in [self._info_btn, self._close_btn, self._bw_btn, self._grid_btn,
                     self._fliph_btn, self._flipv_btn, self._pin_btn]:
             btn.setFixedSize(btn_sz, btn_sz)
-            btn.setIconSize(QSize(btn_icon, btn_icon))
+            btn.setIconSize(QSize(btn_sz, btn_sz))
 
         # Center play/pause button
         self._center_btn.setFixedSize(center_sz, center_sz)
