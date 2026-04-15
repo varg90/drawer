@@ -414,23 +414,10 @@ class ViewerWindow(QWidget):
         else:
             old_longer = max(self.width(), self.height())
             if self._aspect >= 1.0:
-                w = old_longer
-                h = int(w / self._aspect)
+                w, h = old_longer, int(old_longer / self._aspect)
             else:
-                h = old_longer
-                w = int(h * self._aspect)
-            if w < min_w:
-                w = min_w
-                h = max(min_h, int(w / self._aspect))
-            if h < min_h:
-                h = min_h
-                w = max(min_w, int(h * self._aspect))
-            if h > self._screen_max_h:
-                h = self._screen_max_h
-                w = max(min_w, int(h * self._aspect))
-            if w > self._screen_max_w:
-                w = self._screen_max_w
-                h = max(min_h, int(w / self._aspect))
+                w, h = int(old_longer * self._aspect), old_longer
+            w, h = self._fit_clamp(w, h, min_w, min_h)
         self.resize(w, h)
 
         self._rebuild_processed()
@@ -996,8 +983,8 @@ class ViewerWindow(QWidget):
 
     def _effective_min(self):
         """Smallest window that fits the full image without black bars."""
-        min_w = max(S.VIEWER_MIN_W, int(S.VIEWER_MIN_H * self._aspect))
-        min_h = max(S.VIEWER_MIN_H, int(min_w / self._aspect))
+        min_w = max(S.VIEWER_MIN_W, round(S.VIEWER_MIN_H * self._aspect))
+        min_h = max(S.VIEWER_MIN_H, round(min_w / self._aspect))
         return min_w, min_h
 
     def is_at_min(self):
@@ -1006,33 +993,50 @@ class ViewerWindow(QWidget):
         return (abs(self.width() - min_w) < 2 and
                 abs(self.height() - min_h) < 2)
 
+    def _fit_clamp(self, w, h, min_w, min_h):
+        """Cascade-clamp (w, h) to aspect-aware min and screen max."""
+        if w < min_w:
+            w = min_w
+            h = max(min_h, int(w / self._aspect))
+        if h < min_h:
+            h = min_h
+            w = max(min_w, int(h * self._aspect))
+        if h > self._screen_max_h:
+            h = self._screen_max_h
+            w = max(min_w, int(h * self._aspect))
+        if w > self._screen_max_w:
+            w = self._screen_max_w
+            h = max(min_h, int(w / self._aspect))
+        return w, h
+
+    def _resize_dims(self, dw):
+        """Return (new_w, new_h) for a signed width delta from resize start."""
+        min_w, min_h = self._effective_min()
+        geom = self._resize_start_geom
+        new_w = min(self._screen_max_w, max(min_w, geom.width() + dw))
+        new_h = min(self._screen_max_h, max(min_h, int(new_w / self._aspect)))
+        return new_w, new_h
+
     def _do_resize(self, global_pos):
         if not self._resize_start_pos or not self._resize_start_geom:
             return
         dx = global_pos.x() - self._resize_start_pos.x()
-        dy = global_pos.y() - self._resize_start_pos.y()
         geom = self._resize_start_geom
         corner = self._resize_corner
 
-        min_w, min_h = self._effective_min()
-
         if corner in ("br", "r", "b"):
-            new_w = min(self._screen_max_w, max(min_w, geom.width() + dx))
-            new_h = min(self._screen_max_h, max(min_h, int(new_w / self._aspect)))
+            new_w, new_h = self._resize_dims(dx)
             self.setGeometry(geom.x(), geom.y(), new_w, new_h)
         elif corner in ("bl", "l"):
-            new_w = min(self._screen_max_w, max(min_w, geom.width() - dx))
-            new_h = min(self._screen_max_h, max(min_h, int(new_w / self._aspect)))
+            new_w, new_h = self._resize_dims(-dx)
             new_x = geom.right() - new_w
             self.setGeometry(new_x, geom.y(), new_w, new_h)
         elif corner in ("tr",):
-            new_w = min(self._screen_max_w, max(min_w, geom.width() + dx))
-            new_h = min(self._screen_max_h, max(min_h, int(new_w / self._aspect)))
+            new_w, new_h = self._resize_dims(dx)
             new_y = geom.bottom() - new_h
             self.setGeometry(geom.x(), new_y, new_w, new_h)
         elif corner in ("tl", "t"):
-            new_w = min(self._screen_max_w, max(min_w, geom.width() - dx))
-            new_h = min(self._screen_max_h, max(min_h, int(new_w / self._aspect)))
+            new_w, new_h = self._resize_dims(-dx)
             new_x = geom.right() - new_w
             new_y = geom.bottom() - new_h
             self.setGeometry(new_x, new_y, new_w, new_h)
