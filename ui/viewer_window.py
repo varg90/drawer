@@ -499,7 +499,13 @@ class ViewerWindow(QWidget):
         warn_at = min(300, int(self._session_limit * 0.2))
         is_warning = remaining <= warn_at
         if is_warning:
+            # Render pixmap at current scale and position before making visible
+            icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * self._current_scale))
+            self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
+            self._alarm_label.setPixmap(
+                _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), self._current_icon_px))
             self._alarm_label.show()
+            self._layout_bottom(self.width(), self.height())
         else:
             self._alarm_label.hide()
         progress = self._session_elapsed / self._session_limit
