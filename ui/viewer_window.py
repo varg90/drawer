@@ -263,7 +263,7 @@ class ViewerWindow(QWidget):
         _shadow = QGraphicsDropShadowEffect(self._coffee_label)
         _shadow.setBlurRadius(35)
         _shadow.setOffset(0, 0)
-        _shadow.setColor(QColor(0, 0, 0, 180))
+        _shadow.setColor(QColor(0, 0, 0, 200))
         self._coffee_label.setGraphicsEffect(_shadow)
         self._coffee_label.hide()
 
