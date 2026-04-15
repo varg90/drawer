@@ -245,20 +245,24 @@ class ViewerWindow(QWidget):
             f"color: rgba(204,192,174,200); font-family: 'Lexend'; font-size: {S.FONT_COUNTER}px; background: transparent;")
         self._counter_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
+        _badge = "background: rgba(0,0,0,140); border-radius: 5px;"
+
         # Alarm icon (session warning)
         self._alarm_label = QLabel(self)
         self._alarm_label.setPixmap(
-            _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), 20))
+            _dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), 24))
         self._alarm_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
-        self._alarm_label.setStyleSheet("background: transparent;")
+        self._alarm_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._alarm_label.setStyleSheet(_badge)
         self._alarm_label.hide()
 
         # Coffee icon (always visible when paused)
         self._coffee_label = QLabel(self)
         self._coffee_label.setPixmap(
-            _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 20))
+            _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 24))
         self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
-        self._coffee_label.setStyleSheet("background: transparent;")
+        self._coffee_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._coffee_label.setStyleSheet(_badge)
         self._coffee_label.hide()
 
         # Progress bar — only visible when session limit is set
@@ -319,7 +323,7 @@ class ViewerWindow(QWidget):
     def _update_coffee(self):
         if self._paused:
             self._coffee_label.setPixmap(
-                _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 20))
+                _dpi_pixmap(_icon(Icons.COFFEE, CLR_NORMAL), 24))
             self._coffee_label.setFixedSize(S.VIEWER_ICON_LABEL, S.VIEWER_ICON_LABEL)
             self._coffee_label.show()
         else:
@@ -540,8 +544,7 @@ class ViewerWindow(QWidget):
         self._help_overlay.setGeometry(self.rect())
         self._help_overlay.setCursor(Qt.CursorShape.ArrowCursor)
         self._help_overlay.setStyleSheet(
-            f"background-color: rgba(0, 0, 0, 210);"
-            f"border-radius: {S.WINDOW_RADIUS}px;")
+            "background-color: rgba(0, 0, 0, 210);")
         self._help_overlay.mousePressEvent = lambda e: self._dismiss_help()
 
         layout = QVBoxLayout(self._help_overlay)
