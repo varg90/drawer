@@ -143,6 +143,7 @@ class ViewerWindow(QWidget):
         self._resize_start_pos = None
         self._resize_start_geom = None
         self._aspect = 1.0
+        self._initial_load = True
         self._pixmap = None
         self._controls_visible = False
         self._is_warning = False
@@ -399,15 +400,17 @@ class ViewerWindow(QWidget):
         self._pixmap = pix
         self._aspect = pix.width() / pix.height() if pix.height() else 1.0
 
-        w = self.width()
-        h = max(S.VIEWER_MIN_H, int(w / self._aspect))
-        if h > self._screen_max_h:
-            h = self._screen_max_h
-            w = max(S.VIEWER_MIN_W, int(h * self._aspect))
-        if w > self._screen_max_w:
-            w = self._screen_max_w
+        if self._initial_load:
+            self._initial_load = False
+            w = self.width()
             h = max(S.VIEWER_MIN_H, int(w / self._aspect))
-        self.resize(w, h)
+            if h > self._screen_max_h:
+                h = self._screen_max_h
+                w = max(S.VIEWER_MIN_W, int(h * self._aspect))
+            if w > self._screen_max_w:
+                w = self._screen_max_w
+                h = max(S.VIEWER_MIN_H, int(w / self._aspect))
+            self.resize(w, h)
 
         self._rebuild_processed()
         self._update_display()
