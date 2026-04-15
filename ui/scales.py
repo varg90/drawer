@@ -103,6 +103,7 @@ class S(metaclass=_SMeta):
     # Viewer window
     VIEWER_MIN_W = 150
     VIEWER_MIN_H = 100
+    VIEWER_TOP_FIT_MIN_W = 240  # min window width to show top-center tool row
     VIEWER_CORNER_GRIP = 50
     VIEWER_NAV_ZONE = 40
     VIEWER_ICON_LABEL = 26
