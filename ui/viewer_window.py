@@ -156,6 +156,7 @@ class ViewerWindow(QWidget):
         self._grid_thirds = False
         self._topmost = bool(settings.get("topmost"))
         self._cached_label_widths = None
+        self._processed_pixmap = None  # pixmap after flip/grayscale, before scaling
         self._current_scale = 1.0
         self._current_font_timer = S.FONT_TIMER
         self._current_font_counter = S.FONT_COUNTER
@@ -408,32 +409,39 @@ class ViewerWindow(QWidget):
             h = max(S.VIEWER_MIN_H, int(w / self._aspect))
         self.resize(w, h)
 
+        self._rebuild_processed()
         self._update_display()
         self._schedule_next(img.timer)
         self._update_counter()
         self._update_session_display()
 
     def _update_display(self, fast=False):
-        if self._pixmap is None:
+        if self._processed_pixmap is None:
             return
-        pix = self._pixmap
-        # Flip
-        if self._flip_h or self._flip_v:
-            sx = -1 if self._flip_h else 1
-            sy = -1 if self._flip_v else 1
-            pix = pix.transformed(QTransform().scale(sx, sy))
-        # Grayscale
-        if self._grayscale:
-            img = pix.toImage().convertToFormat(QImage.Format.Format_Grayscale8)
-            pix = QPixmap.fromImage(img)
         transform = (Qt.TransformationMode.FastTransformation if fast
                      else Qt.TransformationMode.SmoothTransformation)
-        scaled = pix.scaled(
+        scaled = self._processed_pixmap.scaled(
             self._img_label.size(),
             Qt.AspectRatioMode.KeepAspectRatio,
             transform,
         )
         self._img_label.setPixmap(scaled)
+
+    def _rebuild_processed(self):
+        """Recompute cached pixmap after applying flip/grayscale. Call whenever
+        the source image or filter settings change — not on every resize."""
+        if self._pixmap is None:
+            self._processed_pixmap = None
+            return
+        pix = self._pixmap
+        if self._flip_h or self._flip_v:
+            sx = -1 if self._flip_h else 1
+            sy = -1 if self._flip_v else 1
+            pix = pix.transformed(QTransform().scale(sx, sy))
+        if self._grayscale:
+            img = pix.toImage().convertToFormat(QImage.Format.Format_Grayscale8)
+            pix = QPixmap.fromImage(img)
+        self._processed_pixmap = pix
 
     # ------------------------------------------------------------------ Timer
 
@@ -636,6 +644,7 @@ class ViewerWindow(QWidget):
         icon_name = Icons.BW_ON if self._grayscale else Icons.BW_OFF
         self._bw_btn.setIcon(_icon(icon_name, CLR_NORMAL))
         self._bw_btn.setIconSize(QSize(self._current_btn_icon, self._current_btn_icon))
+        self._rebuild_processed()
         self._update_display()
 
     def _toggle_grid(self):
@@ -648,10 +657,12 @@ class ViewerWindow(QWidget):
 
     def _toggle_flip_h(self):
         self._flip_h = not self._flip_h
+        self._rebuild_processed()
         self._update_display()
 
     def _toggle_flip_v(self):
         self._flip_v = not self._flip_v
+        self._rebuild_processed()
         self._update_display()
 
     def _toggle_topmost(self):
