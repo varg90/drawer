@@ -228,15 +228,11 @@ class ViewerWindow(QWidget):
         self._close_btn = _icon_btn(Icons.CLOSE, 20, self._top_right)
         self._close_btn.clicked.connect(self.close)
 
-        # Center play/pause
+        # Center play/pause — invisible click zone over free center area
         self._center_btn = QPushButton(self)
-        self._center_btn.setFixedSize(S.VIEWER_CENTER_BTN, S.VIEWER_CENTER_BTN)
-        self._center_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._center_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._center_btn.setStyleSheet("background: transparent; border: none;")
-        self._center_btn.setIconSize(QSize(40, 40))
         self._center_btn.clicked.connect(self._toggle_pause)
-        self._update_center_icon()
 
         # Bottom: timer + counter
         self._timer_label = QLabel(self)
@@ -277,10 +273,14 @@ class ViewerWindow(QWidget):
 
         # Collect hover-only widgets
         self._hover_widgets = [
-            self._top_left, self._top_center, self._top_right, self._center_btn,
+            self._top_left, self._top_center, self._top_right,
             self._timer_label, self._counter_label,
             self._progress_bar,
         ]
+
+        # Center click zone sits below all named controls so they receive
+        # their own clicks; it catches everything in the free center area.
+        self._center_btn.lower()
 
         # Setup opacity effects for fade
         self._opacity_effects = []
@@ -324,12 +324,6 @@ class ViewerWindow(QWidget):
         install_resize_cursor_guard(self)
 
     # ------------------------------------------------------------------ Icons
-
-    def _update_center_icon(self):
-        if self._paused:
-            self._center_btn.setIcon(_icon("ph.play-fill", CLR_HOVER, 40))
-        else:
-            self._center_btn.setIcon(_icon("ph.pause-fill", CLR_HOVER, 40))
 
     def _update_coffee(self):
         if self._paused:
@@ -529,7 +523,6 @@ class ViewerWindow(QWidget):
             self._qtimer.stop()
         else:
             self._qtimer.start()
-        self._update_center_icon()
         self._update_coffee()
 
     def _check_focus(self):
@@ -761,7 +754,6 @@ class ViewerWindow(QWidget):
         self._current_btn_icon = btn_sz
         margin = max(4, round(S.VIEWER_ICON_MARGIN * scale))
         gap = max(2, round(S.VIEWER_ICON_GAP * scale))
-        center_sz = max(30, round(S.VIEWER_CENTER_BTN * scale))
         progress_h = max(2, round(S.VIEWER_PROGRESS_H * scale))
 
         # Hide all controls when window is too small to be useful
@@ -772,10 +764,6 @@ class ViewerWindow(QWidget):
                     self._fliph_btn, self._flipv_btn, self._pin_btn]:
             btn.setFixedSize(btn_sz, btn_sz)
             btn.setIconSize(QSize(btn_sz, btn_sz))
-
-        # Center play/pause button
-        self._center_btn.setFixedSize(center_sz, center_sz)
-        self._center_btn.setIconSize(QSize(round(center_sz * 0.65), round(center_sz * 0.65)))
 
         # Font sizes
         self._current_font_timer = max(10, round(S.FONT_TIMER * scale))
@@ -820,7 +808,7 @@ class ViewerWindow(QWidget):
             fits_horizontal = tl_right + tc_w + gap + btn_sz <= w - margin
             col_h = btn_sz * n + gap * (n - 1)
             col_y = margin + btn_sz + gap
-            fits_vertical = col_y + col_h < (h - center_sz) // 2
+            fits_vertical = col_y + col_h < h // 2
 
             if fits_horizontal:
                 self._top_center.show()
@@ -842,8 +830,13 @@ class ViewerWindow(QWidget):
             else:
                 self._top_center.hide()
 
-        # Center
-        self._center_btn.move((w - center_sz) // 2, (h - center_sz) // 2)
+        # Invisible center click zone — covers free area between nav zones and UI bars
+        nav_zone = max(30, round(S.VIEWER_NAV_ZONE * scale))
+        zone_top = margin + btn_sz + gap
+        lbl_h_v = max(16, round(S.VIEWER_BOTTOM_LABEL_H * scale))
+        bot_offset_v = max(4, round(S.VIEWER_BOTTOM_OFFSET * scale))
+        zone_h = h - zone_top - lbl_h_v - bot_offset_v - progress_h
+        self._center_btn.setGeometry(nav_zone, zone_top, w - 2 * nav_zone, max(1, zone_h))
 
         # Bottom layout
         self._layout_bottom(w, h)
