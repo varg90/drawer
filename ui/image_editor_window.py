@@ -264,7 +264,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         super().closeEvent(event)
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Delete:
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
             self._panel._delete_selected()
         else:
             super().keyPressEvent(event)
