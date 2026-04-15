@@ -1153,7 +1153,7 @@ class EditorPanel(QWidget):
         return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Delete:
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
             self._delete_selected()
         else:
             super().keyPressEvent(event)
