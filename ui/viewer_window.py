@@ -755,7 +755,6 @@ class ViewerWindow(QWidget):
         event.accept()
 
     def resizeEvent(self, event):
-        self.setUpdatesEnabled(False)
         super().resizeEvent(event)
         w, h = self.width(), self.height()
 
@@ -849,7 +848,6 @@ class ViewerWindow(QWidget):
 
         # Fast render during drag; smooth render fires after resize stops
         self._update_display(fast=True)
-        self.setUpdatesEnabled(True)
         self._smooth_timer.start()
 
     def enterEvent(self, event):
