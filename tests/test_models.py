@@ -29,33 +29,6 @@ def test_image_item_roundtrip():
     restored = ImageItem.from_dict(original.to_dict())
     assert original == restored
 
-def test_image_item_source_url_default():
-    item = ImageItem(path="C:/a.jpg")
-    assert item.source_url == ""
-
-def test_image_item_source_url_custom():
-    item = ImageItem(path="C:/a.jpg", source_url="https://disk.yandex.ru/d/abc")
-    assert item.source_url == "https://disk.yandex.ru/d/abc"
-
-def test_image_item_to_dict_with_source_url():
-    item = ImageItem(path="C:/a.jpg", timer=60, source_url="https://example.com")
-    d = item.to_dict()
-    assert d["source_url"] == "https://example.com"
-
-def test_image_item_from_dict_with_source_url():
-    item = ImageItem.from_dict({"path": "C:/a.jpg", "source_url": "https://example.com"})
-    assert item.source_url == "https://example.com"
-
-def test_image_item_from_dict_without_source_url():
-    item = ImageItem.from_dict({"path": "C:/a.jpg", "timer": 60})
-    assert item.source_url == ""
-
-def test_image_item_roundtrip_with_source_url():
-    original = ImageItem(path="C:/a.jpg", timer=42, source_url="https://ya.ru/d/x")
-    restored = ImageItem.from_dict(original.to_dict())
-    assert original == restored
-
-
 def test_image_item_pinned_default():
     img = ImageItem(path="test.jpg")
     assert img.pinned is False

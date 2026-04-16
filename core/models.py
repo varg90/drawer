@@ -9,13 +9,10 @@ DEFAULT_TIMER_SECONDS = 300
 class ImageItem:
     path: str
     timer: int = DEFAULT_TIMER_SECONDS
-    source_url: str = ""
     pinned: bool = False
 
     def to_dict(self):
         d = {"path": self.path, "timer": self.timer}
-        if self.source_url:
-            d["source_url"] = self.source_url
         if self.pinned:
             d["pinned"] = True
         return d
@@ -25,6 +22,5 @@ class ImageItem:
         return cls(
             path=d["path"],
             timer=d.get("timer", DEFAULT_TIMER_SECONDS),
-            source_url=d.get("source_url", ""),
             pinned=d.get("pinned", False),
         )

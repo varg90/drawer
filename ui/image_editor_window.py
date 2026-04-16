@@ -58,6 +58,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         saved_collapsed = None
         saved_pix_cache = None
         if hasattr(self, "_panel") and self._panel is not None:
+            self.__dict__['_view_mode_init'] = self._panel._view_mode
             saved_collapsed = set(self._panel._collapsed_tiers)
             saved_pix_cache = self._panel._pix_cache
 
@@ -79,12 +80,8 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
                                              size=S.ICON_HEADER)
         self._add_folder_btn = make_icon_btn(Icons.ADD_FOLDER, self.theme.text_hint,
                                               size=S.ICON_HEADER)
-        self._add_url_btn = make_icon_btn(Icons.ADD_URL, self.theme.text_hint,
-                                           size=S.ICON_HEADER)
-
         title_bar.addWidget(self._add_files_btn)
         title_bar.addWidget(self._add_folder_btn)
-        title_bar.addWidget(self._add_url_btn)
         title_bar.addStretch()
         self._close_btn = make_icon_btn(Icons.CLOSE, self.theme.text_hint,
                                         size=S.ICON_HEADER)
@@ -105,7 +102,6 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         # Connect title bar add buttons to panel methods
         self._add_files_btn.clicked.connect(self._panel._add_files)
         self._add_folder_btn.clicked.connect(self._panel._add_folder)
-        self._add_url_btn.clicked.connect(self._panel._add_from_url)
 
         root.addWidget(self._panel)
 
@@ -115,7 +111,6 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self.update()
         self._add_files_btn.setIcon(qta.icon(Icons.ADD_FILE, color=t.text_hint))
         self._add_folder_btn.setIcon(qta.icon(Icons.ADD_FOLDER, color=t.text_hint))
-        self._add_url_btn.setIcon(qta.icon(Icons.ADD_URL, color=t.text_hint))
         self._close_btn.setIcon(qta.icon(Icons.CLOSE, color=t.text_hint))
 
     # ------------------------------------------------------------------ Rounded painting
