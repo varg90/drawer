@@ -235,6 +235,14 @@ class ViewerWindow(QWidget):
         self._center_btn.setStyleSheet("background: transparent; border: none;")
         self._center_btn.clicked.connect(self._toggle_pause)
 
+        # Extend hint — shown above timer during warning state
+        self._extend_hint = QLabel(self)
+        self._extend_hint.setText("+ extend")
+        self._extend_hint.setStyleSheet(
+            f"color: rgba(204,192,174,150); font-family: 'Lexend'; font-size: {S.FONT_COUNTER}px; background: transparent;")
+        self._extend_hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._extend_hint.hide()
+
         # Bottom: timer + counter
         self._timer_label = QLabel(self)
         self._timer_label.setStyleSheet(
@@ -275,7 +283,7 @@ class ViewerWindow(QWidget):
         # Collect hover-only widgets
         self._hover_widgets = [
             self._top_left, self._top_center, self._top_right,
-            self._timer_label, self._counter_label,
+            self._extend_hint, self._timer_label, self._counter_label,
             self._progress_bar,
         ]
 
@@ -363,6 +371,12 @@ class ViewerWindow(QWidget):
             timer_align = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         self._timer_label.setGeometry(timer_x, bottom_y, timer_w, lbl_h)
         self._timer_label.setAlignment(timer_align)
+
+        # Extend hint sits above the timer, same x-position and alignment
+        hint_h = max(12, round(S.FONT_COUNTER * sc))
+        self._extend_hint.setGeometry(timer_x, bottom_y - hint_h, timer_w, hint_h)
+        self._extend_hint.setAlignment(timer_align)
+
         self._counter_label.setGeometry(
             w - counter_w - bottom_lbl_x, bottom_y, counter_w, lbl_h)
         self._counter_label.setAlignment(
@@ -486,15 +500,20 @@ class ViewerWindow(QWidget):
             warn_secs = 0
         self._is_warning = self._countdown <= warn_secs and self._countdown > 0
 
-        idx = self._hover_widgets.index(self._timer_label)
+        idx_timer = self._hover_widgets.index(self._timer_label)
+        idx_hint = self._hover_widgets.index(self._extend_hint)
         # Only change color, not font-size (font-size managed by resizeEvent)
         if self._is_warning:
             self._timer_color = "rgba(230,120,100,200)"
-            self._opacity_effects[idx].setOpacity(1.0)
+            self._opacity_effects[idx_timer].setOpacity(1.0)
+            self._extend_hint.show()
+            self._opacity_effects[idx_hint].setOpacity(1.0)
         else:
             self._timer_color = "rgba(204,192,174,255)"
+            self._extend_hint.hide()
             if not self._controls_visible:
-                self._opacity_effects[idx].setOpacity(0.0)
+                self._opacity_effects[idx_timer].setOpacity(0.0)
+                self._opacity_effects[idx_hint].setOpacity(0.0)
         self._timer_label.setStyleSheet(
             f"color: {self._timer_color}; font-family: Lora; font-size: {self._current_font_timer}px; background: transparent;")
         self._timer_label.setText(t)
@@ -547,6 +566,22 @@ class ViewerWindow(QWidget):
         else:
             self._qtimer.start()
         self._update_coffee()
+
+    def _extend_timer(self):
+        """Add time to the current image based on its original timer tier."""
+        if not self._play_order:
+            return
+        img = self._images[self._play_order[self._current_idx]]
+        original = img.timer
+        if original <= 120:
+            bump = 30
+        elif original <= 600:
+            bump = 60
+        else:
+            bump = 300
+        self._countdown += bump
+        self._total_time += bump
+        self._update_timer_display()
 
     def _check_focus(self):
         if not self._focus_enabled or not self._focus_app:
@@ -696,8 +731,12 @@ class ViewerWindow(QWidget):
         target = 1.0 if show else 0.0
         for i, effect in enumerate(self._opacity_effects):
             widget = self._hover_widgets[i]
-            # Skip timer if warning (always visible)
-            if not show and widget == self._timer_label and self._is_warning:
+            # Skip timer and extend hint if warning (always visible)
+            if not show and self._is_warning:
+                if widget in (self._timer_label, self._extend_hint):
+                    continue
+            # Don't fade in the hint if not in warning state
+            if show and widget == self._extend_hint and not self._is_warning:
                 continue
             try:
                 anim = QPropertyAnimation(effect, b"opacity", self)
@@ -746,6 +785,8 @@ class ViewerWindow(QWidget):
             self._toggle_flip_v()
         elif sc == SC_P:
             self._toggle_topmost()
+        elif event.key() in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
+            self._extend_timer()
         else:
             super().keyPressEvent(event)
 
@@ -803,6 +844,9 @@ class ViewerWindow(QWidget):
         if self._current_font_counter != old_fc:
             self._counter_label.setStyleSheet(
                 f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
+                f"font-size: {self._current_font_counter}px; background: transparent;")
+            self._extend_hint.setStyleSheet(
+                f"color: rgba(204,192,174,150); font-family: 'Lexend'; "
                 f"font-size: {self._current_font_counter}px; background: transparent;")
 
         # Coffee/alarm icon sizes and pixmaps
