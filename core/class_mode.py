@@ -56,11 +56,11 @@ def total_duration(groups):
 
 
 def format_group(count, timer_seconds):
-    """Format a group for display: '5 × 30 сек'"""
-    if timer_seconds >= 3600:
-        t = f"{timer_seconds // 3600}ч {(timer_seconds % 3600) // 60}мин"
-    elif timer_seconds >= 60:
-        t = f"{timer_seconds // 60} мин"
+    """Format a group for display: '5 × 30s'"""
+    if timer_seconds >= 3600 and timer_seconds % 3600 == 0:
+        t = f"{timer_seconds // 3600}h"
+    elif timer_seconds >= 60 and timer_seconds % 60 == 0:
+        t = f"{timer_seconds // 60}m"
     else:
-        t = f"{timer_seconds} сек"
-    return f"{count} × {t}"
+        t = f"{timer_seconds}s"
+    return f"{count} \u00d7 {t}"

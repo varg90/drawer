@@ -507,12 +507,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         inner = QVBoxLayout(content)
         inner.setContentsMargins(sc(16), sc(14), sc(16), sc(12))
 
+        from core import __version__
         info_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "info_main.txt")
         try:
             with open(info_path, encoding="utf-8") as f:
-                info_text = f.read().replace("\n", "<br>")
+                info_text = f.read().format(version=__version__).replace("\n", "<br>")
         except FileNotFoundError:
-            info_text = "Drawer 0.3.1"
+            info_text = f"Drawer {__version__}"
         lbl = QLabel(info_text)
         lbl.setStyleSheet(f"color: {t.text_primary}; font-size: {S.FONT_HELP}px;")
         lbl.setWordWrap(True)

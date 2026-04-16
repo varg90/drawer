@@ -18,3 +18,15 @@ def test_timer_presets_has_2min():
     from core.constants import TIMER_PRESETS
     secs = [s for s, _ in TIMER_PRESETS]
     assert 120 in secs
+
+
+def test_tiff_supported():
+    assert ".tiff" in SUPPORTED_FORMATS
+    assert ".tif" in SUPPORTED_FORMATS
+
+
+def test_version_exists():
+    from core import __version__
+    assert __version__
+    parts = __version__.split(".")
+    assert len(parts) == 3
