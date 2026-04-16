@@ -10,10 +10,10 @@ if platform.system() == "Windows":
 
 if getattr(sys, "frozen", False):
     DATA_DIR = sys._MEIPASS
-    APP_DIR = os.path.dirname(sys.executable)
 else:
     DATA_DIR = os.path.dirname(os.path.abspath(__file__))
-    APP_DIR = DATA_DIR
+
+from core.session import APP_DIR  # %APPDATA%/Drawer
 
 LOG_FILE = os.path.join(APP_DIR, "app.log")
 logging.basicConfig(

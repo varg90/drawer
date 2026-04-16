@@ -7,11 +7,9 @@ import logging
 from tkinter import filedialog, BooleanVar
 from PIL import Image, ImageTk
 
-# Resolve app directory (works both as .py and as .exe)
-if getattr(sys, "frozen", False):
-    APP_DIR = os.path.dirname(sys.executable)
-else:
-    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+# User data goes to %APPDATA%/Drawer
+APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Drawer")
+os.makedirs(APP_DIR, exist_ok=True)
 
 # Logging setup
 LOG_FILE = os.path.join(APP_DIR, "app.log")
