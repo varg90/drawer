@@ -7,9 +7,7 @@ import logging
 from tkinter import filedialog, BooleanVar
 from PIL import Image, ImageTk
 
-# User data goes to %APPDATA%/Drawer
-APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Drawer")
-os.makedirs(APP_DIR, exist_ok=True)
+from core.session import APP_DIR  # %APPDATA%/Drawer
 
 # Logging setup
 LOG_FILE = os.path.join(APP_DIR, "app.log")
