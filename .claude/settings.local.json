@@ -33,7 +33,27 @@
       "Bash(claude plugins:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:gwfh.mranftl.com)",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "Read(//Volumes/Drawer 1/**)",
+      "Read(//Volumes/Drawer/**)",
+      "Bash(\"/Volumes/Drawer/Drawer.app/Contents/MacOS/Drawer\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(xattr:*)",
+      "Bash(spctl --assess --type execute \"/Volumes/Drawer/Drawer.app\")",
+      "Bash(/tmp/Drawer.app/Contents/MacOS/Drawer)",
+      "Bash(cp -R /Volumes/Drawer/Drawer.app /tmp/Drawer2.app)",
+      "Bash(/tmp/Drawer2.app/Contents/MacOS/Drawer)",
+      "Bash(pkill -f \"Drawer2.app\")",
+      "Bash(rm -rf /tmp/Drawer2.app)",
+      "Bash(hdiutil detach:*)",
+      "Bash(hdiutil attach:*)",
+      "Bash(cp -R \"/Volumes/Drawer 1/Drawer.app\" /tmp/Drawer3.app)",
+      "Bash(/tmp/Drawer3.app/Contents/MacOS/Drawer)",
+      "Bash(pkill -f \"Drawer3.app\")",
+      "Bash(sips -g all /Users/aleksey/Projects/my/drawer/drawer.ico)",
+      "Bash(npm ls:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(claude --version)"
     ]
   }
 }
