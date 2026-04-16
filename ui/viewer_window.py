@@ -239,7 +239,7 @@ class ViewerWindow(QWidget):
         self._extend_hint = QLabel(self)
         self._extend_hint.setText("+ to extend")
         self._extend_hint.setStyleSheet(
-            f"color: rgba(204,192,174,150); font-family: 'Lexend'; font-size: {S.FONT_COUNTER}px; background: transparent;")
+            f"color: rgba(230,120,100,150); font-family: 'Lexend'; font-size: {S.FONT_COUNTER}px; background: transparent;")
         self._extend_hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._extend_hint.hide()
 
@@ -846,7 +846,7 @@ class ViewerWindow(QWidget):
                 f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
                 f"font-size: {self._current_font_counter}px; background: transparent;")
             self._extend_hint.setStyleSheet(
-                f"color: rgba(204,192,174,150); font-family: 'Lexend'; "
+                f"color: rgba(230,120,100,150); font-family: 'Lexend'; "
                 f"font-size: {self._current_font_counter}px; background: transparent;")
 
         # Coffee/alarm icon sizes and pixmaps
