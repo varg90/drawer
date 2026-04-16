@@ -1,6 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from core.file_utils import filter_image_files
+from core.file_utils import filter_image_files, dedup_paths
+from core.models import ImageItem
 
 def test_filter_mixed():
     files = ["photo.jpg", "image.PNG", "doc.txt", "art.webp", "data.csv", "pic.gif", "shot.bmp", "render.jpeg"]
@@ -26,3 +27,20 @@ def test_filter_no_extension():
 
 def test_filter_double_extension():
     assert filter_image_files(["photo.backup.jpg", "doc.txt.png"]) == ["photo.backup.jpg", "doc.txt.png"]
+
+
+def test_dedup_removes_existing():
+    existing = [ImageItem(path="C:/photos/a.jpg"), ImageItem(path="C:/photos/b.jpg")]
+    new = ["C:/photos/a.jpg", "C:/photos/c.jpg"]
+    result = dedup_paths(new, existing)
+    assert result == ["C:/photos/c.jpg"]
+
+
+def test_dedup_empty_existing():
+    result = dedup_paths(["a.jpg", "b.jpg"], [])
+    assert result == ["a.jpg", "b.jpg"]
+
+
+def test_dedup_all_duplicates():
+    existing = [ImageItem(path="a.jpg")]
+    assert dedup_paths(["a.jpg"], existing) == []
