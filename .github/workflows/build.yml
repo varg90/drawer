@@ -116,8 +116,13 @@ jobs:
           xattr -cr dist/Drawer.app
           sync
           sleep 2
+          # Stage DMG contents: Drawer.app + /Applications symlink
+          # for classic drag-to-install layout.
+          mkdir -p dist/dmg-staging
+          cp -R dist/Drawer.app dist/dmg-staging/
+          ln -s /Applications dist/dmg-staging/Applications
           hdiutil create -volname Drawer \
-            -srcfolder dist/Drawer.app \
+            -srcfolder dist/dmg-staging \
             -ov -format UDZO dist/Drawer.dmg
 
       - name: Upload portable exe
