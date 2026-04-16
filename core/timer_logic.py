@@ -12,6 +12,14 @@ def format_time(s):
     else:
         return f"0:{s:02d}"
 
+def short_label(seconds):
+    """Convert seconds to compact label: 30→'30s', 60→'1m', 3600→'1h'."""
+    if seconds >= 3600 and seconds % 3600 == 0:
+        return f"{seconds // 3600}h"
+    if seconds >= 60 and seconds % 60 == 0:
+        return f"{seconds // 60}m"
+    return f"{seconds}s"
+
 def auto_warn_seconds(timer_seconds):
     if timer_seconds <= 120:
         return 10

@@ -19,7 +19,7 @@ from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder, dedup_paths
 from core.models import ImageItem, DEFAULT_TIMER_SECONDS
-from core.timer_logic import format_time
+from core.timer_logic import format_time, short_label
 from ui.theme import _mix, _darken
 from ui.scales import S
 from ui.icons import Icons
@@ -40,12 +40,8 @@ class _ColorLine(QWidget):
 
 
 def _short_label(secs):
-    """Convert seconds to compact label: 30→'30s', 60→'1m', 3600→'1h'."""
-    if secs >= 3600 and secs % 3600 == 0:
-        return f"{secs // 3600}h"
-    if secs >= 60 and secs % 60 == 0:
-        return f"{secs // 60}m"
-    return f"{secs}s"
+    """Alias for backward compatibility with group headers."""
+    return short_label(secs)
 
 
 def _sort_group_items(items):
@@ -149,6 +145,8 @@ def _flow_position(labels, container_width, sz, gap=1):
 class EditorPanel(QWidget):
     """Reusable image editor panel: toolbar, grouped file list, grid view."""
 
+    _PIX_CACHE_MAX = 500
+
     images_updated = pyqtSignal(list)
     close_requested = pyqtSignal()
     shuffle_changed = pyqtSignal(bool)
@@ -165,7 +163,6 @@ class EditorPanel(QWidget):
         # Pass `pix_cache` from a previous panel to skip re-loading images
         # from disk across editor recreation (main window resize triggers it).
         self._pix_cache = OrderedDict(pix_cache) if pix_cache is not None else OrderedDict()
-        self._PIX_CACHE_MAX = 500
         self._loader = None           # PixmapLoader thread
         self._reflow_timer = QTimer(self)
         self._reflow_timer.setSingleShot(True)
@@ -573,12 +570,7 @@ class EditorPanel(QWidget):
             grid.deleteLater()
         self._grid_groups = []
 
-        groups = self._group_by_timer()
-        non_reserve = sorted(
-            [(tv, items) for tv, items in groups.items() if tv != 0],
-            key=lambda g: g[0])
-        reserve = [(tv, items) for tv, items in groups.items() if tv == 0]
-        ordered = non_reserve + reserve
+        ordered = self._ordered_groups()
 
         sz = self._zoom_slider.value()
         insert_pos = 0

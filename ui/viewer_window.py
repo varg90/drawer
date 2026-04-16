@@ -300,6 +300,10 @@ class ViewerWindow(QWidget):
             w.setGraphicsEffect(effect)
             self._opacity_effects.append(effect)
 
+        # Cache hover widget indices for per-tick lookups
+        self._idx_timer = self._hover_widgets.index(self._timer_label)
+        self._idx_hint = self._hover_widgets.index(self._extend_hint)
+
         # Timer
         self._qtimer = QTimer(self)
         self._qtimer.setInterval(1000)
@@ -501,28 +505,20 @@ class ViewerWindow(QWidget):
             warn_secs = 0
         self._is_warning = self._countdown <= warn_secs and self._countdown > 0
 
-        idx_timer = self._hover_widgets.index(self._timer_label)
-        idx_hint = self._hover_widgets.index(self._extend_hint)
-        # Only change color, not font-size (font-size managed by resizeEvent)
-        # Extending is useless if session limit would cut us off anyway
-        session_remaining = (self._session_limit - self._session_elapsed
-                             if self._session_limit else None)
-        extend_useful = session_remaining is None or session_remaining > self._countdown
-
         if self._is_warning:
             self._timer_color = "rgba(230,120,100,200)"
-            self._opacity_effects[idx_timer].setOpacity(1.0)
-            if extend_useful:
+            self._opacity_effects[self._idx_timer].setOpacity(1.0)
+            if self._can_extend():
                 self._extend_hint.show()
-                self._opacity_effects[idx_hint].setOpacity(1.0)
+                self._opacity_effects[self._idx_hint].setOpacity(1.0)
             else:
                 self._extend_hint.hide()
         else:
             self._timer_color = "rgba(204,192,174,255)"
             self._extend_hint.hide()
             if not self._controls_visible:
-                self._opacity_effects[idx_timer].setOpacity(0.0)
-                self._opacity_effects[idx_hint].setOpacity(0.0)
+                self._opacity_effects[self._idx_timer].setOpacity(0.0)
+                self._opacity_effects[self._idx_hint].setOpacity(0.0)
         self._timer_label.setStyleSheet(
             f"color: {self._timer_color}; font-family: Lora; font-size: {self._current_font_timer}px; background: transparent;")
         self._timer_label.setText(t)
@@ -576,15 +572,20 @@ class ViewerWindow(QWidget):
             self._qtimer.start()
         self._update_coffee()
 
-    def _extend_timer(self):
-        """Add time to the current image based on its original timer tier."""
+    def _can_extend(self):
+        """True if extending the timer would actually give more time."""
         if not self._play_order:
-            return
-        # Don't extend if session limit would cut us off anyway
+            return False
         if self._session_limit:
             remaining = self._session_limit - self._session_elapsed
             if remaining <= self._countdown:
-                return
+                return False
+        return True
+
+    def _extend_timer(self):
+        """Add time to the current image based on its original timer tier."""
+        if not self._can_extend():
+            return
         img = self._images[self._play_order[self._current_idx]]
         original = img.timer
         if original <= 120:
@@ -856,22 +857,24 @@ class ViewerWindow(QWidget):
             self._timer_label.setStyleSheet(
                 f"color: {timer_color}; font-family: Lora; "
                 f"font-size: {self._current_font_timer}px; background: transparent;")
-        if self._current_font_counter != old_fc:
-            self._counter_label.setStyleSheet(
-                f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
-                f"font-size: {self._current_font_counter}px; background: transparent;")
+        if self._current_font_timer != old_ft:
             self._current_font_hint = max(7, round(self._current_font_timer * 0.38))
             self._extend_hint.setStyleSheet(
                 f"color: rgba(230,120,100,150); font-family: 'Lexend'; "
                 f"font-size: {self._current_font_hint}px; background: transparent;")
+        if self._current_font_counter != old_fc:
+            self._counter_label.setStyleSheet(
+                f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
+                f"font-size: {self._current_font_counter}px; background: transparent;")
 
-        # Coffee/alarm icon sizes and pixmaps
+        # Coffee/alarm icon sizes and pixmaps — only re-rasterize when size changes
         icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
-        self._current_icon_px = icon_lbl
-        self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
-        self._alarm_label.setPixmap(_dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), self._current_icon_px))
-        self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
-        self._coffee_label.setPixmap(_dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), self._current_icon_px))
+        if icon_lbl != self._current_icon_px:
+            self._current_icon_px = icon_lbl
+            self._alarm_label.setFixedSize(icon_lbl, icon_lbl)
+            self._alarm_label.setPixmap(_dpi_pixmap(_icon(Icons.ALARM, CLR_WARNING), icon_lbl))
+            self._coffee_label.setFixedSize(icon_lbl, icon_lbl)
+            self._coffee_label.setPixmap(_dpi_pixmap(_icon(Icons.COFFEE, CLR_WHITE), icon_lbl))
 
         # Top left: info
         self._top_left.setGeometry(margin, margin, btn_sz, btn_sz)
