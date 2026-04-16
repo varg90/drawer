@@ -21,7 +21,6 @@ from core.file_utils import filter_image_files, scan_folder
 from core.models import ImageItem, DEFAULT_TIMER_SECONDS
 from core.timer_logic import format_time
 from ui.theme import _mix, _darken
-from core.cloud.cache import CacheManager
 from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import make_icon_btn
@@ -304,14 +303,6 @@ class EditorPanel(QWidget):
         )
         self._shuffle_btn.clicked.connect(self._toggle_shuffle)
 
-        # Cache trash + size
-        self._cache_btn = make_icon_btn(
-            Icons.TRASH, self.theme.text_hint,
-            size=bs,
-        )
-        self._cache_btn.clicked.connect(self._clear_cache)
-        self._cache_size_label = QLabel("")
-
         # Clear all
         self._clear_btn = make_icon_btn(
             Icons.ERASER, self.theme.text_hint,
@@ -319,7 +310,7 @@ class EditorPanel(QWidget):
         )
         self._clear_btn.clicked.connect(self._clear)
 
-        # Layout order: [List][Grid] | [ZoomOut][ZoomIn] | [Shuffle] <stretch> [Cache][CacheSize] | [Clear]
+        # Layout order: [List][Grid] | [ZoomOut][ZoomIn] | [Shuffle] <stretch> [Clear]
         bottom.addWidget(self._list_btn)
         bottom.addWidget(self._grid_btn)
         bottom.addSpacing(4)
@@ -328,9 +319,6 @@ class EditorPanel(QWidget):
         bottom.addSpacing(4)
         bottom.addWidget(self._shuffle_btn)
         bottom.addStretch()
-        bottom.addWidget(self._cache_btn)
-        bottom.addWidget(self._cache_size_label)
-        bottom.addSpacing(2)
         bottom.addWidget(self._clear_btn)
 
         root.addSpacing(5)
@@ -404,15 +392,8 @@ class EditorPanel(QWidget):
             f"width: {S.SLIDER_HANDLE_W}px; margin: -{S.SLIDER_HANDLE_MARGIN}px 0; }}"
         )
 
-        self._cache_size_label.setStyleSheet(
-            f"color: {t.text_hint}; font-size: {S.FONT_LABEL}px;")
-
         # Refresh icon colors — muted to match mockup
-        for btn, icon in [
-            (self._clear_btn, Icons.ERASER),
-            (self._cache_btn, Icons.TRASH),
-        ]:
-            btn.setIcon(qta.icon(icon, color=t.text_hint))
+        self._clear_btn.setIcon(qta.icon(Icons.ERASER, color=t.text_hint))
 
         self._zoom_out_btn.setIcon(qta.icon(Icons.ZOOM_OUT, color=t.text_hint))
         self._zoom_in_btn.setIcon(qta.icon(Icons.ZOOM_IN, color=t.text_hint))
@@ -421,7 +402,6 @@ class EditorPanel(QWidget):
         self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=_shuf_color))
 
         self._update_view_buttons()
-        self._update_cache_size()
 
     # ------------------------------------------------------------------
     # View mode
@@ -758,24 +738,6 @@ class EditorPanel(QWidget):
         return non_reserve + reserve
 
     # ------------------------------------------------------------------
-    # Cache
-    # ------------------------------------------------------------------
-
-    def _update_cache_size(self):
-        size = CacheManager().size()
-        if size > 0:
-            self._cache_btn.setVisible(True)
-            self._cache_size_label.setText(CacheManager.format_size(size))
-            self._cache_size_label.setVisible(True)
-        else:
-            self._cache_btn.setVisible(False)
-            self._cache_size_label.setVisible(False)
-
-    def _clear_cache(self):
-        CacheManager().clear()
-        self._update_cache_size()
-
-    # ------------------------------------------------------------------
     # Zoom
     # ------------------------------------------------------------------
 
@@ -1038,20 +1000,6 @@ class EditorPanel(QWidget):
                 self.images.append(ImageItem(path=p, timer=timer))
             self._rebuild()
             self._emit()
-
-    def _add_from_url(self):
-        from ui.url_dialog import UrlDialog
-        dlg = UrlDialog(self.theme, timer=self._default_add_timer(), parent=self)
-        dlg.images_loaded.connect(self._on_url_images)
-        dlg.exec()
-
-    def _on_url_images(self, images):
-        for img in images:
-            self.images.append(img)
-        self._pix_cache.clear()
-        self._rebuild()
-        self._emit()
-        self._update_cache_size()
 
     def _toggle_shuffle(self):
         self._shuffle = not self._shuffle

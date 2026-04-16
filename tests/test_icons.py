@@ -21,7 +21,6 @@ def test_theme_toggle():
 def test_editor_icons():
     assert Icons.ADD_FILE == "ph.file-plus-bold"
     assert Icons.ADD_FOLDER == "ph.folder-plus-bold"
-    assert Icons.ADD_URL == "ph.link-bold"
     assert Icons.ERASER == "ph.eraser-bold"
     assert Icons.CLOSE == "ph.x-bold"
     assert Icons.DETACH == "ph.arrow-square-out-bold"

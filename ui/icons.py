@@ -34,7 +34,6 @@ class Icons:
     # Editor toolbar
     ADD_FILE = "ph.file-plus-bold"
     ADD_FOLDER = "ph.folder-plus-bold"
-    ADD_URL = "ph.link-bold"
     ERASER = "ph.eraser-bold"
     CLOSE = "ph.x-bold"
     MINIMIZE = "ph.minus-bold"
