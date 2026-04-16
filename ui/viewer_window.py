@@ -237,7 +237,7 @@ class ViewerWindow(QWidget):
 
         # Extend hint — shown above timer during warning state
         self._extend_hint = QLabel(self)
-        self._extend_hint.setText("+ extend")
+        self._extend_hint.setText("+ to extend")
         self._extend_hint.setStyleSheet(
             f"color: rgba(204,192,174,150); font-family: 'Lexend'; font-size: {S.FONT_COUNTER}px; background: transparent;")
         self._extend_hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
