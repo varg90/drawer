@@ -19,7 +19,7 @@ Delete to..delete
 Eraser clears the file list
 Toggle shuffle to unlock manual reorder
 Rmk to redistribute or pin files 
-File manager can be dettached and resized
+File manager can be detached and resized
 
 Contact info - valerianashot@gmail.com
 Claude did the job, I complained and picked icons. My husband Alex brewed coffee and allowed me to waste tokens. My cat Bulka meowed.

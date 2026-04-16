@@ -594,6 +594,12 @@ class ViewerWindow(QWidget):
             bump = 60
         else:
             bump = 300
+        # Cap bump so countdown never exceeds session remaining time
+        if self._session_limit:
+            remaining = self._session_limit - self._session_elapsed
+            bump = min(bump, remaining - self._countdown)
+            if bump <= 0:
+                return
         self._countdown += bump
         self._total_time += bump
         self._update_timer_display()

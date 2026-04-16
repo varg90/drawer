@@ -39,9 +39,6 @@ class _ColorLine(QWidget):
         QPainter(self).fillRect(self.rect(), self._color)
 
 
-def _short_label(secs):
-    """Alias for backward compatibility with group headers."""
-    return short_label(secs)
 
 
 def _sort_group_items(items):
@@ -499,7 +496,7 @@ class EditorPanel(QWidget):
                 header_text = f"Reserve · {len(items)}"
                 header_style = self._header_reserve_style
             else:
-                header_text = f"{_short_label(timer_val)} · {len(items)}"
+                header_text = f"{short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
             header = QPushButton(header_text, self._list_container)
@@ -583,7 +580,7 @@ class EditorPanel(QWidget):
                 header_text = f"Reserve · {len(items)}"
                 header_style = self._header_reserve_style
             else:
-                header_text = f"{_short_label(timer_val)} · {len(items)}"
+                header_text = f"{short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
             header = QPushButton(header_text, self._grid_container)
