@@ -504,11 +504,19 @@ class ViewerWindow(QWidget):
         idx_timer = self._hover_widgets.index(self._timer_label)
         idx_hint = self._hover_widgets.index(self._extend_hint)
         # Only change color, not font-size (font-size managed by resizeEvent)
+        # Extending is useless if session limit would cut us off anyway
+        session_remaining = (self._session_limit - self._session_elapsed
+                             if self._session_limit else None)
+        extend_useful = session_remaining is None or session_remaining > self._countdown
+
         if self._is_warning:
             self._timer_color = "rgba(230,120,100,200)"
             self._opacity_effects[idx_timer].setOpacity(1.0)
-            self._extend_hint.show()
-            self._opacity_effects[idx_hint].setOpacity(1.0)
+            if extend_useful:
+                self._extend_hint.show()
+                self._opacity_effects[idx_hint].setOpacity(1.0)
+            else:
+                self._extend_hint.hide()
         else:
             self._timer_color = "rgba(204,192,174,255)"
             self._extend_hint.hide()
