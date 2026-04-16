@@ -580,6 +580,11 @@ class ViewerWindow(QWidget):
         """Add time to the current image based on its original timer tier."""
         if not self._play_order:
             return
+        # Don't extend if session limit would cut us off anyway
+        if self._session_limit:
+            remaining = self._session_limit - self._session_elapsed
+            if remaining <= self._countdown:
+                return
         img = self._images[self._play_order[self._current_idx]]
         original = img.timer
         if original <= 120:
