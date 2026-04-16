@@ -238,8 +238,9 @@ class ViewerWindow(QWidget):
         # Extend hint — shown above timer during warning state
         self._extend_hint = QLabel(self)
         self._extend_hint.setText("+ to extend")
+        self._current_font_hint = max(7, round(S.FONT_TIMER * 0.55))
         self._extend_hint.setStyleSheet(
-            f"color: rgba(230,120,100,150); font-family: 'Lexend'; font-size: {S.FONT_COUNTER}px; background: transparent;")
+            f"color: rgba(230,120,100,150); font-family: 'Lexend'; font-size: {self._current_font_hint}px; background: transparent;")
         self._extend_hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._extend_hint.hide()
 
@@ -373,7 +374,7 @@ class ViewerWindow(QWidget):
         self._timer_label.setAlignment(timer_align)
 
         # Extend hint sits above the timer, same x-position and alignment
-        hint_h = max(12, round(S.FONT_COUNTER * sc))
+        hint_h = max(10, self._current_font_hint + 2)
         self._extend_hint.setGeometry(timer_x, bottom_y - hint_h, timer_w, hint_h)
         self._extend_hint.setAlignment(timer_align)
 
@@ -845,9 +846,10 @@ class ViewerWindow(QWidget):
             self._counter_label.setStyleSheet(
                 f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
                 f"font-size: {self._current_font_counter}px; background: transparent;")
+            self._current_font_hint = max(7, round(self._current_font_timer * 0.55))
             self._extend_hint.setStyleSheet(
                 f"color: rgba(230,120,100,150); font-family: 'Lexend'; "
-                f"font-size: {self._current_font_counter}px; background: transparent;")
+                f"font-size: {self._current_font_hint}px; background: transparent;")
 
         # Coffee/alarm icon sizes and pixmaps
         icon_lbl = max(16, round(S.VIEWER_ICON_LABEL * scale))
