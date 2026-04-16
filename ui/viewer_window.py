@@ -238,7 +238,7 @@ class ViewerWindow(QWidget):
         # Extend hint — shown above timer during warning state
         self._extend_hint = QLabel(self)
         self._extend_hint.setText("+ to extend")
-        self._current_font_hint = max(7, round(S.FONT_TIMER * 0.55))
+        self._current_font_hint = max(7, round(S.FONT_TIMER * 0.38))
         self._extend_hint.setStyleSheet(
             f"color: rgba(230,120,100,150); font-family: 'Lexend'; font-size: {self._current_font_hint}px; background: transparent;")
         self._extend_hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -839,14 +839,15 @@ class ViewerWindow(QWidget):
         if self._current_font_timer != old_ft or self._current_font_counter != old_fc:
             self._cached_label_widths = None
         if self._current_font_timer != old_ft:
+            timer_color = "rgba(230,120,100,200)" if self._is_warning else "rgba(204,192,174,255)"
             self._timer_label.setStyleSheet(
-                f"color: rgba(204,192,174,255); font-family: Lora; "
+                f"color: {timer_color}; font-family: Lora; "
                 f"font-size: {self._current_font_timer}px; background: transparent;")
         if self._current_font_counter != old_fc:
             self._counter_label.setStyleSheet(
                 f"color: rgba(204,192,174,200); font-family: 'Lexend'; "
                 f"font-size: {self._current_font_counter}px; background: transparent;")
-            self._current_font_hint = max(7, round(self._current_font_timer * 0.55))
+            self._current_font_hint = max(7, round(self._current_font_timer * 0.38))
             self._extend_hint.setStyleSheet(
                 f"color: rgba(230,120,100,150); font-family: 'Lexend'; "
                 f"font-size: {self._current_font_hint}px; background: transparent;")
