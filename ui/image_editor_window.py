@@ -58,6 +58,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         saved_collapsed = None
         saved_pix_cache = None
         if hasattr(self, "_panel") and self._panel is not None:
+            self.__dict__['_view_mode_init'] = self._panel._view_mode
             saved_collapsed = set(self._panel._collapsed_tiers)
             saved_pix_cache = self._panel._pix_cache
 
