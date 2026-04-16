@@ -7,7 +7,7 @@ import logging
 from tkinter import filedialog, BooleanVar
 from PIL import Image, ImageTk
 
-from core.session import APP_DIR  # %APPDATA%/Drawer
+from core.session import APP_DIR, SESSION_FILE  # %APPDATA%/Drawer
 
 # Logging setup
 LOG_FILE = os.path.join(APP_DIR, "app.log")
@@ -32,7 +32,6 @@ TIMER_PRESETS = [
 TIMER_MIN = 1        # 1 second
 TIMER_MAX = 10800    # 3 hours
 
-SESSION_FILE = os.path.join(APP_DIR, "session.json")
 
 
 def auto_warn_seconds(timer_seconds):
