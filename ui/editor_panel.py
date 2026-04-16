@@ -17,9 +17,9 @@ from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPaint
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread
 
 from core.constants import SUPPORTED_FORMATS
-from core.file_utils import filter_image_files, scan_folder
+from core.file_utils import filter_image_files, scan_folder, dedup_paths
 from core.models import ImageItem, DEFAULT_TIMER_SECONDS
-from core.timer_logic import format_time
+from core.timer_logic import format_time, short_label
 from ui.theme import _mix, _darken
 from ui.scales import S
 from ui.icons import Icons
@@ -39,13 +39,6 @@ class _ColorLine(QWidget):
         QPainter(self).fillRect(self.rect(), self._color)
 
 
-def _short_label(secs):
-    """Convert seconds to compact label: 30→'30s', 60→'1m', 3600→'1h'."""
-    if secs >= 3600 and secs % 3600 == 0:
-        return f"{secs // 3600}h"
-    if secs >= 60 and secs % 60 == 0:
-        return f"{secs // 60}m"
-    return f"{secs}s"
 
 
 def _sort_group_items(items):
@@ -149,6 +142,8 @@ def _flow_position(labels, container_width, sz, gap=1):
 class EditorPanel(QWidget):
     """Reusable image editor panel: toolbar, grouped file list, grid view."""
 
+    _PIX_CACHE_MAX = 500
+
     images_updated = pyqtSignal(list)
     close_requested = pyqtSignal()
     shuffle_changed = pyqtSignal(bool)
@@ -164,7 +159,7 @@ class EditorPanel(QWidget):
 
         # Pass `pix_cache` from a previous panel to skip re-loading images
         # from disk across editor recreation (main window resize triggers it).
-        self._pix_cache = dict(pix_cache) if pix_cache is not None else {}
+        self._pix_cache = OrderedDict(pix_cache) if pix_cache is not None else OrderedDict()
         self._loader = None           # PixmapLoader thread
         self._reflow_timer = QTimer(self)
         self._reflow_timer.setSingleShot(True)
@@ -501,7 +496,7 @@ class EditorPanel(QWidget):
                 header_text = f"Reserve · {len(items)}"
                 header_style = self._header_reserve_style
             else:
-                header_text = f"{_short_label(timer_val)} · {len(items)}"
+                header_text = f"{short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
             header = QPushButton(header_text, self._list_container)
@@ -572,12 +567,7 @@ class EditorPanel(QWidget):
             grid.deleteLater()
         self._grid_groups = []
 
-        groups = self._group_by_timer()
-        non_reserve = sorted(
-            [(tv, items) for tv, items in groups.items() if tv != 0],
-            key=lambda g: g[0])
-        reserve = [(tv, items) for tv, items in groups.items() if tv == 0]
-        ordered = non_reserve + reserve
+        ordered = self._ordered_groups()
 
         sz = self._zoom_slider.value()
         insert_pos = 0
@@ -590,7 +580,7 @@ class EditorPanel(QWidget):
                 header_text = f"Reserve · {len(items)}"
                 header_style = self._header_reserve_style
             else:
-                header_text = f"{_short_label(timer_val)} · {len(items)}"
+                header_text = f"{short_label(timer_val)} · {len(items)}"
                 header_style = self._header_style
 
             header = QPushButton(header_text, self._grid_container)
@@ -659,7 +649,11 @@ class EditorPanel(QWidget):
     def _get_pixmap(self, path):
         """Return cached pixmap for path, or null QPixmap if not yet loaded.
         PixmapLoader fills the cache asynchronously after _rebuild()."""
-        return self._pix_cache.get(path, QPixmap())
+        pix = self._pix_cache.get(path)
+        if pix is not None:
+            self._pix_cache.move_to_end(path)
+            return pix
+        return QPixmap()
 
     @staticmethod
     def _tile_pixmap(pix, sz):
@@ -683,6 +677,8 @@ class EditorPanel(QWidget):
     def _on_pixmap_loaded(self, path, image):
         pix = QPixmap.fromImage(image)
         self._pix_cache[path] = pix
+        while len(self._pix_cache) > self._PIX_CACHE_MAX:
+            self._pix_cache.popitem(last=False)
 
         if self._view_mode == "list":
             for _, lw in self._list_groups:
@@ -987,7 +983,7 @@ class EditorPanel(QWidget):
         )
         if paths:
             timer = self._default_add_timer()
-            for p in filter_image_files(paths):
+            for p in dedup_paths(filter_image_files(paths), self.images):
                 self.images.append(ImageItem(path=p, timer=timer))
             self._rebuild()
             self._emit()
@@ -996,7 +992,7 @@ class EditorPanel(QWidget):
         folder = QFileDialog.getExistingDirectory(self, "Select folder")
         if folder:
             timer = self._default_add_timer()
-            for p in scan_folder(folder):
+            for p in dedup_paths(scan_folder(folder), self.images):
                 self.images.append(ImageItem(path=p, timer=timer))
             self._rebuild()
             self._emit()
@@ -1042,12 +1038,13 @@ class EditorPanel(QWidget):
             if url.isLocalFile():
                 path = url.toLocalFile()
                 if os.path.isdir(path):
-                    for p in scan_folder(path):
+                    for p in dedup_paths(scan_folder(path), self.images):
                         self.images.append(ImageItem(path=p, timer=timer))
                         added = True
                 elif any(path.lower().endswith(e) for e in SUPPORTED_FORMATS):
-                    self.images.append(ImageItem(path=path, timer=timer))
-                    added = True
+                    if dedup_paths([path], self.images):
+                        self.images.append(ImageItem(path=path, timer=timer))
+                        added = True
         if added:
             self._rebuild()
             self._emit()

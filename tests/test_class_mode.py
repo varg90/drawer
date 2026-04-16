@@ -88,13 +88,13 @@ def test_total_duration_empty():
 
 
 def test_format_group_seconds():
-    assert format_group(5, 30) == "5 × 30 сек"
+    assert format_group(5, 30) == "5 × 30s"
 
 
 def test_format_group_minutes():
-    assert format_group(3, 120) == "3 × 2 мин"
-    assert format_group(2, 300) == "2 × 5 мин"
+    assert format_group(3, 120) == "3 × 2m"
+    assert format_group(2, 300) == "2 × 5m"
 
 
 def test_format_group_hours():
-    assert format_group(1, 3600) == "1 × 1ч 0мин"
+    assert format_group(1, 3600) == "1 × 1h"

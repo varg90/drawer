@@ -56,11 +56,6 @@ def total_duration(groups):
 
 
 def format_group(count, timer_seconds):
-    """Format a group for display: '5 × 30 сек'"""
-    if timer_seconds >= 3600:
-        t = f"{timer_seconds // 3600}ч {(timer_seconds % 3600) // 60}мин"
-    elif timer_seconds >= 60:
-        t = f"{timer_seconds // 60} мин"
-    else:
-        t = f"{timer_seconds} сек"
-    return f"{count} × {t}"
+    """Format a group for display: '5 × 30s'"""
+    from core.timer_logic import short_label
+    return f"{count} \u00d7 {short_label(timer_seconds)}"

@@ -1,4 +1,4 @@
-SUPPORTED_FORMATS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
+SUPPORTED_FORMATS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif")
 
 TIMER_PRESETS = [
     (30, "30s"),

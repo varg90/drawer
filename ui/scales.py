@@ -201,22 +201,6 @@ class S(metaclass=_SMeta):
     FONT_FOCUS_BTN = 9
     FOCUS_DROPDOWN_MAX = 10
 
-    # URL dialog
-    URL_DLG_MIN_W = 400
-    URL_DLG_MARGIN_H = 16
-    URL_DLG_MARGIN_V = 12
-    URL_DLG_SPACING = 8
-    URL_ROW_SPACING = 6
-    URL_FILE_LIST_MIN_H = 200
-    URL_PREVIEW_SIZE = 48
-    URL_INPUT_PADDING = 6
-    URL_INPUT_FONT = 11
-    URL_BTN_FONT = 10
-    URL_BTN_PADDING_V = 3
-    URL_BTN_PADDING_H = 6
-    URL_LIST_ITEM_PADDING = 3
-    URL_PROGRESS_H = 8
-
     # Widgets / misc
     BORDER_WIDTH = 1
 

@@ -5,13 +5,13 @@ import weakref
 import qtawesome as qta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QFileDialog, QScrollArea, QLabel)
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import (QColor, QLinearGradient, QPainter, QPainterPath,
                          QDragEnterEvent, QDropEvent, QIcon, QPixmap)
 from PyQt6.QtCore import QRectF
 from core.constants import SUPPORTED_FORMATS
 from core.class_mode import groups_to_timers
-from core.file_utils import filter_image_files, scan_folder
+from core.file_utils import filter_image_files, scan_folder, dedup_paths
 from core.session import save_session, load_session
 from core.models import ImageItem
 from ui.theme import Theme
@@ -80,6 +80,12 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._restore_session()
         self.setAcceptDrops(True)
         install_resize_cursor_guard(self)
+
+        # Auto-save session every 60 seconds
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.setInterval(60_000)
+        self._autosave_timer.timeout.connect(self._save_session)
+        self._autosave_timer.start()
 
     @property
     def _editor_visible(self):
@@ -507,12 +513,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         inner = QVBoxLayout(content)
         inner.setContentsMargins(sc(16), sc(14), sc(16), sc(12))
 
+        from core import __version__
         info_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "info_main.txt")
         try:
             with open(info_path, encoding="utf-8") as f:
-                info_text = f.read().replace("\n", "<br>")
+                info_text = f.read().format(version=__version__).replace("\n", "<br>")
         except FileNotFoundError:
-            info_text = "Drawer 0.3.1"
+            info_text = f"Drawer {__version__}"
         lbl = QLabel(info_text)
         lbl.setStyleSheet(f"color: {t.text_primary}; font-size: {S.FONT_HELP}px;")
         lbl.setWordWrap(True)
@@ -567,13 +574,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         )
         if paths:
             timer = self._timer_panel.get_timer_seconds()
-            for p in filter_image_files(paths):
+            for p in dedup_paths(filter_image_files(paths), self.images):
                 self.images.append(ImageItem(path=p, timer=timer))
             self._on_images_changed()
 
     def _add_folder(self, folder):
         timer = self._timer_panel.get_timer_seconds()
-        for p in scan_folder(folder):
+        for p in dedup_paths(scan_folder(folder), self.images):
             self.images.append(ImageItem(path=p, timer=timer))
         self._on_images_changed()
 
@@ -637,12 +644,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         added = 0
         for p in paths:
             if os.path.isdir(p):
-                for fp in scan_folder(p):
+                for fp in dedup_paths(scan_folder(p), self.images):
                     self.images.append(ImageItem(path=fp, timer=timer))
                     added += 1
             elif os.path.isfile(p) and os.path.splitext(p)[1].lower() in SUPPORTED_FORMATS:
-                self.images.append(ImageItem(path=p, timer=timer))
-                added += 1
+                if dedup_paths([p], self.images):
+                    self.images.append(ImageItem(path=p, timer=timer))
+                    added += 1
         if added:
             self._on_images_changed()
         event.acceptProposedAction()

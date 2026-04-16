@@ -1,4 +1,4 @@
-Drawer 0.4.6
+Drawer {version}
 
 Palette - accent color
 Sun/Moon - theme toggle
@@ -19,8 +19,7 @@ Delete to..delete
 Eraser clears the file list
 Toggle shuffle to unlock manual reorder
 Rmk to redistribute or pin files 
-File manager can be dettached and resized
-(BETA) Google drive and yandex disk url upload (must be public); files remain in cache until manual clearing (peep the bin when filled)
+File manager can be detached and resized
 
 Contact info - valerianashot@gmail.com
 Claude did the job, I complained and picked icons. My husband Alex brewed coffee and allowed me to waste tokens. My cat Bulka meowed.

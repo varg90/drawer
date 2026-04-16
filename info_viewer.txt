@@ -11,6 +11,7 @@ R or grid buttton - rule of thirds grid
 F or horizontal arrows button  - flip horizontal
 V or vertical arrows button - flip vertical
 
++ or = — extend current image timer
 Countdown for per image timer, appears visible when runs out
 Progress bar for session limit (peep the alarm clock symbol when time runs out)
 Drag edges to resize the window
