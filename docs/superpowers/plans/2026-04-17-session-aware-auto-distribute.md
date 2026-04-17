@@ -588,11 +588,415 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 6: Manual smoke test (for Oksana)
+### Task 6 (new — expansion 1): Empty-distribution fix
+
+**Context:** During smoke testing, Oksana found that when `session_limit` is smaller than every selected tier (e.g., 1m limit + only 15m tier), the editor displays phantom tiers populated by stale `.timer` values and the session-limit button vanishes from the bottom bar. Two changes needed.
+
+**Files:**
+- Modify: `ui/settings_window.py`
+- Modify: `ui/bottom_bar.py`
+
+- [ ] **Step 1: `_apply_class_timers` assigns 0 to all non-pinned when groups is empty**
+
+In `ui/settings_window.py`, replace the current `_apply_class_timers` (just updated in Task 4):
+
+```python
+    def _apply_class_timers(self):
+        groups = self._timer_panel.class_groups
+        timers = groups_to_timers(groups) if groups else []
+        idx = 0
+        for img in self.images:
+            if getattr(img, "pinned", False):
+                continue
+            img.timer = timers[idx] if idx < len(timers) else 0
+            idx += 1
+```
+
+Difference vs. Task 4 version: the `if groups:` guard at the top is gone. Now the method always walks all non-pinned images. When `groups` is empty, `timers` is also empty, so every non-pinned image gets `img.timer = 0` (Reserve).
+
+- [ ] **Step 2: Mirror the fix in `_start_slideshow`'s class-mode timer block**
+
+In `ui/settings_window.py`, find the class-mode block in `_start_slideshow` (just updated in Task 4). Today it looks like:
+
+```python
+        elif self._timer_panel.class_groups:
+            timers = groups_to_timers(self._timer_panel.class_groups)
+            idx = 0
+            for img in self.images:
+                if img.pinned:
+                    continue
+                img.timer = timers[idx] if idx < len(timers) else 0
+                idx += 1
+```
+
+Change the condition from `elif self._timer_panel.class_groups:` to `elif mode == "class":` so the loop runs even when class_groups is empty:
+
+```python
+        elif mode == "class":
+            timers = groups_to_timers(self._timer_panel.class_groups)
+            idx = 0
+            for img in self.images:
+                if img.pinned:
+                    continue
+                img.timer = timers[idx] if idx < len(timers) else 0
+                idx += 1
+```
+
+When `class_groups` is empty, `timers` is empty, and every non-pinned image gets `.timer = 0`.
+
+- [ ] **Step 3: `update_summary_class` keeps limit visible when groups is empty**
+
+In `ui/bottom_bar.py`, find `update_summary_class` (around line 145):
+
+```python
+    def update_summary_class(self, image_count, class_groups):
+        if image_count == 0:
+            self._total_label.setText("")
+            self._limit_sep.hide()
+            self._limit_btn.hide()
+        elif class_groups:
+            dur = total_duration(class_groups)
+            self._total_label.setText(format_time(dur))
+            self._limit_sep.show()
+            self._limit_btn.show()
+            self._update_limit_display()
+        else:
+            self._total_label.setText("")
+            self._limit_sep.hide()
+            self._limit_btn.hide()
+```
+
+Change the `else` branch (empty class_groups with images present) to KEEP the limit button visible:
+
+```python
+    def update_summary_class(self, image_count, class_groups):
+        if image_count == 0:
+            self._total_label.setText("")
+            self._limit_sep.hide()
+            self._limit_btn.hide()
+        elif class_groups:
+            dur = total_duration(class_groups)
+            self._total_label.setText(format_time(dur))
+            self._limit_sep.show()
+            self._limit_btn.show()
+            self._update_limit_display()
+        else:
+            # Distribution is empty (budget too small) — still show the limit
+            # so the user can see what's constraining them.
+            self._total_label.setText(format_time(0))
+            self._limit_sep.show()
+            self._limit_btn.show()
+            self._update_limit_display()
+```
+
+- [ ] **Step 4: Sanity check**
+
+Run: `python -c "from ui.settings_window import SettingsWindow; from ui.bottom_bar import BottomBar; print('OK')"`
+Expected: prints `OK`.
+
+- [ ] **Step 5: Full test suite**
+
+Run: `python -m pytest -q`
+Expected: all tests pass.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add ui/settings_window.py ui/bottom_bar.py
+git commit -m "fix: handle empty class_groups — images to Reserve, keep limit visible
+
+Two bugs surfaced by manual smoke test of tiny-budget scenarios
+(e.g., 1m session with only a 15m tier selected):
+
+1. _apply_class_timers and _start_slideshow's class block would skip
+   non-pinned images entirely when class_groups was empty, leaving
+   stale .timer values from a previous distribution. The editor then
+   displayed phantom tiers. Now: empty distribution → every non-pinned
+   image gets .timer = 0 (Reserve).
+
+2. BottomBar.update_summary_class was hiding the session-limit button
+   when class_groups was empty, leaving the user without any visible
+   indicator of what was constraining them. Now: limit stays visible
+   even when distribution is empty.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 7 (new — expansion 2a): Remove `shuffle` parameter from `build_play_order`
+
+**Context:** Shuffle is becoming a button (Task 8). The `shuffle` parameter in `build_play_order` is no longer needed — the input image list IS the play order. Remove the parameter, remove `random.shuffle`, and update tests.
+
+**Files:**
+- Modify: `core/play_order.py`
+- Modify: `tests/test_play_order.py`
+
+- [ ] **Step 1: Update `build_play_order` — drop `shuffle` param and all shuffling**
+
+In `core/play_order.py`, replace the entire function:
+
+```python
+"""Build play order for a Drawer session (pure function, no Qt).
+
+Applies pinned-first ordering within tier groups. Quick mode treats all
+images as one group; class mode groups by img.timer and plays groups
+ascending (30s tier first, 1h tier last).
+"""
+from itertools import groupby
+
+
+def build_play_order(images, *, mode):
+    """Return the list of ImageItem in the order the viewer should show them.
+
+    Rules:
+    - Pinned images come first within each tier group, in pin order.
+    - Non-pinned images follow in the order they appear in the input list
+      (caller is responsible for shuffling the input if variety is desired).
+    - mode="class": tier groups sorted ascending by img.timer. Caller must
+      assign img.timer on every image before calling.
+    - mode="quick": all images in one group.
+    """
+    if mode not in ("quick", "class"):
+        raise ValueError(f"unknown mode: {mode!r}")
+    if not images:
+        return []
+
+    if mode == "class":
+        sorted_by_timer = sorted(images, key=lambda i: i.timer)
+        result = []
+        for _timer, group_iter in groupby(sorted_by_timer, key=lambda i: i.timer):
+            group = list(group_iter)
+            pinned = [img for img in group if img.pinned]
+            unpinned = [img for img in group if not img.pinned]
+            result.extend(pinned + unpinned)
+        return result
+
+    # Quick mode: one group
+    pinned = [img for img in images if img.pinned]
+    unpinned = [img for img in images if not img.pinned]
+    return pinned + unpinned
+```
+
+The `random` import is gone too.
+
+- [ ] **Step 2: Update `tests/test_play_order.py` — remove all shuffle-related tests**
+
+In `tests/test_play_order.py`, update the imports (drop `import random` — no longer needed). Drop these now-obsolete test functions (they test `shuffle=True` behavior that no longer exists):
+
+- `test_quick_no_pinned_shuffle_preserves_set`
+- `test_quick_no_pinned_shuffle_actually_shuffles`
+- `test_quick_pinned_first_rest_shuffled`
+- `test_quick_multiple_pinned_not_shuffled_among_themselves`
+- `test_class_shuffle_only_shuffles_non_pinned_within_tier`
+
+Also update every remaining test that still passes `shuffle=False` or `shuffle=True` — drop that kwarg entirely:
+
+Before:
+```python
+result = build_play_order(images, shuffle=False, mode="quick")
+```
+After:
+```python
+result = build_play_order(images, mode="quick")
+```
+
+Update the `test_unknown_mode_raises` test the same way:
+```python
+def test_unknown_mode_raises():
+    with pytest.raises(ValueError, match="unknown mode"):
+        build_play_order([_img("a.jpg")], mode="bogus")
+```
+
+And `test_empty_list_returns_empty`:
+```python
+def test_empty_list_returns_empty():
+    assert build_play_order([], mode="quick") == []
+    assert build_play_order([], mode="class") == []
+```
+
+- [ ] **Step 3: Run tests**
+
+Run: `python -m pytest tests/test_play_order.py -v`
+Expected: all remaining tests pass (the 5 dropped tests are gone; ~10 remaining).
+
+Run: `python -m pytest -q`
+Expected: FAIL — `ui/settings_window.py` still calls `build_play_order(..., shuffle=self._shuffle, ...)`. That's fixed in Task 8. The play_order tests pass; the settings_window call won't match the new signature until Task 8 lands.
+
+This task intentionally breaks the settings_window call; Task 8 fixes it. DO NOT commit until Task 8 is done — they're one logical unit even though they touch different files.
+
+- [ ] **Step 4: HOLD — do not commit yet.** Proceed directly to Task 8.
+
+---
+
+### Task 8 (new — expansion 2b): Shuffle button in editor + SettingsWindow handler
+
+**Context:** Task 7 made `build_play_order` not take a shuffle param, which broke the `settings_window` call site. This task completes the UI-side change: converts the shuffle toggle to an action button, removes the `_shuffle` state, adds a handler that reorders `self.images` in place.
+
+**Files:**
+- Modify: `ui/editor_panel.py`
+- Modify: `ui/image_editor_window.py`
+- Modify: `ui/settings_window.py`
+
+- [ ] **Step 1: Editor panel — convert shuffle to an action**
+
+In `ui/editor_panel.py`:
+
+Replace the class-level signal (around line 149):
+```python
+    shuffle_changed = pyqtSignal(bool)
+```
+with:
+```python
+    shuffle_clicked = pyqtSignal()
+```
+
+In `__init__` (around line 158), remove the `self._shuffle = shuffle` line entirely. Remove the `shuffle=True` default arg from the constructor signature (around line 151).
+
+In the button construction (around line 296), simplify the button color — it always uses `text_hint` (no more on/off highlighting):
+```python
+        self._shuffle_btn = make_icon_btn(
+            Icons.SHUFFLE, self.theme.text_hint,
+            ...)  # keep other args as-is
+        self._shuffle_btn.clicked.connect(self.shuffle_clicked.emit)
+```
+
+In `apply_theme` (around line 395), drop the `_shuf_color` logic — the button always uses `text_hint`:
+```python
+        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=t.text_hint))
+```
+
+Delete `_toggle_shuffle` method entirely (lines 1000-1005).
+
+- [ ] **Step 2: Image editor window — forward the new signal**
+
+In `ui/image_editor_window.py`:
+
+Replace the class signal (line 22):
+```python
+    shuffle_clicked = pyqtSignal()
+```
+(was `shuffle_changed = pyqtSignal(bool)`)
+
+Remove `shuffle=True` from the `__init__` signature (line 24) and remove `self._shuffle_init = shuffle` in the body.
+
+In the panel construction (around line 97), remove the `shuffle=self._shuffle_init` kwarg.
+
+In the signal forwarding (around line 100):
+```python
+        self._panel.shuffle_clicked.connect(self.shuffle_clicked.emit)
+```
+
+- [ ] **Step 3: SettingsWindow — remove `_shuffle` state, add shuffle handler**
+
+In `ui/settings_window.py`:
+
+Delete the `self._shuffle = True` line (around line 75).
+
+In the editor creation (around line 616), drop the `shuffle=self._shuffle` kwarg:
+```python
+        self.editor = EditorPanel(
+            self.images, self.theme, parent=self, view_mode=view)
+```
+
+Update the signal connection (around line 618):
+```python
+        self.editor.shuffle_clicked.connect(self._on_shuffle_clicked)
+```
+
+Replace the existing `_on_shuffle_changed` method (around line 635) with:
+
+```python
+    def _on_shuffle_clicked(self):
+        """Shuffle button was clicked — reorder non-pinned images in place.
+
+        In class mode, also rebuild the distribution so the editor preview
+        reflects the new ordering. In quick mode, the new list order is the
+        play order for the next session.
+        """
+        import random
+        non_pinned_indices = [i for i, img in enumerate(self.images)
+                              if not getattr(img, "pinned", False)]
+        non_pinned = [self.images[i] for i in non_pinned_indices]
+        random.shuffle(non_pinned)
+        for i, img in zip(non_pinned_indices, non_pinned):
+            self.images[i] = img
+
+        if self._timer_panel.timer_mode == "class":
+            self._reapply_timers()
+        self._update_summary()
+        if self._editor_visible:
+            self.editor.refresh(self.images)
+            self._sync_editor_tiers()
+```
+
+This reorders `self.images` **in-place** while keeping pinned images at their original positions — only non-pinned slots get shuffled.
+
+Update the `_start_slideshow` call sites that used `shuffle=self._shuffle` (two of them from Task 4 / 4-fix, around lines 695–710). Drop the `shuffle` kwarg entirely:
+
+```python
+        if mode == "class":
+            playable = [img for img in self.images if img.timer > 0]
+            if not playable:
+                return
+            show_images = build_play_order(playable, mode=mode)
+        else:
+            show_images = build_play_order(self.images, mode=mode)
+```
+
+Update the session-persistence code — `_save_session` (around line 795): remove the `"shuffle": self._shuffle,` line. `_load_session` (around line 750): remove the `self._shuffle = data.get("shuffle", True)` line. Saved sessions from before this change will have a `"shuffle"` key that is now silently ignored on load, which is safe.
+
+- [ ] **Step 4: Sanity check**
+
+Run: `python -c "from ui.settings_window import SettingsWindow; from ui.editor_panel import EditorPanel; from ui.image_editor_window import ImageEditorWindow; print('OK')"`
+Expected: prints `OK`.
+
+- [ ] **Step 5: Full test suite**
+
+Run: `python -m pytest -q`
+Expected: all tests pass. The Task 7 breakage is now resolved.
+
+- [ ] **Step 6: Commit (single commit for Task 7 + Task 8)**
+
+Because Tasks 7 and 8 form a single logical unit (removing the shuffle parameter breaks the call site until the UI side lands), commit them together:
+
+```bash
+git add core/play_order.py tests/test_play_order.py ui/editor_panel.py ui/image_editor_window.py ui/settings_window.py
+git commit -m "feat: shuffle becomes an action button, unified across modes
+
+Before: shuffle was a persistent toggle. In quick mode it auto-shuffled
+play order at session start. In class mode it shuffled order within a
+tier. Reserve images stayed in Reserve session after session because
+the image-to-tier assignment was positional and nothing ever reordered
+the list.
+
+After: shuffle is an action button. Click it → non-pinned images are
+visibly reordered in self.images. In class mode that also rebuilds the
+distribution so the editor preview reflects the new assignment. No
+persistent shuffle state — deterministic by default; user opts into
+randomness by clicking the button.
+
+Changes:
+- build_play_order: removed shuffle parameter + random import
+- EditorPanel: shuffle_changed signal → shuffle_clicked signal;
+  removed _shuffle state, _toggle_shuffle method
+- ImageEditorWindow: forwards the new signal
+- SettingsWindow: removed _shuffle state; _on_shuffle_clicked handler
+  reorders self.images in place (preserving pinned positions); removed
+  shuffle field from session save/load (legacy saves silently ignored)
+- Tests: dropped 5 shuffle-specific tests; updated remaining to match
+  the new signature
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 9: Manual smoke test (for Oksana, v2 — covers expansions)
 
 **Files:** none modified — user verification only.
 
-This task is not executed by the implementer agent. Leave the instructions below in place so Oksana can run them after all code is merged.
+Run this after Tasks 6, 7, and 8 land. Expanded from the original plan: new scenarios cover the empty-distribution state and shuffle button behavior.
 
 - [ ] **Step 1: Launch app, set up test session**
 
