@@ -19,9 +19,9 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
     """Editor window — always a separate window with magnetic snap."""
     images_updated = pyqtSignal(list)
 
-    shuffle_changed = pyqtSignal(bool)
+    shuffle_clicked = pyqtSignal()
 
-    def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True):
+    def __init__(self, images, theme, parent=None, view_mode="list"):
         QWidget.__init__(self, parent)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
@@ -29,7 +29,6 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self.theme = theme
         self._parent_ref = weakref.ref(parent) if parent else lambda: None
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
-        self._shuffle_init = shuffle
         self.setMinimumSize(base_value("EDITOR_MIN_W"), base_value("EDITOR_MIN_H"))
         self._resizing = False
         self._resize_edge = None
@@ -94,10 +93,10 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         init_view = self.__dict__.get('_view_mode_init', 'list')
         self._panel = EditorPanel(
             self.images, self.theme, parent=self, view_mode=init_view,
-            shuffle=self._shuffle_init, collapsed_tiers=saved_collapsed,
+            collapsed_tiers=saved_collapsed,
             pix_cache=saved_pix_cache)
         self._panel.images_updated.connect(self._on_panel_update)
-        self._panel.shuffle_changed.connect(self.shuffle_changed.emit)
+        self._panel.shuffle_clicked.connect(self.shuffle_clicked.emit)
         self._panel.close_requested.connect(self.close)
         # Connect title bar add buttons to panel methods
         self._add_files_btn.clicked.connect(self._panel._add_files)

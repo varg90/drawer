@@ -72,7 +72,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.theme = Theme("dark")
 
         self._topmost = False
-        self._shuffle = True
 
         self._build_ui()
         self._apply_theme()
@@ -612,9 +611,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         from ui.image_editor_window import ImageEditorWindow
         view = getattr(self, "_last_editor_view", "list")
         self.editor = ImageEditorWindow(
-            self.images, self.theme, parent=self, view_mode=view, shuffle=self._shuffle)
+            self.images, self.theme, parent=self, view_mode=view)
         self.editor.images_updated.connect(self._on_editor_update)
-        self.editor.shuffle_changed.connect(self._on_shuffle_changed)
+        self.editor.shuffle_clicked.connect(self._on_shuffle_clicked)
         pos = self.geometry()
         self.editor.move(pos.right(), pos.top())
         self.editor.resize(S.EDITOR_W, S.MAIN_H)
@@ -631,8 +630,26 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.editor = None
         self.update()  # repaint with all corners rounded
 
-    def _on_shuffle_changed(self, value):
-        self._shuffle = value
+    def _on_shuffle_clicked(self):
+        """Shuffle button was clicked — reorder non-pinned images in place.
+
+        In class mode, also rebuild the distribution so the editor preview
+        reflects the new ordering. In quick mode, the new list order becomes
+        the play order for the next session.
+        """
+        non_pinned_indices = [i for i, img in enumerate(self.images)
+                              if not getattr(img, "pinned", False)]
+        non_pinned = [self.images[i] for i in non_pinned_indices]
+        random.shuffle(non_pinned)
+        for target_i, img in zip(non_pinned_indices, non_pinned):
+            self.images[target_i] = img
+
+        if self._timer_panel.timer_mode == "class":
+            self._reapply_timers()
+        self._update_summary()
+        if self._editor_visible:
+            self.editor.refresh(self.images)
+            self._sync_editor_tiers()
 
     def _on_editor_update(self, images):
         self.images = list(images)
@@ -696,13 +713,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             playable = [img for img in self.images if img.timer > 0]
             if not playable:
                 return  # all images overflowed to Reserve, nothing to play
-            show_images = build_play_order(
-                playable, shuffle=self._shuffle, mode=mode,
-            )
+            show_images = build_play_order(playable, mode=mode)
         else:
-            show_images = build_play_order(
-                self.images, shuffle=self._shuffle, mode=mode,
-            )
+            show_images = build_play_order(self.images, mode=mode)
 
         settings = {
             "order": "sequential",
@@ -747,7 +760,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.images = [img for img in self.images if os.path.isfile(img.path)]
 
         self._topmost = data.get("topmost", False)
-        self._shuffle = data.get("shuffle", True)
         self._last_editor_view = data.get("editor_view", "list")
         self._last_viewer_size = data.get("viewer_size")
         self._last_viewer_at_min = data.get("viewer_at_min", False)
@@ -792,7 +804,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             **timer_state,
             **bottom_state,
             "topmost": self._topmost,
-            "shuffle": self._shuffle,
             "theme": self.theme.name,
             "accent": self.theme.accent,
             "editor_view": (

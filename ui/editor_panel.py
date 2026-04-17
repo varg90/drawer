@@ -146,16 +146,15 @@ class EditorPanel(QWidget):
 
     images_updated = pyqtSignal(list)
     close_requested = pyqtSignal()
-    shuffle_changed = pyqtSignal(bool)
+    shuffle_clicked = pyqtSignal()
 
-    def __init__(self, images, theme, parent=None, view_mode="list", shuffle=True,
+    def __init__(self, images, theme, parent=None, view_mode="list",
                  collapsed_tiers=None, pix_cache=None):
         super().__init__(parent)
         self.images = list(images)
         self.theme = theme
         self._parent = parent
         self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
-        self._shuffle = shuffle
 
         # Pass `pix_cache` from a previous panel to skip re-loading images
         # from disk across editor recreation (main window resize triggers it).
@@ -293,10 +292,10 @@ class EditorPanel(QWidget):
 
         # Shuffle
         self._shuffle_btn = make_icon_btn(
-            Icons.SHUFFLE, self.theme.accent if self._shuffle else self.theme.text_hint,
+            Icons.SHUFFLE, self.theme.text_hint,
             size=bs,
         )
-        self._shuffle_btn.clicked.connect(self._toggle_shuffle)
+        self._shuffle_btn.clicked.connect(self.shuffle_clicked.emit)
 
         # Clear all
         self._clear_btn = make_icon_btn(
@@ -393,8 +392,7 @@ class EditorPanel(QWidget):
         self._zoom_out_btn.setIcon(qta.icon(Icons.ZOOM_OUT, color=t.text_hint))
         self._zoom_in_btn.setIcon(qta.icon(Icons.ZOOM_IN, color=t.text_hint))
 
-        _shuf_color = t.accent if self._shuffle else t.text_hint
-        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=_shuf_color))
+        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=t.text_hint))
 
         self._update_view_buttons()
 
@@ -996,13 +994,6 @@ class EditorPanel(QWidget):
                 self.images.append(ImageItem(path=p, timer=timer))
             self._rebuild()
             self._emit()
-
-    def _toggle_shuffle(self):
-        self._shuffle = not self._shuffle
-        t = self.theme
-        color = t.accent if self._shuffle else t.text_hint
-        self._shuffle_btn.setIcon(qta.icon(Icons.SHUFFLE, color=color))
-        self.shuffle_changed.emit(self._shuffle)
 
     def _clear(self):
         if not self.images:
