@@ -695,8 +695,11 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             return
 
         mode = self._timer_panel.timer_mode
+        session_limit = self._bottom_bar.get_session_limit()
         if mode == "quick":
             timer = self._timer_panel.get_timer_seconds()
+            if session_limit is not None and timer > session_limit:
+                return  # single-image timer exceeds budget, nothing would complete
             for img in self.images:
                 if not img.pinned:
                     img.timer = timer
