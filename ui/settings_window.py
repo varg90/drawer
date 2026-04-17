@@ -178,14 +178,15 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                     img.timer = timer
         else:
             self._reapply_timers()
-        self._update_summary()
-        if self._editor_visible:
-            self.editor.refresh(self.images)
-            self._sync_editor_tiers()
+        self._rebuild_editor_view()
 
     def _on_session_limit_changed(self):
         """Session limit was clicked — rebuild distribution and summary."""
         self._reapply_timers()
+        self._rebuild_editor_view()
+
+    def _rebuild_editor_view(self):
+        """Refresh summary and, if the editor is open, re-render + sync tiers."""
         self._update_summary()
         if self._editor_visible:
             self.editor.refresh(self.images)
@@ -196,14 +197,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         if not self._editor_visible:
             return
         groups = self._timer_panel.class_groups
-        if groups:
-            self.editor._panel._all_tier_timers = [t for _, t in groups]
-        else:
-            self.editor._panel._all_tier_timers = []
+        self.editor._panel._all_tier_timers = [t for _, t in groups] if groups else []
 
     def _apply_class_timers(self):
-        groups = self._timer_panel.class_groups
-        timers = groups_to_timers(groups) if groups else []
+        timers = groups_to_timers(self._timer_panel.class_groups)
         idx = 0
         for img in self.images:
             if getattr(img, "pinned", False):
@@ -646,10 +643,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         if self._timer_panel.timer_mode == "class":
             self._reapply_timers()
-        self._update_summary()
-        if self._editor_visible:
-            self.editor.refresh(self.images)
-            self._sync_editor_tiers()
+        self._rebuild_editor_view()
 
     def _on_editor_update(self, images):
         self.images = list(images)
@@ -693,21 +687,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             return
 
         mode = self._timer_panel.timer_mode
-        # Assign timers before shuffling so tiers stay correct
         if mode == "quick":
             timer = self._timer_panel.get_timer_seconds()
             for img in self.images:
                 if not img.pinned:
                     img.timer = timer
         elif mode == "class":
-            _cg = self._timer_panel.class_groups
-            timers = groups_to_timers(_cg) if _cg else []
-            idx = 0
-            for img in self.images:
-                if img.pinned:
-                    continue
-                img.timer = timers[idx] if idx < len(timers) else 0
-                idx += 1
+            self._apply_class_timers()
 
         if mode == "class":
             playable = [img for img in self.images if img.timer > 0]
