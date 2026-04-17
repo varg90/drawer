@@ -190,6 +190,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._update_summary()
         if self._editor_visible:
             self.editor.refresh(self.images)
+            self._sync_editor_tiers()
 
     def _sync_editor_tiers(self):
         """Push configured tier timer values to editor panel."""
@@ -773,7 +774,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         # Rebuild class-mode groups so images get proper timers
         if self._timer_panel.timer_mode == "class" and self.images:
-            self._timer_panel.auto_distribute(len(self.images))
+            self._timer_panel.auto_distribute(
+                len(self.images),
+                session_limit=self._bottom_bar.get_session_limit(),
+            )
             self._apply_class_timers()
 
         self._update_summary()
