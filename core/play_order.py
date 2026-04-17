@@ -21,7 +21,17 @@ def build_play_order(images, *, shuffle, mode):
         return []
 
     if mode == "class":
-        return list(images)  # class-mode logic arrives in Task 4
+        # Stable sort by timer — within a tier, original list order is preserved.
+        sorted_by_timer = sorted(images, key=lambda i: i.timer)
+        result = []
+        for _timer, group_iter in groupby(sorted_by_timer, key=lambda i: i.timer):
+            group = list(group_iter)
+            pinned = [img for img in group if img.pinned]
+            unpinned = [img for img in group if not img.pinned]
+            if shuffle:
+                random.shuffle(unpinned)
+            result.extend(pinned + unpinned)
+        return result
 
     # Quick mode: one group
     pinned = [img for img in images if img.pinned]
