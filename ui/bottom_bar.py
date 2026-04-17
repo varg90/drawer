@@ -16,6 +16,7 @@ class BottomBar(QWidget):
 
     start_clicked = pyqtSignal()
     add_clicked = pyqtSignal()
+    session_limit_changed = pyqtSignal()
 
     def __init__(self, theme, parent=None):
         super().__init__(parent)
@@ -84,10 +85,12 @@ class BottomBar(QWidget):
     def _next_limit(self):
         self._session_limit_index = (self._session_limit_index + 1) % len(SESSION_LIMIT_PRESETS)
         self._update_limit_display()
+        self.session_limit_changed.emit()
 
     def _prev_limit(self, pos=None):
         self._session_limit_index = (self._session_limit_index - 1) % len(SESSION_LIMIT_PRESETS)
         self._update_limit_display()
+        self.session_limit_changed.emit()
 
     def get_session_limit(self):
         return SESSION_LIMIT_PRESETS[self._session_limit_index][0]

@@ -156,6 +156,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._bottom_bar = BottomBar(self.theme, parent=self)
         self._bottom_bar.start_clicked.connect(self._start_slideshow)
         self._bottom_bar.add_clicked.connect(self._open_editor)
+        self._bottom_bar.session_limit_changed.connect(self._on_session_limit_changed)
         root.addWidget(self._bottom_bar)
 
         # ── Initialize display ─────────────────────────────────────────────
@@ -182,6 +183,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         if self._editor_visible:
             self.editor.refresh(self.images)
             self._sync_editor_tiers()
+
+    def _on_session_limit_changed(self):
+        """Session limit was clicked — rebuild distribution and summary."""
+        self._reapply_timers()
+        self._update_summary()
+        if self._editor_visible:
+            self.editor.refresh(self.images)
 
     def _sync_editor_tiers(self):
         """Push configured tier timer values to editor panel."""
