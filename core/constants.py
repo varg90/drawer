@@ -32,7 +32,7 @@ SESSION_LIMIT_PRESETS = [
 DEFAULT_TIERS = [
     (30, "30 sec"),
     (60, "1 min"),
-    (180, "3 min"),
+    (120, "2 min"),
     (300, "5 min"),
     (600, "10 min"),
 ]

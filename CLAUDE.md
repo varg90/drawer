@@ -18,11 +18,12 @@
 - Paste in terminal: right-click mouse (Ctrl+V doesn't work in Claude Code)
 
 ## Project Setup
-- Working directory: C:\Users\Ellie\sandbox
+- Working directory: C:\Users\Ellie\Drawer
 - Language: Python
-- GUI framework: CustomTkinter (installed)
+- GUI framework: PyQt6 (migrated from CustomTkinter; CustomTkinter no longer used)
 - Entry point: python main.py
-- App type: Drawer — image reference viewer with timers
+- App type: Drawer — image reference/discipline tool with timers (not a general viewer — no zoom/pan/annotations)
+- Current version: 0.5.0
 - Plugin: Superpowers installed
 
 ## Development Workflow
@@ -34,10 +35,9 @@
 6. Always verify code works before presenting to Oksana
 7. Commit every change that pass tests
 
-## Installed Packages
-- customtkinter 5.2.2
-- darkdetect 0.8.0
-- packaging 26.0
+## Installed Packages (see requirements.txt for source of truth)
+- PyQt6 >= 6.6
+- qtawesome >= 1.3
 
 ## Known Quirks
 - pip is not on PATH directly, always use: python -m pip

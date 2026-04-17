@@ -11,6 +11,7 @@ from PyQt6.QtGui import (QColor, QLinearGradient, QPainter, QPainterPath,
 from PyQt6.QtCore import QRectF
 from core.constants import SUPPORTED_FORMATS
 from core.class_mode import groups_to_timers
+from core.play_order import build_play_order
 from core.file_utils import filter_image_files, scan_folder, dedup_paths
 from core.session import save_session, load_session
 from core.models import ImageItem
@@ -676,16 +677,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                     img.timer = timers[idx]
                     idx += 1
 
-        if self._shuffle:
-            pinned = [img for img in self.images if img.pinned]
-            unpinned = [img for img in self.images if not img.pinned]
-            random.shuffle(unpinned)
-            show_images = unpinned + pinned
-        else:
-            show_images = list(self.images)
-
-        if mode == "class" and self._timer_panel.class_groups:
-            show_images.sort(key=lambda img: img.timer)
+        show_images = build_play_order(
+            self.images, shuffle=self._shuffle, mode=mode,
+        )
 
         settings = {
             "order": "sequential",
