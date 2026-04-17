@@ -26,4 +26,6 @@ def build_play_order(images, *, shuffle, mode):
     # Quick mode: one group
     pinned = [img for img in images if img.pinned]
     unpinned = [img for img in images if not img.pinned]
+    if shuffle:
+        random.shuffle(unpinned)
     return pinned + unpinned

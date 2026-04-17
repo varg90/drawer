@@ -1,4 +1,5 @@
 import sys, os
+import random
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from core.models import ImageItem
@@ -50,3 +51,54 @@ def test_quick_all_pinned():
     ]
     result = build_play_order(images, shuffle=False, mode="quick")
     assert [i.path for i in result] == ["x.jpg", "y.jpg"]
+
+
+def test_quick_no_pinned_shuffle_preserves_set():
+    random.seed(42)
+    images = [_img(f"{c}.jpg") for c in "abcdefghij"]
+    result = build_play_order(images, shuffle=True, mode="quick")
+    # Same images, possibly different order
+    assert set(i.path for i in result) == set(i.path for i in images)
+    assert len(result) == len(images)
+
+
+def test_quick_no_pinned_shuffle_actually_shuffles():
+    """With 10 images and a fixed seed, shuffled order should differ from input."""
+    random.seed(0)
+    images = [_img(f"{c}.jpg") for c in "abcdefghij"]
+    result = build_play_order(images, shuffle=True, mode="quick")
+    assert [i.path for i in result] != [i.path for i in images]
+
+
+def test_quick_pinned_first_rest_shuffled():
+    random.seed(1)
+    images = [
+        _img("a.jpg"),
+        _img("P.jpg", pinned=True),
+        _img("b.jpg"),
+        _img("c.jpg"),
+        _img("d.jpg"),
+    ]
+    result = build_play_order(images, shuffle=True, mode="quick")
+    # Pinned first, regardless of shuffle
+    assert result[0].path == "P.jpg"
+    # Remaining four are the non-pinned set
+    assert set(i.path for i in result[1:]) == {"a.jpg", "b.jpg", "c.jpg", "d.jpg"}
+
+
+def test_quick_multiple_pinned_not_shuffled_among_themselves():
+    """Pinned images keep their pin order even when shuffle=True."""
+    random.seed(2)
+    images = [
+        _img("a.jpg"),
+        _img("P1.jpg", pinned=True),
+        _img("b.jpg"),
+        _img("P2.jpg", pinned=True),
+        _img("c.jpg"),
+    ]
+    # Run several times to be confident order is deterministic for pinned
+    for seed in range(5):
+        random.seed(seed)
+        result = build_play_order(images, shuffle=True, mode="quick")
+        assert result[0].path == "P1.jpg"
+        assert result[1].path == "P2.jpg"
