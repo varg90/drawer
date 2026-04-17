@@ -11,7 +11,7 @@ Across specs #1 and #2 we accumulated several pinning-related behaviors that nev
 1. **Pinned images kept their own timer** across mode switches and tier changes. This led to "stranded" pinned images (e.g., a pinned 15m image appearing in a quick 1m session as a phantom 15m group in the editor).
 2. **Pinning in class mode had weak semantics.** It guaranteed neither inclusion (pinned image could still end up in Reserve via positional walk) nor tier placement (positional walk assigned tier independent of pin). The pin flag mostly controlled "play first within tier" — a subtle priority that didn't match the user's mental model of "pin = include this for sure."
 3. **Shuffle preservation of pin position + positional tier assignment** created a soft, position-dependent guarantee that was hard to explain.
-4. **Move-to-group context menu** auto-pinned the image and set its timer — a side effect users didn't expect, documented in the auto-pin-on-move deferred feedback.
+4. **Move-to-group context menu** auto-pinned the image and set its timer — a side effect users didn't expect, documented in the auto-pin-on-move deferred feedback. Under this design, the submenu is removed entirely (see Code changes).
 
 The original spec #3 idea was to add pinned-aware session budgeting (subtract pinned timers from the distribution budget). Through this brainstorming round, we concluded that spec was treating a symptom rather than the cause — the real fix is to simplify what pinning *means*.
 
@@ -48,12 +48,11 @@ No migration needed. Existing saved sessions with pinned images load fine; the p
 - **Timer assignment:** every image (pinned or not) gets the current quick-mode timer on any relevant trigger (image add/remove, preset change, mode switch to quick, shuffle).
 - **Play order:** pinned images play first, in pin order, followed by non-pinned in list order (or shuffled order if the user has clicked shuffle — the shuffle rework from spec #2 preserves pinned positions).
 - **Editor display:** tier grouping is by `img.timer`. In quick mode all images share the same timer, so they land in one group. Pinned shown first within that group (matches play order).
-- **Move-to-group context menu: hidden.** In quick mode there are no tiers to move between, and any timer the submenu could set would be immediately overwritten by the quick-mode timer reassignment. The menu entry has no useful effect, so it should not appear.
 
 ### Class mode
 
 - **Pin button hidden.** The editor's per-image context menu does not show a "Pin" / "Unpin" entry in class mode.
-- **Move-to-group context menu hidden.** The "Move to [tier]" entries are also hidden (under this design, moving to a specific tier is pointless — the next positional redistribute overwrites the timer — so the menu option would be broken).
+- **Context menu is empty in class mode** — with both pin and move-to-group gone, the right-click context menu on an image has no actions to show. The menu should simply not open in class mode.
 - **Timer assignment:** every image (whether `pinned` is True or False) gets a timer from the positional walk in `_apply_class_timers`. The pin flag is not consulted.
 - **Play order:** pure tier-ascending, list-order within each tier. No pin-priority sort.
 - **Shuffle:** shuffles all images in `self.images` (no pinned-position preservation in class mode). This is different from quick mode, where shuffle preserves pinned positions.
@@ -62,10 +61,10 @@ No migration needed. Existing saved sessions with pinned images load fine; the p
 
 ### `ui/editor_panel.py`
 
-1. In the context-menu builder for an image (`_build_img_menu` or equivalent), conditionally hide entries based on mode:
-   - **Class mode:** hide both the "Pin" action and the "Move to group" submenu.
-   - **Quick mode:** hide the "Move to group" submenu (broken under the new model — see Quick mode section). Keep the "Pin" action.
-2. In `_sort_group_items` (used for editor display ordering within tier groups), make the behavior mode-aware: in class mode, skip the pinned-first sort — return items in their natural list order. In quick mode, keep the current pinned-first sort.
+1. **Remove the "Move to group" submenu entirely** from the context-menu builder (`_build_img_menu` or equivalent). Also remove the code path in `_handle_menu_action` that handled the tier-timer assignment (`img.timer = action.data(); img.pinned = True`). This submenu was useful only under the old "pinned = locks tier" semantic and has no role under this design.
+2. **In class mode, suppress the context menu entirely.** With move-to-group removed and pin hidden in class mode, the menu has no actions to show. The right-click handler should early-return when `timer_mode == "class"`.
+3. **In quick mode, the context menu contains just the Pin/Unpin action.** No code change here beyond whatever falls out of removing the move-to-group branch.
+4. In `_sort_group_items` (used for editor display ordering within tier groups), make the behavior mode-aware: in class mode, skip the pinned-first sort — return items in their natural list order. In quick mode, keep the current pinned-first sort.
 
 ### `ui/settings_window.py`
 
@@ -105,7 +104,7 @@ No migration needed. Existing saved sessions with pinned images load fine; the p
 1. Launch app. Add 20+ images.
 2. **Quick mode, pin behavior:** set quick timer to 30s. Pin one image. Start session. Verify pinned image plays first for 30s.
 3. **Quick mode, preset change:** change quick timer to 2m. Verify editor shows all images (including pinned) in the 2m group. Start session. Verify pinned image plays first for 2m (not 30s from before).
-4. **Switch to class mode:** tier selection any mix. Verify the pin context-menu entry is absent in the per-image right-click. Verify move-to-group submenu is also absent.
+4. **Switch to class mode:** tier selection any mix. Verify right-clicking an image shows no context menu at all (nothing to configure per-image in class mode).
 5. **Class mode play order:** start session. Verify play order is tier-ascending, list-order-within-tier, regardless of any `pinned=True` images from earlier.
 6. **Class mode shuffle:** click shuffle. Verify all images (including previously-pinned ones) reshuffle.
 7. **Switch back to quick:** verify the image you pinned earlier is still pinned (pin UI state preserved). Start — pinned plays first.
