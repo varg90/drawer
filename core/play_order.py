@@ -19,4 +19,11 @@ def build_play_order(images, *, shuffle, mode):
     """
     if not images:
         return []
-    return list(images)
+
+    if mode == "class":
+        return list(images)  # class-mode logic arrives in Task 4
+
+    # Quick mode: one group
+    pinned = [img for img in images if img.pinned]
+    unpinned = [img for img in images if not img.pinned]
+    return pinned + unpinned
