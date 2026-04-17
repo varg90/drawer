@@ -154,9 +154,13 @@ class BottomBar(QWidget):
             self._limit_btn.show()
             self._update_limit_display()
         else:
-            self._total_label.setText("")
-            self._limit_sep.hide()
-            self._limit_btn.hide()
+            # Distribution is empty (budget too small for any selected
+            # tier). Show 0:00 total and keep the limit visible so the
+            # user can see what's constraining them.
+            self._total_label.setText(format_time(0))
+            self._limit_sep.show()
+            self._limit_btn.show()
+            self._update_limit_display()
 
     # ------------------------------------------------------------------ Theme
 

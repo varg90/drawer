@@ -204,14 +204,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _apply_class_timers(self):
         groups = self._timer_panel.class_groups
-        if groups:
-            timers = groups_to_timers(groups)
-            idx = 0
-            for img in self.images:
-                if getattr(img, "pinned", False):
-                    continue
-                img.timer = timers[idx] if idx < len(timers) else 0
-                idx += 1
+        timers = groups_to_timers(groups) if groups else []
+        idx = 0
+        for img in self.images:
+            if getattr(img, "pinned", False):
+                continue
+            img.timer = timers[idx] if idx < len(timers) else 0
+            idx += 1
 
     def _reapply_timers(self):
         """Re-run current mode's timer assignment on self.images. Call
@@ -683,8 +682,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             for img in self.images:
                 if not img.pinned:
                     img.timer = timer
-        elif self._timer_panel.class_groups:
-            timers = groups_to_timers(self._timer_panel.class_groups)
+        elif mode == "class":
+            _cg = self._timer_panel.class_groups
+            timers = groups_to_timers(_cg) if _cg else []
             idx = 0
             for img in self.images:
                 if img.pinned:
@@ -692,7 +692,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                 img.timer = timers[idx] if idx < len(timers) else 0
                 idx += 1
 
-        if mode == "class" and self._timer_panel.class_groups:
+        if mode == "class":
             playable = [img for img in self.images if img.timer > 0]
             if not playable:
                 return  # all images overflowed to Reserve, nothing to play
