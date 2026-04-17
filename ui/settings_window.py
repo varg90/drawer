@@ -683,12 +683,17 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
                 img.timer = timers[idx] if idx < len(timers) else 0
                 idx += 1
 
-        playable = [img for img in self.images if img.timer > 0]
-        if not playable:
-            return  # all images overflowed to Reserve, nothing to play
-        show_images = build_play_order(
-            playable, shuffle=self._shuffle, mode=mode,
-        )
+        if mode == "class" and self._timer_panel.class_groups:
+            playable = [img for img in self.images if img.timer > 0]
+            if not playable:
+                return  # all images overflowed to Reserve, nothing to play
+            show_images = build_play_order(
+                playable, shuffle=self._shuffle, mode=mode,
+            )
+        else:
+            show_images = build_play_order(
+                self.images, shuffle=self._shuffle, mode=mode,
+            )
 
         settings = {
             "order": "sequential",
