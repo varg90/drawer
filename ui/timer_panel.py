@@ -185,13 +185,14 @@ class TimerPanel(QWidget):
 
     # ------------------------------------------------------------------ Auto-distribute
 
-    def auto_distribute(self, image_count):
+    def auto_distribute(self, image_count, session_limit=None):
         """Run auto-distribute for class mode. Returns groups list."""
         if not image_count:
             self._class_groups = []
             return
         self._class_groups = auto_distribute(
-            image_count, custom_tiers=self.get_selected_tiers())
+            image_count, custom_tiers=self.get_selected_tiers(),
+            session_limit=session_limit)
 
     @property
     def class_groups(self):
