@@ -6,7 +6,7 @@ from core.class_mode import auto_distribute
 from ui.scales import S
 from ui.widgets import make_timer_btn, timer_btn_style
 
-ALL_TIERS = [(30, "30s"), (60, "1m"), (180, "3m"),
+ALL_TIERS = [(30, "30s"), (60, "1m"), (120, "2m"),
              (300, "5m"), (600, "10m"), (900, "15m"),
              (1800, "30m"), (3600, "1h")]
 
