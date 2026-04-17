@@ -197,10 +197,12 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         groups = self._timer_panel.class_groups
         if groups:
             timers = groups_to_timers(groups)
-            for i, img in enumerate(self.images):
+            idx = 0
+            for img in self.images:
                 if getattr(img, "pinned", False):
                     continue
-                img.timer = timers[i] if i < len(timers) else timers[-1]
+                img.timer = timers[idx] if idx < len(timers) else 0
+                idx += 1
 
     def _reapply_timers(self):
         """Re-run current mode's timer assignment on self.images. Call
@@ -208,7 +210,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         right tier in class mode instead of sitting at the add-time
         default."""
         if self._timer_panel.timer_mode == "class" and self.images:
-            self._timer_panel.auto_distribute(len(self.images))
+            self._timer_panel.auto_distribute(
+                len(self.images),
+                session_limit=self._bottom_bar.get_session_limit(),
+            )
             self._apply_class_timers()
 
     def _update_summary(self):
@@ -673,12 +678,16 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             timers = groups_to_timers(self._timer_panel.class_groups)
             idx = 0
             for img in self.images:
-                if not img.pinned and idx < len(timers):
-                    img.timer = timers[idx]
-                    idx += 1
+                if img.pinned:
+                    continue
+                img.timer = timers[idx] if idx < len(timers) else 0
+                idx += 1
 
+        playable = [img for img in self.images if img.timer > 0]
+        if not playable:
+            return  # all images overflowed to Reserve, nothing to play
         show_images = build_play_order(
-            self.images, shuffle=self._shuffle, mode=mode,
+            playable, shuffle=self._shuffle, mode=mode,
         )
 
         settings = {
