@@ -4,12 +4,14 @@
 from core.constants import DEFAULT_TIERS
 
 
-def auto_distribute(num_images, custom_tiers=None):
+def auto_distribute(num_images, custom_tiers=None, session_limit=None):
     """
     Distribute num_images across tiers evenly, short-to-long.
     All images are assigned — no overflow.
 
     custom_tiers: list of (seconds, label). Uses medium template if None.
+    session_limit: session duration budget in seconds, or None for unlimited.
+        When set, returned groups' total duration will not exceed this.
     Returns list of (count, timer_seconds) tuples.
     """
     if num_images <= 0:

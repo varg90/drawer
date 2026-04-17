@@ -98,3 +98,14 @@ def test_format_group_minutes():
 
 def test_format_group_hours():
     assert format_group(1, 3600) == "1 × 1h"
+
+
+def test_auto_distribute_session_limit_none_matches_legacy():
+    """With session_limit=None, auto_distribute must behave identically to
+    the current (legacy) implementation. Regression safety for all existing
+    callers that don't pass session_limit."""
+    tiers = [(30, "30s"), (60, "1m"), (300, "5m")]
+    result_none = auto_distribute(10, custom_tiers=tiers, session_limit=None)
+    result_legacy = auto_distribute(10, custom_tiers=tiers)  # no kw at all
+    assert result_none == result_legacy
+    assert sum(c for c, _ in result_none) == 10
