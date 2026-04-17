@@ -170,15 +170,25 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _on_timer_config_changed(self):
         """TimerPanel changed mode, preset, or tiers — update images and summary."""
-        mode = self._timer_panel.timer_mode
-        if mode == "quick":
+        self._apply_timers_for_mode()
+        self._rebuild_editor_view()
+
+    def _apply_timers_for_mode(self):
+        """Assign per-image timers appropriate for the current mode.
+
+        Quick mode: every non-pinned image gets the current quick-mode timer.
+        Class mode: redistribute (may send some images to Reserve if budget
+        is tight).
+
+        Pinned images keep their existing .timer in both modes.
+        """
+        if self._timer_panel.timer_mode == "quick":
             timer = self._timer_panel.get_timer_seconds()
             for img in self.images:
                 if not getattr(img, "pinned", False):
                     img.timer = timer
         else:
             self._reapply_timers()
-        self._rebuild_editor_view()
 
     def _on_session_limit_changed(self):
         """Session limit was clicked — rebuild distribution and summary."""
@@ -641,18 +651,16 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         for target_i, img in zip(non_pinned_indices, non_pinned):
             self.images[target_i] = img
 
-        if self._timer_panel.timer_mode == "class":
-            self._reapply_timers()
+        self._apply_timers_for_mode()
         self._rebuild_editor_view()
 
     def _on_editor_update(self, images):
         self.images = list(images)
         before = [img.timer for img in self.images]
-        self._reapply_timers()
+        self._apply_timers_for_mode()
         self._update_summary()
-        # Skip the editor refresh unless a class-mode redistribute actually
-        # changed any per-image timer. Keeps reorders in quick mode from
-        # paying a double-rebuild cost.
+        # Skip the editor refresh unless timers actually changed (quick-mode
+        # reorders with no pin-state change produce no timer delta).
         if any(img.timer != t for img, t in zip(self.images, before)):
             self.editor.refresh(self.images)
 
