@@ -1,5 +1,6 @@
 import sys, os
 import random
+import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from core.models import ImageItem
@@ -8,6 +9,11 @@ from core.play_order import build_play_order
 
 def _img(path, timer=300, pinned=False):
     return ImageItem(path=path, timer=timer, pinned=pinned)
+
+
+def test_unknown_mode_raises():
+    with pytest.raises(ValueError, match="unknown mode"):
+        build_play_order([_img("a.jpg")], shuffle=False, mode="bogus")
 
 
 def test_empty_list_returns_empty():
@@ -88,7 +94,6 @@ def test_quick_pinned_first_rest_shuffled():
 
 def test_quick_multiple_pinned_not_shuffled_among_themselves():
     """Pinned images keep their pin order even when shuffle=True."""
-    random.seed(2)
     images = [
         _img("a.jpg"),
         _img("P1.jpg", pinned=True),
@@ -96,7 +101,6 @@ def test_quick_multiple_pinned_not_shuffled_among_themselves():
         _img("P2.jpg", pinned=True),
         _img("c.jpg"),
     ]
-    # Run several times to be confident order is deterministic for pinned
     for seed in range(5):
         random.seed(seed)
         result = build_play_order(images, shuffle=True, mode="quick")

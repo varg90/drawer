@@ -14,9 +14,13 @@ def build_play_order(images, *, shuffle, mode):
     Rules:
     - Pinned images come first within each tier group, in pin order.
     - Non-pinned images follow; shuffled if shuffle=True, else list order.
-    - mode="class": tier groups sorted ascending by img.timer.
+    - mode="class": tier groups sorted ascending by img.timer. Caller must
+      assign img.timer on every image before calling (settings_window's
+      _start_slideshow does this immediately before the call).
     - mode="quick": all images in one group.
     """
+    if mode not in ("quick", "class"):
+        raise ValueError(f"unknown mode: {mode!r}")
     if not images:
         return []
 
