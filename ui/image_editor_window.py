@@ -145,6 +145,8 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self._panel.refresh(images)
 
     def set_timer_mode(self, mode):
+        if mode not in ("quick", "class"):
+            return
         self._timer_mode_init = mode
         if self._panel is not None:
             self._panel.set_timer_mode(mode)

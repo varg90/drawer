@@ -171,9 +171,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     def _on_timer_config_changed(self):
         """TimerPanel changed mode, preset, or tiers — update images and summary."""
         self._apply_timers_for_mode()
-        self._rebuild_editor_view()
         if self._editor_visible:
             self.editor.set_timer_mode(self._timer_panel.timer_mode)
+        self._rebuild_editor_view()
 
     def _apply_timers_for_mode(self):
         """Assign per-image timers appropriate for the current mode.
