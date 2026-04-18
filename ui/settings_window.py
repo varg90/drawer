@@ -198,6 +198,13 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             self.editor.set_timer_mode(self._timer_panel.timer_mode)
         self._rebuild_editor_view()
 
+    def _sync_class_order_membership(self):
+        """Patch _class_order to mirror self.images membership. Call after
+        any self.images mutation. No-op when _class_order is None."""
+        self._class_order = _sync_class_order_to_images(
+            self._class_order, self.images,
+        )
+
     def _apply_timers_for_mode(self):
         """Assign per-image timers appropriate for the current mode.
 
@@ -616,6 +623,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._on_images_changed()
 
     def _on_images_changed(self):
+        self._sync_class_order_membership()
         self._reapply_timers()
         self._update_summary()
         self.images_changed.emit()
@@ -672,6 +680,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _on_editor_update(self, images):
         self.images = list(images)
+        self._sync_class_order_membership()
         before = [img.timer for img in self.images]
         self._apply_timers_for_mode()
         self._update_summary()
@@ -770,6 +779,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         images_data = data.get("images", [])
         self.images = [ImageItem.from_dict(d) for d in images_data]
         self.images = [img for img in self.images if os.path.isfile(img.path)]
+        self._class_order = None  # not persisted; reset on restore
 
         self._topmost = data.get("topmost", False)
         self._last_editor_view = data.get("editor_view", "list")
