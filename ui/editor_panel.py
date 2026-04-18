@@ -4,6 +4,7 @@
 Can be embedded inside a settings window (docked) or shown standalone (detached).
 """
 
+import json
 import os
 from collections import OrderedDict
 
@@ -13,8 +14,8 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QFileDialog, QSlider,
     QScrollArea, QStackedWidget, QMessageBox, QSizePolicy,
 )
-from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPainterPath, QPalette
-from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPainterPath, QPalette, QDrag
+from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread, QMimeData, QPoint
 
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder, dedup_paths
@@ -24,6 +25,15 @@ from ui.theme import _mix, _darken
 from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import make_icon_btn
+
+
+# Payload for an internal tile drag: JSON-encoded bytes matching
+#   {"indices": [int, ...], "source_is_pinned": bool}
+# - indices:          positions in EditorPanel.images of the dragged tiles,
+#                     already filtered to the pressed tile's zone.
+# - source_is_pinned: zone of the pressed tile (convenience hint for the
+#                     drop target; can also be re-derived from images[i].pinned).
+TILE_DRAG_MIME = "application/x-drawer-tile-indices"
 
 
 class _ColorLine(QWidget):
@@ -184,20 +194,26 @@ class PixmapLoader(QThread):
 # ---------------------------------------------------------------------------
 
 class ClickableLabel(QLabel):
-    """QLabel with click-to-select support for grid tiles."""
+    """QLabel with click-to-select + drag-source support for grid tiles."""
+
+    DRAG_THRESHOLD = 5  # pixels
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._selected = False
+        self._press_pos = None
+        self._drag_started = False
+
+    def _find_editor(self):
+        w = self.parent()
+        while w is not None:
+            if hasattr(w, "_on_tile_click"):
+                return w
+            w = w.parent()
+        return None
 
     def mousePressEvent(self, event):
-        # Walk up the parent chain to find EditorPanel (self.window() returns
-        # the top-level window, which may be SettingsWindow, not EditorPanel).
-        editor = self.parent()
-        while editor is not None:
-            if hasattr(editor, "_on_tile_click"):
-                break
-            editor = editor.parent()
+        editor = self._find_editor()
         if editor is None:
             return
 
@@ -205,10 +221,50 @@ class ClickableLabel(QLabel):
             editor._show_tile_context_menu(self, event.globalPosition().toPoint())
             return
 
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press_pos = event.pos()
+            self._drag_started = False
+
         mods = event.modifiers()
         ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
         shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
         editor._on_tile_click(self, ctrl, shift)
+
+    def mouseMoveEvent(self, event):
+        if self._press_pos is None or self._drag_started:
+            return
+        editor = self._find_editor()
+        if editor is None or getattr(editor, "_timer_mode", "quick") != "quick":
+            return
+        if (event.pos() - self._press_pos).manhattanLength() < self.DRAG_THRESHOLD:
+            return
+
+        # Build the list of source indices: the selection if this tile is
+        # part of it, else just this tile. Then filter to same-zone.
+        my_idx = self.property("img_idx")
+        if my_idx is None or my_idx >= len(editor.images):
+            return
+        my_is_pinned = bool(editor.images[my_idx].pinned)
+
+        if self in editor._selected_tiles:
+            sel_indices = [
+                lbl.property("img_idx")
+                for lbl in editor._selected_tiles
+                if lbl.property("img_idx") is not None
+            ]
+            indices = _filter_selection_by_zone(sel_indices, my_is_pinned,
+                                                editor.images)
+            if my_idx not in indices:
+                indices = [my_idx]
+        else:
+            indices = [my_idx]
+
+        self._drag_started = True
+        editor._start_tile_drag(self, indices, my_is_pinned)
+
+    def mouseReleaseEvent(self, event):
+        self._press_pos = None
+        self._drag_started = False
 
 
 # ---------------------------------------------------------------------------
@@ -997,6 +1053,35 @@ class EditorPanel(QWidget):
                 self._deselect_tile(old)
             self._select_tile(lbl)
         self._last_clicked_tile = lbl
+
+    def _start_tile_drag(self, source_lbl, source_indices, source_is_pinned):
+        """Start a QDrag from the pressed tile. Carries source_indices as
+        JSON in the TILE_DRAG_MIME payload."""
+        if not source_indices:
+            return
+        drag = QDrag(source_lbl)
+        mime = QMimeData()
+        mime.setData(
+            TILE_DRAG_MIME,
+            json.dumps({
+                "indices": source_indices,
+                "source_is_pinned": source_is_pinned,
+            }).encode("utf-8"),
+        )
+        drag.setMimeData(mime)
+        # Use the source tile's pixmap (scaled to 60%) as the drag preview.
+        # setHotSpot is in the drag-pixmap's own coord space — center it.
+        pix = source_lbl.pixmap()
+        if pix and not pix.isNull():
+            scaled = pix.scaled(
+                pix.width() * 3 // 5, pix.height() * 3 // 5,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            drag.setPixmap(scaled)
+            drag.setHotSpot(QPoint(scaled.width() // 2, scaled.height() // 2))
+
+        drag.exec(Qt.DropAction.MoveAction)
 
     # ------------------------------------------------------------------
     # Context menus (pin only)
