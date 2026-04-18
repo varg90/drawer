@@ -331,17 +331,47 @@ class _PinPlaceholderRow(QLabel):
         )
         self.setAcceptDrops(True)
 
-    def dragEnterEvent(self, event):
+    def _is_acceptable_drag(self, event):
+        # Accept either our custom tile-drag MIME (tile view) or a drag
+        # sourced from one of the editor's list widgets (list view, which
+        # uses Qt's built-in InternalMove with application/x-qabstractitem-
+        # modeldatalist and doesn't carry TILE_DRAG_MIME).
         if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            return True
+        src = event.source()
+        for _, lw in self._editor._list_groups:
+            if src is lw:
+                return True
+        return False
+
+    def _read_source_indices(self, event):
+        """Return source image indices for either drag type, or None."""
+        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            return _decode_tile_drag_payload(event.mimeData())
+        src = event.source()
+        if not isinstance(src, QListWidget):
+            return None
+        indices = []
+        for i in range(src.count()):
+            item = src.item(i)
+            if not item.isSelected():
+                continue
+            idx = item.data(Qt.ItemDataRole.UserRole)
+            if idx is not None and idx < len(self._editor.images):
+                indices.append(idx)
+        return indices or None
+
+    def dragEnterEvent(self, event):
+        if self._is_acceptable_drag(event):
             event.acceptProposedAction()
 
     def dragMoveEvent(self, event):
-        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+        if self._is_acceptable_drag(event):
             event.acceptProposedAction()
 
     def dropEvent(self, event):
-        source_indices = _decode_tile_drag_payload(event.mimeData())
-        if source_indices is None:
+        source_indices = self._read_source_indices(event)
+        if not source_indices:
             event.ignore()
             return
         new_images = _apply_tile_drop(
