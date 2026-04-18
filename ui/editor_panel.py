@@ -1375,7 +1375,13 @@ class EditorPanel(QWidget):
             else:
                 insert_idx = len(editor.images)
 
-            pinned_count = sum(1 for img in editor.images if img.pinned)
+            # Exclude source tiles from the pinned count so dragging a
+            # pinned tile past the remaining pinned ones correctly unpins.
+            source_set = set(source_indices)
+            pinned_count = sum(
+                1 for i, img in enumerate(editor.images)
+                if img.pinned and i not in source_set
+            )
             target_is_pinned = insert_idx <= pinned_count
 
             if source_indices:
@@ -1569,8 +1575,15 @@ class EditorPanel(QWidget):
             (container_pos.x(), container_pos.y()), tile_rects,
         )
 
-        # Determine target zone from the neighbors of insert_idx.
-        pinned_count = sum(1 for img in self.images if img.pinned)
+        # Determine target zone. Exclude source tiles from the pinned count
+        # so dragging a pinned tile past the remaining pinned ones correctly
+        # unpins it (otherwise the tile being dragged would be counted and
+        # the zone boundary would be one position too far).
+        source_set = set(source_indices)
+        pinned_count = sum(
+            1 for i, img in enumerate(self.images)
+            if img.pinned and i not in source_set
+        )
         target_is_pinned = insert_idx <= pinned_count
 
         # No-op check: dropping exactly where it was.
