@@ -4,6 +4,7 @@
 Can be embedded inside a settings window (docked) or shown standalone (detached).
 """
 
+import json
 import os
 from collections import OrderedDict
 
@@ -13,8 +14,8 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QFileDialog, QSlider,
     QScrollArea, QStackedWidget, QMessageBox, QSizePolicy,
 )
-from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPainterPath, QPalette
-from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPainterPath, QPalette, QDrag
+from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread, QMimeData, QPoint
 
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder, dedup_paths
@@ -24,6 +25,38 @@ from ui.theme import _mix, _darken
 from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import make_icon_btn
+
+
+# Payload for an internal tile drag: JSON-encoded bytes matching
+#   {"indices": [int, ...], "source_is_pinned": bool}
+# - indices:          positions in EditorPanel.images of the dragged tiles,
+#                     already filtered to the pressed tile's zone.
+# - source_is_pinned: zone of the pressed tile (convenience hint for the
+#                     drop target; can also be re-derived from images[i].pinned).
+TILE_DRAG_MIME = "application/x-drawer-tile-indices"
+
+
+def _decode_tile_drag_payload(mime_data):
+    """Robustly decode a TILE_DRAG_MIME payload.
+
+    Returns a list of source indices (ints) or None if the payload is absent,
+    malformed JSON, wrong shape, or contains non-int entries.
+    """
+    if not mime_data.hasFormat(TILE_DRAG_MIME):
+        return None
+    try:
+        raw = bytes(mime_data.data(TILE_DRAG_MIME)).decode("utf-8")
+        payload = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    indices = payload.get("indices")
+    if not isinstance(indices, list) or not indices:
+        return None
+    if not all(isinstance(i, int) for i in indices):
+        return None
+    return indices
 
 
 class _ColorLine(QWidget):
@@ -51,6 +84,100 @@ def _sort_group_items(items, pinned_first=True):
         return list(items)
     pinned = [i for i in items if getattr(i[1], "pinned", False)]
     unpinned = [i for i in items if not getattr(i[1], "pinned", False)]
+    return pinned + unpinned
+
+
+def _compute_insertion_index(cursor_pos, tile_rects):
+    """Given cursor position (x, y) in the grid container's coordinate system
+    and a list of tile rects (idx, x, y, w, h), return the insertion index
+    where a dropped tile would land.
+
+    Algorithm:
+    - Find the row whose vertical range (y, y+h) contains cursor_y (clamped to
+      the nearest row if cursor is above or below all tiles).
+    - Within that row, find the first tile whose horizontal midline is past
+      cursor_x. Insertion is before that tile.
+    - If cursor is after the last tile in the row, insertion is after the
+      last tile of the row (which is the index of the first tile in the next
+      row, or len(tile_rects) if this is the last row).
+    """
+    if not tile_rects:
+        return 0
+
+    cx, cy = cursor_pos
+
+    # Group rects by row (rects with the same y).
+    rows = {}
+    for rect in tile_rects:
+        idx, x, y, w, h = rect
+        rows.setdefault(y, []).append(rect)
+    row_ys = sorted(rows.keys())
+
+    # Pick the row the cursor is in (clamp).
+    target_y = row_ys[0]
+    for y in row_ys:
+        h = rows[y][0][4]
+        if y <= cy < y + h:
+            target_y = y
+            break
+        if cy >= y:
+            target_y = y
+
+    row = sorted(rows[target_y], key=lambda r: r[1])  # sort by x
+    for rect in row:
+        idx, x, y, w, h = rect
+        midline = x + w / 2
+        if cx < midline:
+            return idx
+    # Cursor is past the last tile in this row — insert after it.
+    last_idx = row[-1][0]
+    return last_idx + 1
+
+
+def _filter_selection_by_zone(indices, source_is_pinned, images):
+    """Return the subset of `indices` whose images share `source_is_pinned`.
+
+    Used when the user presses on a selected tile to start a multi-select
+    drag: only tiles in the pressed tile's zone participate."""
+    result = []
+    for i in indices:
+        if 0 <= i < len(images) and bool(images[i].pinned) == source_is_pinned:
+            result.append(i)
+    return result
+
+
+def _apply_tile_drop(images, source_indices, insert_idx, target_is_pinned):
+    """Return a new images list with source_indices moved to insert_idx and
+    their pin state updated to target_is_pinned.
+
+    Mutates img.pinned on moved items in place — the returned list references
+    the same ImageItem objects as the input (consistent with _toggle_pin).
+
+    Preserves the 'pinned tiles contiguous at the head' invariant by
+    rebuilding the final list as pinned + unpinned. source_indices may span
+    the pinned/non-pinned boundary only if the caller already filtered by
+    zone.
+    """
+    # Collect moved items; set their pinned state.
+    moved = [images[i] for i in source_indices]
+    for img in moved:
+        img.pinned = target_is_pinned
+
+    # Remaining = images with moved items removed (preserve order).
+    excluded = set(source_indices)
+    remaining = [img for i, img in enumerate(images) if i not in excluded]
+
+    # Insertion index is in the space of the ORIGINAL list; translate to the
+    # remaining list by subtracting how many source_indices are before it.
+    before = sum(1 for i in source_indices if i < insert_idx)
+    adj_insert = max(0, insert_idx - before)
+    adj_insert = min(adj_insert, len(remaining))
+
+    combined = remaining[:adj_insert] + moved + remaining[adj_insert:]
+
+    # Normalize: pinned contiguous at head.
+    pinned = [img for img in combined if img.pinned]
+    unpinned = [img for img in combined if not img.pinned]
     return pinned + unpinned
 
 
@@ -90,20 +217,27 @@ class PixmapLoader(QThread):
 # ---------------------------------------------------------------------------
 
 class ClickableLabel(QLabel):
-    """QLabel with click-to-select support for grid tiles."""
+    """QLabel with click-to-select + drag-source support for grid tiles."""
+
+    DRAG_THRESHOLD = 5  # pixels
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._selected = False
+        self._press_pos = None
+        self._drag_started = False
+        self._deferred_click = False
+
+    def _find_editor(self):
+        w = self.parent()
+        while w is not None:
+            if hasattr(w, "_on_tile_click"):
+                return w
+            w = w.parent()
+        return None
 
     def mousePressEvent(self, event):
-        # Walk up the parent chain to find EditorPanel (self.window() returns
-        # the top-level window, which may be SettingsWindow, not EditorPanel).
-        editor = self.parent()
-        while editor is not None:
-            if hasattr(editor, "_on_tile_click"):
-                break
-            editor = editor.parent()
+        editor = self._find_editor()
         if editor is None:
             return
 
@@ -111,10 +245,201 @@ class ClickableLabel(QLabel):
             editor._show_tile_context_menu(self, event.globalPosition().toPoint())
             return
 
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+
+        self._press_pos = event.pos()
+        self._drag_started = False
+
         mods = event.modifiers()
         ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
         shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
+
+        # If the tile is already in the selection and no modifier is held,
+        # defer the click action until release — a plain click on a selected
+        # tile normally collapses the selection to just that tile, but if the
+        # user's about to drag a multi-selection, we must preserve it.
+        if self in editor._selected_tiles and not ctrl and not shift:
+            self._deferred_click = True
+            return
+
+        self._deferred_click = False
         editor._on_tile_click(self, ctrl, shift)
+
+    def mouseMoveEvent(self, event):
+        if self._press_pos is None or self._drag_started:
+            return
+        editor = self._find_editor()
+        if editor is None or getattr(editor, "_timer_mode", "quick") != "quick":
+            return
+        if (event.pos() - self._press_pos).manhattanLength() < self.DRAG_THRESHOLD:
+            return
+
+        # Build the list of source indices: the selection if this tile is
+        # part of it, else just this tile. Then filter to same-zone.
+        my_idx = self.property("img_idx")
+        if my_idx is None or my_idx >= len(editor.images):
+            return
+        my_is_pinned = bool(editor.images[my_idx].pinned)
+
+        if self in editor._selected_tiles:
+            # Set iteration order is undefined → sort so the dragged block
+            # retains the user's list order when multi-select moves together.
+            sel_indices = sorted(
+                lbl.property("img_idx")
+                for lbl in editor._selected_tiles
+                if lbl.property("img_idx") is not None
+            )
+            indices = _filter_selection_by_zone(sel_indices, my_is_pinned,
+                                                editor.images)
+            if my_idx not in indices:
+                indices = [my_idx]
+        else:
+            indices = [my_idx]
+
+        self._drag_started = True
+        self._deferred_click = False  # drag consumed the click
+        editor._start_tile_drag(self, indices, my_is_pinned)
+
+    def mouseReleaseEvent(self, event):
+        # If the press was on an already-selected tile and no drag happened,
+        # apply the plain-click behavior now (collapse selection to just this
+        # tile), matching the pre-defer semantics for non-drag clicks.
+        if self._deferred_click and not self._drag_started:
+            editor = self._find_editor()
+            if editor is not None:
+                editor._on_tile_click(self, False, False)
+        self._press_pos = None
+        self._drag_started = False
+        self._deferred_click = False
+
+
+class _PinPlaceholderRow(QLabel):
+    """A dashed-outline 'drop here to pin' row for the empty pinned zone in
+    quick-mode list view."""
+
+    def __init__(self, editor, theme, parent=None):
+        super().__init__(parent)
+        self._editor = editor
+        self.setText("  drop here to pin  ")
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setFixedHeight(S.LIST_ITEM_H)
+        self.setStyleSheet(
+            f"border: 2px dashed {theme.text_hint}; "
+            f"border-radius: {S.GRID_TILE_RADIUS}px; "
+            f"color: {theme.text_hint}; "
+            f"font-size: {S.FONT_BUTTON}px; "
+            f"background: transparent;"
+        )
+        self.setAcceptDrops(True)
+
+    def _is_acceptable_drag(self, event):
+        # Accept either our custom tile-drag MIME (tile view) or a drag
+        # sourced from one of the editor's list widgets (list view, which
+        # uses Qt's built-in InternalMove with application/x-qabstractitem-
+        # modeldatalist and doesn't carry TILE_DRAG_MIME).
+        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            return True
+        src = event.source()
+        for _, lw in self._editor._list_groups:
+            if src is lw:
+                return True
+        return False
+
+    def _read_source_indices(self, event):
+        """Return source image indices for either drag type, or None."""
+        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            return _decode_tile_drag_payload(event.mimeData())
+        src = event.source()
+        if not isinstance(src, QListWidget):
+            return None
+        indices = []
+        for i in range(src.count()):
+            item = src.item(i)
+            if not item.isSelected():
+                continue
+            idx = item.data(Qt.ItemDataRole.UserRole)
+            if idx is not None and idx < len(self._editor.images):
+                indices.append(idx)
+        return indices or None
+
+    def dragEnterEvent(self, event):
+        if self._is_acceptable_drag(event):
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        if self._is_acceptable_drag(event):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        source_indices = self._read_source_indices(event)
+        if not source_indices:
+            event.ignore()
+            return
+        new_images = _apply_tile_drop(
+            self._editor.images, source_indices, insert_idx=0,
+            target_is_pinned=True,
+        )
+        self._editor.images = new_images
+        self._editor._drag_insert_idx = None  # drop handler owns the rebuild
+        self._editor._rebuild()
+        self._editor._emit()
+        event.acceptProposedAction()
+
+
+class _PinPlaceholderTile(QLabel):
+    """Dashed-outline placeholder for the empty pinned zone in tile view.
+    Accepts internal tile drags; forwards to EditorPanel's drop logic."""
+
+    def __init__(self, editor, size, theme, parent=None):
+        super().__init__(parent)
+        self._editor = editor
+        self.setFixedSize(size, size)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setStyleSheet(
+            f"border: 2px dashed {theme.text_hint}; "
+            f"border-radius: {S.GRID_TILE_RADIUS}px; "
+            f"background: transparent;"
+        )
+        # Build a tile-sized transparent pixmap with the pin icon centered.
+        pix = QPixmap(size, size)
+        pix.fill(QColor(0, 0, 0, 0))
+        icon_sz = max(16, int(size * 0.35))
+        icon = qta.icon(Icons.TOPMOST_ON, color=theme.accent)
+        icon_pix = icon.pixmap(icon_sz, icon_sz)
+        p = QPainter(pix)
+        p.drawPixmap(
+            (size - icon_sz) // 2,
+            (size - icon_sz) // 2,
+            icon_pix,
+        )
+        p.end()
+        self.setPixmap(pix)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """Drop on placeholder = pin at index 0."""
+        source_indices = _decode_tile_drag_payload(event.mimeData())
+        if source_indices is None:
+            event.ignore()
+            return
+        new_images = _apply_tile_drop(
+            self._editor.images, source_indices, insert_idx=0,
+            target_is_pinned=True,
+        )
+        self._editor.images = new_images
+        self._editor._drag_insert_idx = None  # drop handler owns the rebuild
+        self._editor._rebuild()
+        self._editor._emit()
+        event.acceptProposedAction()
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +464,31 @@ def _flow_position(labels, container_width, sz, gap=1):
         x += w + gap
         row_h = max(row_h, h)
     return y + row_h if labels else 0
+
+
+def _flow_position_with_gaps(labels_or_none, container_width, sz, gap=1):
+    """Same as _flow_position but accepts None entries which reserve a
+    tile-sized empty slot at that position (no widget moved)."""
+    x, y, row_h = 0, 0, 0
+    for entry in labels_or_none:
+        if entry is None:
+            w, h = sz, sz
+        else:
+            pix = entry.pixmap()
+            if pix and not pix.isNull():
+                w, h = pix.width(), pix.height()
+            else:
+                w, h = sz, sz
+        if x + w > container_width and x > 0:
+            x = 0
+            y += row_h + gap
+            row_h = 0
+        if entry is not None:
+            entry.setFixedSize(w, h)
+            entry.move(x, y)
+        x += w + gap
+        row_h = max(row_h, h)
+    return y + row_h if labels_or_none else 0
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +524,10 @@ class EditorPanel(QWidget):
         self._reflow_timer.timeout.connect(self._reflow_grid)
         self._selected_tiles = set()  # set of ClickableLabel
         self._last_clicked_tile = None
+
+        # Drag-in-progress state
+        self._drag_source_indices = []
+        self._drag_insert_idx = None
 
         self._list_groups = []   # list of (header_btn, list_widget)
         self._grid_groups = []   # list of (header_btn, grid_widget)
@@ -214,6 +568,7 @@ class EditorPanel(QWidget):
         self._list_scroll.setAcceptDrops(True)
         self._list_scroll.dragEnterEvent = self._drag_enter
         self._list_scroll.dropEvent = self._drop_event
+        self._list_scroll.dragMoveEvent = self._drag_move
 
         self._list_container = QWidget()
         self._list_layout = QVBoxLayout(self._list_container)
@@ -222,6 +577,15 @@ class EditorPanel(QWidget):
         self._list_layout.addStretch()
         self._list_scroll.setWidget(self._list_container)
         self._stack.addWidget(self._list_scroll)
+
+        # Click on empty list area clears selection.
+        def _list_empty_click(event):
+            child = self._list_container.childAt(event.pos())
+            if child is None:
+                self._clear_selection()
+            QWidget.mousePressEvent(self._list_container, event)
+
+        self._list_container.mousePressEvent = _list_empty_click
 
         # Grid scroll
         self._grid_scroll = QScrollArea()
@@ -235,6 +599,7 @@ class EditorPanel(QWidget):
         self._grid_scroll.setAcceptDrops(True)
         self._grid_scroll.dragEnterEvent = self._drag_enter
         self._grid_scroll.dropEvent = self._drop_event
+        self._grid_scroll.dragMoveEvent = self._drag_move
 
         self._grid_container = QWidget()
         self._grid_layout = QVBoxLayout(self._grid_container)
@@ -243,6 +608,19 @@ class EditorPanel(QWidget):
         self._grid_layout.addStretch()
         self._grid_scroll.setWidget(self._grid_container)
         self._stack.addWidget(self._grid_scroll)
+
+        # Click on empty grid area clears selection. childAt() recurses
+        # into descendants: tile clicks never reach here (ClickableLabel
+        # consumes them), but clicks in the unused space *within* a tier's
+        # grid widget return the grid QWidget itself — treat those as empty.
+        def _grid_empty_click(event):
+            child = self._grid_container.childAt(event.pos())
+            grid_widgets = {g for _, g in self._grid_groups}
+            if child is None or child in grid_widgets:
+                self._clear_selection()
+            QWidget.mousePressEvent(self._grid_container, event)
+
+        self._grid_container.mousePressEvent = _grid_empty_click
 
         root.addWidget(self._stack, 1)
 
@@ -503,9 +881,23 @@ class EditorPanel(QWidget):
             lw.deleteLater()
         self._list_groups = []
 
+        # Clear any existing placeholder from a previous rebuild.
+        existing_placeholder = getattr(self, "_list_placeholder", None)
+        if existing_placeholder is not None:
+            existing_placeholder.hide()
+            existing_placeholder.deleteLater()
+            self._list_placeholder = None
+
+        pinned_count = sum(1 for img in self.images if img.pinned)
+        insert_pos = 0
+        if self._timer_mode == "quick" and pinned_count == 0:
+            placeholder = _PinPlaceholderRow(editor=self, theme=self.theme)
+            self._list_layout.insertWidget(0, placeholder)
+            self._list_placeholder = placeholder
+            insert_pos = 1
+
         ordered = self._ordered_groups()
 
-        insert_pos = 0
         for timer_val, items in ordered:
             items = _sort_group_items(items, pinned_first=(self._timer_mode == "quick"))
             is_reserve = timer_val == 0
@@ -525,12 +917,18 @@ class EditorPanel(QWidget):
             lw = QListWidget(self._list_container)
             lw.setHorizontalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            lw.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+            if self._timer_mode == "quick":
+                lw.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+            else:
+                lw.setDragDropMode(QListWidget.DragDropMode.NoDragDrop)
             lw.setDefaultDropAction(Qt.DropAction.MoveAction)
             lw.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
             lw.setIconSize(QSize(24, 24))
             lw.setStyleSheet(self._list_style)
             lw.model().rowsMoved.connect(self._on_reorder)
+
+            if self._timer_mode == "quick":
+                self._install_list_drop_handler(lw)
 
             t = self.theme
             show_pin = self._timer_mode == "quick"
@@ -590,6 +988,8 @@ class EditorPanel(QWidget):
         sz = self._zoom_slider.value()
         insert_pos = 0
         t = self.theme
+        pinned_count = sum(1 for img in self.images if img.pinned)
+        placeholder_added = False
 
         for timer_val, items in ordered:
             items = _sort_group_items(items, pinned_first=(self._timer_mode == "quick"))
@@ -608,6 +1008,15 @@ class EditorPanel(QWidget):
 
             grid = QWidget(self._grid_container)
             labels = []
+            # Empty pinned zone → single placeholder as first tile of the
+            # first tier only (quick mode).
+            if (self._timer_mode == "quick" and pinned_count == 0
+                    and not placeholder_added):
+                placeholder = _PinPlaceholderTile(
+                    editor=self, size=sz, theme=t, parent=grid,
+                )
+                labels.append(placeholder)
+                placeholder_added = True
             for idx, img in items:
                 lbl = ClickableLabel(grid)
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -632,7 +1041,7 @@ class EditorPanel(QWidget):
                     pin_overlay = QLabel(lbl)
                     pin_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
                     pin_overlay.setFixedSize(pin_sz + S.PIN_OVERLAY_PADDING, pin_sz + S.PIN_OVERLAY_PADDING)
-                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_hint)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.accent)
                     pin_overlay.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
                     pin_overlay.setStyleSheet("border: none; background: transparent;")
                     # Position after label is sized by flow layout
@@ -773,7 +1182,7 @@ class EditorPanel(QWidget):
                 if po:
                     pin_sz = max(8, min(20, int(value * 0.18)))
                     t = self.theme
-                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_hint)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.accent)
                     po.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
                     po.setFixedSize(pin_sz + S.PIN_OVERLAY_PADDING, pin_sz + S.PIN_OVERLAY_PADDING)
                     lbl._pin_sz = pin_sz
@@ -811,11 +1220,24 @@ class EditorPanel(QWidget):
             all_labels.extend(getattr(grid, "_labels", []))
         return all_labels
 
+    def _clear_selection(self):
+        """Clear both tile-view and list-view selections."""
+        # Tile view — _deselect_tile discards from _selected_tiles, so the
+        # list() copy prevents "set changed size during iteration".
+        for lbl in list(self._selected_tiles):
+            self._deselect_tile(lbl)
+        # List view — clear any QListWidget selections
+        for _, lw in self._list_groups:
+            lw.clearSelection()
+
     def _select_tile(self, lbl):
         t = self.theme
         self._selected_tiles.add(lbl)
         lbl._selected = True
-        lbl.setStyleSheet(f"border: {S.EDITOR_BORDER_SELECTED}px solid {t.border_active};")
+        lbl.setStyleSheet(
+            f"border: {S.EDITOR_BORDER_SELECTED}px solid {t.border_active}; "
+            f"border-radius: {S.GRID_TILE_RADIUS}px;"
+        )
 
     def _deselect_tile(self, lbl):
         self._selected_tiles.discard(lbl)
@@ -828,7 +1250,10 @@ class EditorPanel(QWidget):
             pinned = getattr(img, "pinned", False)
             is_reserve = img.timer == 0
             if is_reserve:
-                lbl.setStyleSheet(f"border: {S.EDITOR_BORDER_DASHED}px dashed {t.text_hint};")
+                lbl.setStyleSheet(
+                    f"border: {S.EDITOR_BORDER_DASHED}px dashed {t.text_hint}; "
+                    f"border-radius: {S.GRID_TILE_RADIUS}px;"
+                )
             else:
                 lbl.setStyleSheet("border: none;")
         else:
@@ -862,6 +1287,67 @@ class EditorPanel(QWidget):
                 self._deselect_tile(old)
             self._select_tile(lbl)
         self._last_clicked_tile = lbl
+
+    def _start_tile_drag(self, source_lbl, source_indices, source_is_pinned):
+        """Start a QDrag from the pressed tile. Carries source_indices as
+        JSON in the TILE_DRAG_MIME payload."""
+        if not source_indices:
+            return
+        drag = QDrag(source_lbl)
+        mime = QMimeData()
+        mime.setData(
+            TILE_DRAG_MIME,
+            json.dumps({
+                "indices": source_indices,
+                "source_is_pinned": source_is_pinned,
+            }).encode("utf-8"),
+        )
+        drag.setMimeData(mime)
+        # Use the source tile's pixmap (scaled to 60%) as the drag preview.
+        # setHotSpot is in the drag-pixmap's own coord space — center it.
+        pix = source_lbl.pixmap()
+        if pix and not pix.isNull():
+            scaled = pix.scaled(
+                pix.width() * 3 // 5, pix.height() * 3 // 5,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            drag.setPixmap(scaled)
+            drag.setHotSpot(QPoint(scaled.width() // 2, scaled.height() // 2))
+
+        # Visual state for drag-in-progress
+        self._drag_source_indices = list(source_indices)
+        self._apply_source_ghost_opacity(0.35)
+
+        try:
+            drag.exec(Qt.DropAction.MoveAction)
+        finally:
+            # Always restore source-tile opacity + clear state. Only rebuild
+            # if a gap was opened by _drag_move and no drop handler ran — the
+            # drop handlers clear _drag_insert_idx to None after their own
+            # rebuild, so this check distinguishes cancel from successful drop.
+            self._apply_source_ghost_opacity(1.0)
+            gap_open = self._drag_insert_idx is not None
+            self._drag_source_indices = []
+            self._drag_insert_idx = None
+            if gap_open:
+                self._rebuild()
+
+    def _apply_source_ghost_opacity(self, opacity):
+        """Set opacity on every tile whose img_idx is in _drag_source_indices."""
+        from PyQt6.QtWidgets import QGraphicsOpacityEffect
+        indices = set(self._drag_source_indices)
+        if not indices:
+            return
+        for _, grid in self._grid_groups:
+            for lbl in getattr(grid, "_labels", []):
+                idx = lbl.property("img_idx")
+                if idx in indices:
+                    effect = lbl.graphicsEffect()
+                    if not isinstance(effect, QGraphicsOpacityEffect):
+                        effect = QGraphicsOpacityEffect(lbl)
+                        lbl.setGraphicsEffect(effect)
+                    effect.setOpacity(opacity)
 
     # ------------------------------------------------------------------
     # Context menus (pin only)
@@ -918,6 +1404,92 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
     # Reorder
     # ------------------------------------------------------------------
+
+    def _install_list_drop_handler(self, lw):
+        """Wrap the QListWidget's mousePressEvent + dropEvent. mousePress
+        records which row the user actually pressed (the zone anchor for
+        a multi-select drag); dropEvent uses that to filter cross-zone
+        selection members."""
+        editor = self
+        original_press = lw.mousePressEvent
+
+        def _press(event):
+            idx = lw.indexAt(event.pos())
+            lw._pressed_row = idx.row() if idx.isValid() else -1
+            original_press(event)
+
+        lw.mousePressEvent = _press
+
+        def _drop(event):
+            source_rows = sorted(r.row() for r in lw.selectedIndexes())
+            source_indices = []
+            for row in source_rows:
+                item = lw.item(row)
+                idx = item.data(Qt.ItemDataRole.UserRole)
+                if idx is not None and idx < len(editor.images):
+                    source_indices.append(idx)
+
+            # Resolve the pressed row to an image index. That tile's zone
+            # anchors the multi-select filter — otherwise source_indices[0]
+            # (lowest row) always wins, and in quick mode pinned rows come
+            # first, so dragging a non-pinned from a mixed selection would
+            # incorrectly resolve to the pinned anchor.
+            pressed_idx = None
+            pressed_row = getattr(lw, "_pressed_row", -1)
+            if 0 <= pressed_row < lw.count():
+                pressed_idx = lw.item(pressed_row).data(Qt.ItemDataRole.UserRole)
+
+            # Translate target row → self.images index by reading UserRole
+            # of the row at the drop position. target_row is local to *this*
+            # QListWidget; self.images position is what _apply_tile_drop wants.
+            target_row = lw.indexAt(event.position().toPoint()).row()
+            if 0 <= target_row < lw.count():
+                target_item_idx = lw.item(target_row).data(Qt.ItemDataRole.UserRole)
+                insert_idx = target_item_idx if target_item_idx is not None else len(editor.images)
+            elif lw.count() > 0:
+                # Drop past the last row of this tier widget — insert after
+                # the last item belonging to this widget.
+                last_idx = lw.item(lw.count() - 1).data(Qt.ItemDataRole.UserRole)
+                insert_idx = (last_idx + 1) if last_idx is not None else len(editor.images)
+            else:
+                insert_idx = len(editor.images)
+
+            pinned_count = sum(1 for img in editor.images if img.pinned)
+            target_is_pinned = insert_idx <= pinned_count
+
+            if source_indices:
+                if (pressed_idx is not None
+                        and 0 <= pressed_idx < len(editor.images)
+                        and pressed_idx in source_indices):
+                    anchor_is_pinned = bool(editor.images[pressed_idx].pinned)
+                else:
+                    anchor_is_pinned = bool(editor.images[source_indices[0]].pinned)
+                source_indices = _filter_selection_by_zone(
+                    source_indices, anchor_is_pinned, editor.images,
+                )
+
+            if not source_indices:
+                event.ignore()
+                return
+
+            # No-op: single source dropped at its own position.
+            if len(source_indices) == 1:
+                src_idx = source_indices[0]
+                before_count = 1 if src_idx < insert_idx else 0
+                if insert_idx - before_count == src_idx:
+                    event.acceptProposedAction()
+                    return
+
+            new_images = _apply_tile_drop(
+                editor.images, source_indices, insert_idx, target_is_pinned,
+            )
+            editor.images = new_images
+            editor._drag_insert_idx = None  # drop handler owns the rebuild
+            editor._rebuild()
+            editor._emit()
+            event.acceptProposedAction()
+
+        lw.dropEvent = _drop
 
     def _on_reorder(self):
         new_order = []
@@ -1015,10 +1587,40 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _drag_enter(self, event):
-        if event.mimeData().hasUrls():
+        mime = event.mimeData()
+        if mime.hasFormat(TILE_DRAG_MIME) or mime.hasUrls():
             event.acceptProposedAction()
 
+    def _drag_move(self, event):
+        mime = event.mimeData()
+        if not (mime.hasFormat(TILE_DRAG_MIME) or mime.hasUrls()):
+            event.ignore()
+            return
+
+        if mime.hasFormat(TILE_DRAG_MIME) and self._stack.currentWidget() is self._grid_scroll:
+            tile_rects = self._compute_tile_rects() or []
+            global_pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
+            container_pos = self._grid_container.mapFromGlobal(
+                self._grid_scroll.viewport().mapToGlobal(global_pos)
+            )
+            insert_idx = _compute_insertion_index(
+                (container_pos.x(), container_pos.y()), tile_rects,
+            )
+            if insert_idx != self._drag_insert_idx:
+                self._drag_insert_idx = insert_idx
+                self._relayout_grid_with_gap()
+        event.acceptProposedAction()
+
     def _drop_event(self, event):
+        mime = event.mimeData()
+        if mime.hasFormat(TILE_DRAG_MIME):
+            self._handle_tile_drop(event)
+        elif mime.hasUrls():
+            self._handle_external_drop(event)
+        else:
+            event.ignore()
+
+    def _handle_external_drop(self, event):
         urls = event.mimeData().urls()
         added = False
         timer = self._default_add_timer()
@@ -1036,6 +1638,92 @@ class EditorPanel(QWidget):
         if added:
             self._rebuild()
             self._emit()
+
+    def _handle_tile_drop(self, event):
+        """Apply an internal tile drop: reorder + pin-flip."""
+        source_indices = _decode_tile_drag_payload(event.mimeData())
+        if source_indices is None:
+            event.ignore()
+            return
+
+        tile_rects = self._compute_tile_rects()
+        if tile_rects is None:
+            event.ignore()
+            return
+
+        # Translate drop position to grid-container coordinates.
+        global_pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
+        container = self._grid_container
+        container_pos = container.mapFromGlobal(
+            self._grid_scroll.viewport().mapToGlobal(global_pos)
+        )
+        insert_idx = _compute_insertion_index(
+            (container_pos.x(), container_pos.y()), tile_rects,
+        )
+
+        # No-op: single source dropped at its own position (cursor on either
+        # half of the source tile). Post-removal, inserting at the source's
+        # original index gives an identical list — don't mutate or rebuild.
+        if len(source_indices) == 1:
+            src_idx = source_indices[0]
+            before_count = 1 if src_idx < insert_idx else 0
+            if insert_idx - before_count == src_idx:
+                event.acceptProposedAction()
+                return
+
+        # Determine target zone. pinned_count INCLUDES source tiles so that
+        # dropping a pinned tile at the last pinned position (insert_idx ==
+        # pinned_count) keeps it pinned. Moving it past the last pinned
+        # position naturally trips the <= and unpins.
+        pinned_count = sum(1 for img in self.images if img.pinned)
+        target_is_pinned = insert_idx <= pinned_count
+
+        new_images = _apply_tile_drop(
+            self.images, source_indices, insert_idx, target_is_pinned,
+        )
+        self.images = new_images
+        self._drag_insert_idx = None  # drop handler owns the rebuild
+        self._rebuild()
+        self._emit()
+        event.acceptProposedAction()
+
+    def _relayout_grid_with_gap(self):
+        """Re-run the flow layout with a tile-sized virtual slot reserved at
+        self._drag_insert_idx. Other tiles shift around the slot."""
+        if self._drag_insert_idx is None:
+            return
+        sz = self._zoom_slider.value()
+        for _, grid in self._grid_groups:
+            labels = list(getattr(grid, "_labels", []))
+            if not labels:
+                continue
+            w = max(self._grid_scroll.viewport().width(), 200)
+            virtual = labels[:]
+            insert_pos = min(self._drag_insert_idx, len(virtual))
+            virtual.insert(insert_pos, None)
+            _flow_position_with_gaps(virtual, w, sz)
+
+    def _compute_tile_rects(self):
+        """Return a list of (idx, x, y, w, h) for all current tile labels in
+        the grid view, in _grid_container coordinates. Returns None if grid
+        view is not the current widget.
+
+        Tiles are positioned via flow layout inside per-tier 'grid' QWidgets,
+        so lbl.pos() is parent-local. We map each tile's origin into the
+        grid container so the cursor-position math in _compute_insertion_index
+        compares apples to apples.
+        """
+        if self._stack.currentWidget() is not self._grid_scroll:
+            return None
+        rects = []
+        for _, grid in self._grid_groups:
+            for lbl in getattr(grid, "_labels", []):
+                idx = lbl.property("img_idx")
+                if idx is None:
+                    continue
+                pos = lbl.mapTo(self._grid_container, QPoint(0, 0))
+                rects.append((idx, pos.x(), pos.y(), lbl.width(), lbl.height()))
+        return rects
 
     # ------------------------------------------------------------------
     # Signals
