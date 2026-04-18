@@ -176,17 +176,15 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     def _apply_timers_for_mode(self):
         """Assign per-image timers appropriate for the current mode.
 
-        Quick mode: every non-pinned image gets the current quick-mode timer.
+        Quick mode: every image gets the current quick-mode timer. Pinned
+        images also adapt (no more 'own timer' lock).
         Class mode: redistribute (may send some images to Reserve if budget
         is tight).
-
-        Pinned images keep their existing .timer in both modes.
         """
         if self._timer_panel.timer_mode == "quick":
             timer = self._timer_panel.get_timer_seconds()
             for img in self.images:
-                if not getattr(img, "pinned", False):
-                    img.timer = timer
+                img.timer = timer
         else:
             self._reapply_timers()
 
@@ -211,12 +209,8 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
     def _apply_class_timers(self):
         timers = groups_to_timers(self._timer_panel.class_groups)
-        idx = 0
-        for img in self.images:
-            if getattr(img, "pinned", False):
-                continue
+        for idx, img in enumerate(self.images):
             img.timer = timers[idx] if idx < len(timers) else 0
-            idx += 1
 
     def _reapply_timers(self):
         """Re-run current mode's timer assignment on self.images. Call
@@ -701,8 +695,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             if session_limit is not None and timer > session_limit:
                 return  # single-image timer exceeds budget, nothing would complete
             for img in self.images:
-                if not img.pinned:
-                    img.timer = timer
+                img.timer = timer
         elif mode == "class":
             self._apply_class_timers()
 
