@@ -283,11 +283,13 @@ class ClickableLabel(QLabel):
         my_is_pinned = bool(editor.images[my_idx].pinned)
 
         if self in editor._selected_tiles:
-            sel_indices = [
+            # Set iteration order is undefined → sort so the dragged block
+            # retains the user's list order when multi-select moves together.
+            sel_indices = sorted(
                 lbl.property("img_idx")
                 for lbl in editor._selected_tiles
                 if lbl.property("img_idx") is not None
-            ]
+            )
             indices = _filter_selection_by_zone(sel_indices, my_is_pinned,
                                                 editor.images)
             if my_idx not in indices:
@@ -987,6 +989,7 @@ class EditorPanel(QWidget):
         insert_pos = 0
         t = self.theme
         pinned_count = sum(1 for img in self.images if img.pinned)
+        placeholder_added = False
 
         for timer_val, items in ordered:
             items = _sort_group_items(items, pinned_first=(self._timer_mode == "quick"))
@@ -1005,12 +1008,15 @@ class EditorPanel(QWidget):
 
             grid = QWidget(self._grid_container)
             labels = []
-            # Empty pinned zone → placeholder as first tile (quick mode only).
-            if self._timer_mode == "quick" and pinned_count == 0 and not labels:
+            # Empty pinned zone → single placeholder as first tile of the
+            # first tier only (quick mode).
+            if (self._timer_mode == "quick" and pinned_count == 0
+                    and not placeholder_added):
                 placeholder = _PinPlaceholderTile(
                     editor=self, size=sz, theme=t, parent=grid,
                 )
                 labels.append(placeholder)
+                placeholder_added = True
             for idx, img in items:
                 lbl = ClickableLabel(grid)
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1466,6 +1472,14 @@ class EditorPanel(QWidget):
                 event.ignore()
                 return
 
+            # No-op: single source dropped at its own position.
+            if len(source_indices) == 1:
+                src_idx = source_indices[0]
+                before_count = 1 if src_idx < insert_idx else 0
+                if insert_idx - before_count == src_idx:
+                    event.acceptProposedAction()
+                    return
+
             new_images = _apply_tile_drop(
                 editor.images, source_indices, insert_idx, target_is_pinned,
             )
@@ -1651,9 +1665,9 @@ class EditorPanel(QWidget):
         # half of the source tile). Post-removal, inserting at the source's
         # original index gives an identical list — don't mutate or rebuild.
         if len(source_indices) == 1:
-            S = source_indices[0]
-            before_count = 1 if S < insert_idx else 0
-            if insert_idx - before_count == S:
+            src_idx = source_indices[0]
+            before_count = 1 if src_idx < insert_idx else 0
+            if insert_idx - before_count == src_idx:
                 event.acceptProposedAction()
                 return
 
