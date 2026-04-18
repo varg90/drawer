@@ -1400,8 +1400,19 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _install_list_drop_handler(self, lw):
-        """Wrap the QListWidget's dropEvent with cross-zone pin-flip logic."""
+        """Wrap the QListWidget's mousePressEvent + dropEvent. mousePress
+        records which row the user actually pressed (the zone anchor for
+        a multi-select drag); dropEvent uses that to filter cross-zone
+        selection members."""
         editor = self
+        original_press = lw.mousePressEvent
+
+        def _press(event):
+            idx = lw.indexAt(event.pos())
+            lw._pressed_row = idx.row() if idx.isValid() else -1
+            original_press(event)
+
+        lw.mousePressEvent = _press
 
         def _drop(event):
             source_rows = sorted(r.row() for r in lw.selectedIndexes())
@@ -1411,6 +1422,16 @@ class EditorPanel(QWidget):
                 idx = item.data(Qt.ItemDataRole.UserRole)
                 if idx is not None and idx < len(editor.images):
                     source_indices.append(idx)
+
+            # Resolve the pressed row to an image index. That tile's zone
+            # anchors the multi-select filter — otherwise source_indices[0]
+            # (lowest row) always wins, and in quick mode pinned rows come
+            # first, so dragging a non-pinned from a mixed selection would
+            # incorrectly resolve to the pinned anchor.
+            pressed_idx = None
+            pressed_row = getattr(lw, "_pressed_row", -1)
+            if 0 <= pressed_row < lw.count():
+                pressed_idx = lw.item(pressed_row).data(Qt.ItemDataRole.UserRole)
 
             # Translate target row → self.images index by reading UserRole
             # of the row at the drop position. target_row is local to *this*
@@ -1431,9 +1452,14 @@ class EditorPanel(QWidget):
             target_is_pinned = insert_idx <= pinned_count
 
             if source_indices:
-                first_is_pinned = bool(editor.images[source_indices[0]].pinned)
+                if (pressed_idx is not None
+                        and 0 <= pressed_idx < len(editor.images)
+                        and pressed_idx in source_indices):
+                    anchor_is_pinned = bool(editor.images[pressed_idx].pinned)
+                else:
+                    anchor_is_pinned = bool(editor.images[source_indices[0]].pinned)
                 source_indices = _filter_selection_by_zone(
-                    source_indices, first_is_pinned, editor.images,
+                    source_indices, anchor_is_pinned, editor.images,
                 )
 
             if not source_indices:
