@@ -89,6 +89,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.setMouseTracking(True)
 
         self.images = []
+        self._class_order = None  # class-mode shuffled view; None = pristine tier order
         self.viewer = None
         self.editor = None
         self.theme = Theme("dark")
@@ -655,7 +656,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         Class mode: shuffles every image (pin has no effect in class mode).
         """
         if self._timer_panel.timer_mode == "class":
-            random.shuffle(self.images)
+            if not self.images:
+                return
+            self._class_order = random.sample(self.images, len(self.images))
         else:
             non_pinned_indices = [i for i, img in enumerate(self.images)
                                   if not getattr(img, "pinned", False)]
