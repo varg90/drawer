@@ -41,8 +41,14 @@ class _ColorLine(QWidget):
 
 
 
-def _sort_group_items(items):
-    """Sort items so pinned come first, preserving relative order within each group."""
+def _sort_group_items(items, pinned_first=True):
+    """Sort items within a tier group.
+
+    pinned_first=True: pinned images at the top of the group (quick mode).
+    pinned_first=False: list order preserved, pin ignored (class mode).
+    """
+    if not pinned_first:
+        return list(items)
     pinned = [i for i in items if getattr(i[1], "pinned", False)]
     unpinned = [i for i in items if not getattr(i[1], "pinned", False)]
     return pinned + unpinned
@@ -149,12 +155,14 @@ class EditorPanel(QWidget):
     shuffle_clicked = pyqtSignal()
 
     def __init__(self, images, theme, parent=None, view_mode="list",
-                 collapsed_tiers=None, pix_cache=None):
+                 collapsed_tiers=None, pix_cache=None,
+                 timer_mode="quick"):
         super().__init__(parent)
         self.images = list(images)
         self.theme = theme
         self._parent = parent
         self._view_mode = view_mode if view_mode in ("list", "grid") else "list"
+        self._timer_mode = timer_mode if timer_mode in ("quick", "class") else "quick"
 
         # Pass `pix_cache` from a previous panel to skip re-loading images
         # from disk across editor recreation (main window resize triggers it).
@@ -410,6 +418,18 @@ class EditorPanel(QWidget):
         self._update_bottom_controls()
         self._rebuild()
 
+    def set_timer_mode(self, mode):
+        """Update the current timer mode ('quick' or 'class').
+
+        SettingsWindow should call this whenever the mode changes so the
+        editor can adjust its display (sort order, context menu)."""
+        if mode not in ("quick", "class"):
+            return
+        if mode == self._timer_mode:
+            return
+        self._timer_mode = mode
+        self._rebuild()
+
     def _update_view_buttons(self):
         t = self.theme
         active_color = t.text_secondary
@@ -488,7 +508,7 @@ class EditorPanel(QWidget):
 
         insert_pos = 0
         for timer_val, items in ordered:
-            items = _sort_group_items(items)
+            items = _sort_group_items(items, pinned_first=(self._timer_mode == "quick"))
             is_reserve = timer_val == 0
             if is_reserve:
                 header_text = f"Reserve · {len(items)}"
@@ -572,7 +592,7 @@ class EditorPanel(QWidget):
         t = self.theme
 
         for timer_val, items in ordered:
-            items = _sort_group_items(items)
+            items = _sort_group_items(items, pinned_first=(self._timer_mode == "quick"))
             is_reserve = timer_val == 0
             if is_reserve:
                 header_text = f"Reserve · {len(items)}"

@@ -21,7 +21,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
 
     shuffle_clicked = pyqtSignal()
 
-    def __init__(self, images, theme, parent=None, view_mode="list"):
+    def __init__(self, images, theme, parent=None, view_mode="list", timer_mode="quick"):
         QWidget.__init__(self, parent)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
@@ -29,6 +29,7 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self.theme = theme
         self._parent_ref = weakref.ref(parent) if parent else lambda: None
         self.__dict__['_view_mode_init'] = view_mode if view_mode in ("list", "grid") else "list"
+        self._timer_mode_init = timer_mode if timer_mode in ("quick", "class") else "quick"
         self.setMinimumSize(base_value("EDITOR_MIN_W"), base_value("EDITOR_MIN_H"))
         self._resizing = False
         self._resize_edge = None
@@ -94,7 +95,8 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
         self._panel = EditorPanel(
             self.images, self.theme, parent=self, view_mode=init_view,
             collapsed_tiers=saved_collapsed,
-            pix_cache=saved_pix_cache)
+            pix_cache=saved_pix_cache,
+            timer_mode=self._timer_mode_init)
         self._panel.images_updated.connect(self._on_panel_update)
         self._panel.shuffle_clicked.connect(self.shuffle_clicked.emit)
         self._panel.close_requested.connect(self.close)
@@ -141,6 +143,11 @@ class ImageEditorWindow(QWidget, SnapMixin, RoundedWindowMixin):
     def refresh(self, images):
         self.images = list(images)
         self._panel.refresh(images)
+
+    def set_timer_mode(self, mode):
+        self._timer_mode_init = mode
+        if self._panel is not None:
+            self._panel.set_timer_mode(mode)
 
     @property
     def _view_mode(self):
