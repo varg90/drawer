@@ -364,6 +364,7 @@ class EditorPanel(QWidget):
         self._list_scroll.setAcceptDrops(True)
         self._list_scroll.dragEnterEvent = self._drag_enter
         self._list_scroll.dropEvent = self._drop_event
+        self._list_scroll.dragMoveEvent = self._drag_move
 
         self._list_container = QWidget()
         self._list_layout = QVBoxLayout(self._list_container)
@@ -394,6 +395,7 @@ class EditorPanel(QWidget):
         self._grid_scroll.setAcceptDrops(True)
         self._grid_scroll.dragEnterEvent = self._drag_enter
         self._grid_scroll.dropEvent = self._drop_event
+        self._grid_scroll.dragMoveEvent = self._drag_move
 
         self._grid_container = QWidget()
         self._grid_layout = QVBoxLayout(self._grid_container)
@@ -1235,10 +1237,25 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _drag_enter(self, event):
-        if event.mimeData().hasUrls():
+        mime = event.mimeData()
+        if mime.hasFormat(TILE_DRAG_MIME) or mime.hasUrls():
+            event.acceptProposedAction()
+
+    def _drag_move(self, event):
+        mime = event.mimeData()
+        if mime.hasFormat(TILE_DRAG_MIME) or mime.hasUrls():
             event.acceptProposedAction()
 
     def _drop_event(self, event):
+        mime = event.mimeData()
+        if mime.hasFormat(TILE_DRAG_MIME):
+            self._handle_tile_drop(event)
+        elif mime.hasUrls():
+            self._handle_external_drop(event)
+        else:
+            event.ignore()
+
+    def _handle_external_drop(self, event):
         urls = event.mimeData().urls()
         added = False
         timer = self._default_add_timer()
@@ -1256,6 +1273,77 @@ class EditorPanel(QWidget):
         if added:
             self._rebuild()
             self._emit()
+
+    def _handle_tile_drop(self, event):
+        """Apply an internal tile drop: reorder + pin-flip."""
+        try:
+            payload = json.loads(
+                bytes(event.mimeData().data(TILE_DRAG_MIME)).decode("utf-8")
+            )
+        except (ValueError, KeyError):
+            event.ignore()
+            return
+
+        source_indices = payload.get("indices") or []
+        if not source_indices:
+            event.ignore()
+            return
+
+        tile_rects = self._compute_tile_rects()
+        if tile_rects is None:
+            event.ignore()
+            return
+
+        # Translate drop position to grid-container coordinates.
+        global_pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
+        container = self._grid_container
+        container_pos = container.mapFromGlobal(
+            self._grid_scroll.viewport().mapToGlobal(global_pos)
+        )
+        insert_idx = _compute_insertion_index(
+            (container_pos.x(), container_pos.y()), tile_rects,
+        )
+
+        # Determine target zone from the neighbors of insert_idx.
+        pinned_count = sum(1 for img in self.images if img.pinned)
+        target_is_pinned = insert_idx <= pinned_count
+
+        # No-op check: dropping exactly where it was.
+        if (len(source_indices) == 1 and
+                source_indices[0] == insert_idx - 1 and
+                bool(self.images[source_indices[0]].pinned) == target_is_pinned):
+            event.acceptProposedAction()
+            return
+
+        new_images = _apply_tile_drop(
+            self.images, source_indices, insert_idx, target_is_pinned,
+        )
+        self.images = new_images
+        self._rebuild()
+        self._emit()
+        event.acceptProposedAction()
+
+    def _compute_tile_rects(self):
+        """Return a list of (idx, x, y, w, h) for all current tile labels in
+        the grid view, in _grid_container coordinates. Returns None if grid
+        view is not the current widget.
+
+        Tiles are positioned via flow layout inside per-tier 'grid' QWidgets,
+        so lbl.pos() is parent-local. We map each tile's origin into the
+        grid container so the cursor-position math in _compute_insertion_index
+        compares apples to apples.
+        """
+        if self._stack.currentWidget() is not self._grid_scroll:
+            return None
+        rects = []
+        for _, grid in self._grid_groups:
+            for lbl in getattr(grid, "_labels", []):
+                idx = lbl.property("img_idx")
+                if idx is None:
+                    continue
+                pos = lbl.mapTo(self._grid_container, QPoint(0, 0))
+                rects.append((idx, pos.x(), pos.y(), lbl.width(), lbl.height()))
+        return rects
 
     # ------------------------------------------------------------------
     # Signals
