@@ -86,30 +86,30 @@ What's disabled in class mode:
    - **Class branch:** replace `random.shuffle(self.images)` with `self._class_order = random.sample(self.images, len(self.images))` (no mutation of `self.images`). Then `self._apply_timers_for_mode()` + `self._rebuild_editor_view()` as today.
    - **Quick branch:** unchanged logic (shuffle non-pinned within `self.images`). No `_class_order` touch here — quick-mode reorder doesn't affect class-mode membership.
 
-3. **`_on_editor_update`** — fires on editor-driven mutations (drag-drop in quick mode). Already updates `self.images = list(images)`. Only need to consider membership changes; drag-drop doesn't change membership, so no patch needed. However, if images list length changed (delete via editor), patch `_class_order`. Simplest: filter `_class_order` to match new `self.images` membership. See helper below.
-
-4. **`_on_images_changed`** (fires on add via drag-from-Explorer or buttons): patches `_class_order` by appending new images (if `_class_order is not None`).
-
-5. **`_delete_selected`** path (via editor or main-window): remove deleted images from `_class_order` in lockstep (if set).
-
-6. **New helper `_sync_class_order_membership`:**
+3. **New helper `_sync_class_order_membership`** — call after any `self.images` mutation to keep `_class_order` consistent:
    ```python
    def _sync_class_order_membership(self):
        """Patch _class_order to mirror self.images membership (same set).
        Preserves relative shuffle order for surviving items. Appends new
-       images at the end. Call after any self.images mutation."""
+       images at the end. No-op when _class_order is None."""
        if self._class_order is None:
            return
-       current_set = set(id(img) for img in self.images)
+       current = set(id(img) for img in self.images)
        # Drop images no longer in self.images, preserve order for survivors.
        self._class_order = [img for img in self._class_order
-                            if id(img) in current_set]
-       # Append any new images (in self.images but not in _class_order).
+                            if id(img) in current]
+       # Append any new images (in self.images but not yet in _class_order).
        class_set = set(id(img) for img in self._class_order)
        for img in self.images:
            if id(img) not in class_set:
                self._class_order.append(img)
    ```
+
+4. **`_on_editor_update`** — fires on editor-driven mutations (drag-drop or delete within the editor). Already does `self.images = list(images)`. Append a call to `self._sync_class_order_membership()` after that assignment. Drag-drop in quick mode preserves membership so the helper is a no-op; delete in the editor changes membership so the helper filters.
+
+5. **`_on_images_changed`** — fires on add via drag-from-Explorer or the add-files / add-folder buttons. After the existing body, call `self._sync_class_order_membership()` to append the new images to `_class_order` if set.
+
+6. **Any other mutation of `self.images`** (including the main-window `dropEvent` that routes to `_on_images_changed`, or any code path that directly mutates `self.images`) must call `_sync_class_order_membership()` afterward. Grep for `self.images` assignments / mutations to find these.
 
 7. **`_rebuild_editor_view`** — pass the right list to editor:
    ```python
