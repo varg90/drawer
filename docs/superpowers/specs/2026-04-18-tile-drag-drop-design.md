@@ -13,7 +13,7 @@ After spec #3 shipped, several related gaps remain:
 3. **Class mode still has `InternalMove`** on list widgets, which contradicts spec #3's "no manual control in class mode" principle.
 4. **Selection doesn't clear on empty-area click** — pre-existing bug.
 5. **Tile-view selection frame has square corners** while tiles have rounded corners (cosmetic mismatch).
-6. **Tile-view pin icon is too subtle.** Uses muted `t.text_hint` color while list-view pinned entries use `t.accent`. Also capped at 20px so the icon stops scaling at larger zoom levels. Flagged in prior sessions as "pin indicator too subtle."
+6. **Tile-view pin icon is too subtle.** Uses muted `t.text_hint` color while list-view pinned entries use `t.accent`. Flagged in prior sessions as "pin indicator too subtle."
 
 ## Decision
 
@@ -48,8 +48,7 @@ After spec #3 shipped, several related gaps remain:
 
 - Selection-frame border-radius set to match tile corners.
 - Selection clears when clicking empty grid/list area.
-- Pin icon color in tile view switched from `t.text_hint` to `t.accent`.
-- Pin icon size formula changed from `max(8, min(20, int(sz * 0.18)))` to `max(10, int(sz * 0.22))` — icon now scales visibly with tile zoom, floor retained so it doesn't vanish at small tile sizes.
+- Pin icon color in tile view switched from `t.text_hint` to `t.accent` — the 20px size cap stays (deliberate upper bound from the original implementation to prevent the icon from dominating tiles at max zoom).
 
 ## Rationale
 
@@ -136,9 +135,9 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
    - Insert placeholder as first item when `pinned_count == 0` and mode is quick.
    - Pass drag-enabled flag to tile construction (only attach drag handlers in quick mode).
 
-7. **Pin icon color + scaling fix:**
-   - `pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.accent)` (was `t.text_hint`).
-   - `pin_sz = max(10, int(sz * 0.22))` (was `max(8, min(20, int(sz * 0.18)))`).
+7. **Pin icon color fix:**
+   - `pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.accent)` (was `t.text_hint`). Both occurrences (initial render and zoom-handler re-render).
+   - Size formula `pin_sz = max(8, min(20, int(sz * 0.18)))` kept as-is.
 
 8. **Selection-frame rounded corners** — stylesheet for selected-tile border gains `border-radius` matching the tile's `border-radius` (use existing `S.TILE_BORDER_RADIUS` or equivalent constant; add one if absent).
 
@@ -182,7 +181,7 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
 | Quick ↔ class mode switch during drag | Not reachable — both are main-thread UI. |
 | Drag during session playback | Editor and viewer are separate; not reachable. |
 | ESC during drag | Qt default cancel — drag aborts. |
-| Zoom in/out during session | Pin icon scales up/down with tile size (no cap). |
+| Zoom in/out during session | Pin icon scales up/down with tile size within the existing 8–20px bounds. |
 | List view in quick mode with zero pinned images | Dashed placeholder row prepended at row 0 with "drop here to pin" label. Accepts drops; disappears on first pin. Same behavior as tile view. |
 
 ## Testing plan
@@ -209,8 +208,7 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
 12b. Switch back to quick mode, list view, with zero pinned images. Verify the dashed "drop here to pin" placeholder row appears at the top. Drag an item onto it — verify it becomes pinned and the placeholder disappears.
 13. Click empty area of the grid/list. Verify selection clears.
 14. Select a tile. Verify selection frame has rounded corners matching the tile.
-15. Zoom in the tile view. Verify pin icons scale up visibly (no 20px cap).
-16. Verify pin icon color matches list-view pinned-entry accent color.
+15. Verify pin icon color in tile view matches list-view pinned-entry accent color.
 
 ## Acceptance
 
@@ -222,5 +220,5 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
 - Class mode has no drag-drop in either view.
 - Selection clears on empty-area click.
 - Selection frame corners match tile corners.
-- Tile-view pin icon uses `t.accent` and scales with tile zoom (`0.22` ratio, floor 10px, no cap).
+- Tile-view pin icon uses `t.accent` (size formula unchanged).
 - External file drops from Explorer continue to work unchanged.
