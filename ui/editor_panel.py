@@ -291,6 +291,31 @@ def _flow_position(labels, container_width, sz, gap=1):
     return y + row_h if labels else 0
 
 
+def _flow_position_with_gaps(labels_or_none, container_width, sz, gap=1):
+    """Same as _flow_position but accepts None entries which reserve a
+    tile-sized empty slot at that position (no widget moved)."""
+    x, y, row_h = 0, 0, 0
+    for entry in labels_or_none:
+        if entry is None:
+            w, h = sz, sz
+        else:
+            pix = entry.pixmap()
+            if pix and not pix.isNull():
+                w, h = pix.width(), pix.height()
+            else:
+                w, h = sz, sz
+        if x + w > container_width and x > 0:
+            x = 0
+            y += row_h + gap
+            row_h = 0
+        if entry is not None:
+            entry.setFixedSize(w, h)
+            entry.move(x, y)
+        x += w + gap
+        row_h = max(row_h, h)
+    return y + row_h if labels_or_none else 0
+
+
 # ---------------------------------------------------------------------------
 # EditorPanel
 # ---------------------------------------------------------------------------
@@ -324,6 +349,11 @@ class EditorPanel(QWidget):
         self._reflow_timer.timeout.connect(self._reflow_grid)
         self._selected_tiles = set()  # set of ClickableLabel
         self._last_clicked_tile = None
+
+        # Drag-in-progress state
+        self._drag_source_indices = []
+        self._drag_insert_idx = None
+        self._drag_ghost = None
 
         self._list_groups = []   # list of (header_btn, list_widget)
         self._grid_groups = []   # list of (header_btn, grid_widget)
@@ -1083,7 +1113,58 @@ class EditorPanel(QWidget):
             drag.setPixmap(scaled)
             drag.setHotSpot(QPoint(scaled.width() // 2, scaled.height() // 2))
 
+        # Visual state for drag-in-progress
+        self._drag_source_indices = list(source_indices)
+        self._apply_source_ghost_opacity(0.35)
+        self._drag_ghost = self._build_drag_ghost(source_lbl, source_is_pinned)
+
         drag.exec(Qt.DropAction.MoveAction)
+
+        # Cleanup (regardless of drop accept/reject)
+        self._apply_source_ghost_opacity(1.0)
+        if self._drag_ghost is not None:
+            self._drag_ghost.deleteLater()
+            self._drag_ghost = None
+        self._drag_source_indices = []
+        self._drag_insert_idx = None
+        # Rebuild to close any gap + restore layout.
+        self._rebuild()
+
+    def _apply_source_ghost_opacity(self, opacity):
+        """Set opacity on every tile whose img_idx is in _drag_source_indices."""
+        from PyQt6.QtWidgets import QGraphicsOpacityEffect
+        indices = set(self._drag_source_indices)
+        if not indices:
+            return
+        for _, grid in self._grid_groups:
+            for lbl in getattr(grid, "_labels", []):
+                idx = lbl.property("img_idx")
+                if idx in indices:
+                    effect = lbl.graphicsEffect()
+                    if not isinstance(effect, QGraphicsOpacityEffect):
+                        effect = QGraphicsOpacityEffect(lbl)
+                        lbl.setGraphicsEffect(effect)
+                    effect.setOpacity(opacity)
+
+    def _build_drag_ghost(self, source_lbl, source_is_pinned):
+        """Create a floating tile-ghost that follows the cursor during drag.
+        Kept hidden for now — Qt's built-in drag-preview pixmap carries the
+        visible feedback. Preserved as a hook for future pin-state preview."""
+        ghost = QLabel(self)
+        ghost.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        ghost.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        pix = source_lbl.pixmap()
+        if pix and not pix.isNull():
+            ghost_pix = pix.scaled(
+                pix.width() * 3 // 5, pix.height() * 3 // 5,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            ghost.setPixmap(ghost_pix)
+            ghost.setFixedSize(ghost_pix.size())
+        ghost._ghost_pinned = source_is_pinned
+        ghost.hide()
+        return ghost
 
     # ------------------------------------------------------------------
     # Context menus (pin only)
@@ -1243,8 +1324,23 @@ class EditorPanel(QWidget):
 
     def _drag_move(self, event):
         mime = event.mimeData()
-        if mime.hasFormat(TILE_DRAG_MIME) or mime.hasUrls():
-            event.acceptProposedAction()
+        if not (mime.hasFormat(TILE_DRAG_MIME) or mime.hasUrls()):
+            event.ignore()
+            return
+
+        if mime.hasFormat(TILE_DRAG_MIME) and self._stack.currentWidget() is self._grid_scroll:
+            tile_rects = self._compute_tile_rects() or []
+            global_pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
+            container_pos = self._grid_container.mapFromGlobal(
+                self._grid_scroll.viewport().mapToGlobal(global_pos)
+            )
+            insert_idx = _compute_insertion_index(
+                (container_pos.x(), container_pos.y()), tile_rects,
+            )
+            if insert_idx != self._drag_insert_idx:
+                self._drag_insert_idx = insert_idx
+                self._relayout_grid_with_gap()
+        event.acceptProposedAction()
 
     def _drop_event(self, event):
         mime = event.mimeData()
@@ -1322,6 +1418,22 @@ class EditorPanel(QWidget):
         self._rebuild()
         self._emit()
         event.acceptProposedAction()
+
+    def _relayout_grid_with_gap(self):
+        """Re-run the flow layout with a tile-sized virtual slot reserved at
+        self._drag_insert_idx. Other tiles shift around the slot."""
+        if self._drag_insert_idx is None:
+            return
+        sz = self._zoom_slider.value()
+        for _, grid in self._grid_groups:
+            labels = list(getattr(grid, "_labels", []))
+            if not labels:
+                continue
+            w = max(self._grid_scroll.viewport().width(), 200)
+            virtual = labels[:]
+            insert_pos = min(self._drag_insert_idx, len(virtual))
+            virtual.insert(insert_pos, None)
+            _flow_position_with_gaps(virtual, w, sz)
 
     def _compute_tile_rects(self):
         """Return a list of (idx, x, y, w, h) for all current tile labels in
