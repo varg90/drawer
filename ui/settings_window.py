@@ -200,14 +200,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._update_summary()
         if self._editor_visible:
             self.editor.refresh(self.images)
-            self._sync_editor_tiers()
-
-    def _sync_editor_tiers(self):
-        """Push configured tier timer values to editor panel."""
-        if not self._editor_visible:
-            return
-        groups = self._timer_panel.class_groups
-        self.editor._panel._all_tier_timers = [t for _, t in groups] if groups else []
 
     def _apply_class_timers(self):
         timers = groups_to_timers(self._timer_panel.class_groups)
@@ -624,7 +616,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.editor.show()
         self.editor._snapped_to = (weakref.ref(self), "right")
         self._snapped_children.append((weakref.ref(self.editor), "right"))
-        self._sync_editor_tiers()
         self.update()  # repaint with snapped corner radii
         self.editor.update()
 
@@ -780,13 +771,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         self._apply_theme()
 
-        # Rebuild class-mode groups so images get proper timers
-        if self._timer_panel.timer_mode == "class" and self.images:
-            self._timer_panel.auto_distribute(
-                len(self.images),
-                session_limit=self._bottom_bar.get_session_limit(),
-            )
-            self._apply_class_timers()
+        # Re-apply timers so loaded images reflect current mode (fixes
+        # stranded pinned-image timer on legacy sessions).
+        if self.images:
+            self._apply_timers_for_mode()
 
         self._update_summary()
 

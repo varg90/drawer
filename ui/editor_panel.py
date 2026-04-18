@@ -177,7 +177,6 @@ class EditorPanel(QWidget):
 
         self._list_groups = []   # list of (header_btn, list_widget)
         self._grid_groups = []   # list of (header_btn, grid_widget)
-        self._all_tier_timers = []  # all configured tier timer values
 
         # Per-group collapsed state, keyed by timer_val (0 = reserve).
         # Preserved across rebuilds so toggling tiers doesn't force-expand groups.
@@ -534,9 +533,10 @@ class EditorPanel(QWidget):
             lw.model().rowsMoved.connect(self._on_reorder)
 
             t = self.theme
+            show_pin = self._timer_mode == "quick"
             for idx, img in items:
                 name = self._short_name(img.path)
-                pinned = getattr(img, "pinned", False)
+                pinned = show_pin and getattr(img, "pinned", False)
                 pin_prefix = "\u2022 " if pinned else ""   # bullet = pinned indicator
                 if is_reserve:
                     timer_str = "—"
@@ -562,7 +562,7 @@ class EditorPanel(QWidget):
 
             lw.setFixedHeight(len(items) * S.LIST_ITEM_H + S.LIST_PADDING)
 
-            # Context menu for pin / move-to-group
+            # Context menu (pin only)
             lw.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             lw.customContextMenuRequested.connect(
                 lambda pos, w=lw: self._show_context_menu(pos, w))
@@ -619,7 +619,8 @@ class EditorPanel(QWidget):
                 lbl.setProperty("img_idx", idx)
 
                 # Border style per state — all tiles get rounded corners
-                pinned = getattr(img, "pinned", False)
+                pinned = (self._timer_mode == "quick"
+                          and getattr(img, "pinned", False))
                 if is_reserve:
                     lbl.setStyleSheet(f"border: {S.EDITOR_BORDER_DASHED}px dashed {t.text_hint};")
                 else:
@@ -863,11 +864,11 @@ class EditorPanel(QWidget):
         self._last_clicked_tile = lbl
 
     # ------------------------------------------------------------------
-    # Context menus (pin / move to group)
+    # Context menus (pin only)
     # ------------------------------------------------------------------
 
     def _build_img_menu(self, img):
-        """Build styled context menu with pin toggle and 'Move to...' submenu."""
+        """Build styled context menu with just a Pin/Unpin toggle."""
         from PyQt6.QtWidgets import QMenu
         t = self.theme
         menu = QMenu(self)
@@ -876,48 +877,22 @@ class EditorPanel(QWidget):
             f"border: 1px solid {t.border}; font-size: {S.FONT_BUTTON}px; }}"
             f"QMenu::item:selected {{ background-color: {t.bg_active}; }}"
         )
-
         pinned = getattr(img, "pinned", False)
-        pin_action = menu.addAction("Unpin" if pinned else "Pin to group")
-
-        # "Move to..." submenu — all configured tiers + existing groups
-        move_menu = menu.addMenu("Move to...")
-        groups = self._group_by_timer()
-        seen = set()
-        for timer_val in sorted(self._all_tier_timers):
-            if timer_val == img.timer:
-                continue
-            label = "Reserve" if timer_val == 0 else format_time(timer_val)
-            act = move_menu.addAction(label)
-            act.setData(timer_val)
-            seen.add(timer_val)
-        for timer_val in groups.keys():
-            if timer_val in seen or timer_val == img.timer:
-                continue
-            label = "Reserve" if timer_val == 0 else format_time(timer_val)
-            act = move_menu.addAction(label)
-            act.setData(timer_val)
-            seen.add(timer_val)
-        if 0 not in seen and img.timer != 0:
-            act = move_menu.addAction("Reserve")
-            act.setData(0)
-
+        pin_action = menu.addAction("Unpin" if pinned else "Pin")
         return menu, pin_action
 
     def _handle_menu_action(self, img, action, pin_action):
         """Handle result from _build_img_menu. Returns True if something changed."""
         if action == pin_action:
             img.pinned = not getattr(img, "pinned", False)
-        elif action is not None and action.data() is not None:
-            img.timer = action.data()
-            img.pinned = True
-        else:
-            return False
-        self._rebuild()
-        self._emit()
-        return True
+            self._rebuild()
+            self._emit()
+            return True
+        return False
 
     def _show_context_menu(self, pos, list_widget):
+        if self._timer_mode == "class":
+            return
         item = list_widget.itemAt(pos)
         if item is None:
             return
@@ -930,6 +905,8 @@ class EditorPanel(QWidget):
         self._handle_menu_action(img, action, pin_action)
 
     def _show_tile_context_menu(self, tile, global_pos):
+        if self._timer_mode == "class":
+            return
         idx = tile.property("img_idx")
         if idx is None or idx >= len(self.images):
             return
