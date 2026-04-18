@@ -619,7 +619,10 @@ class EditorPanel(QWidget):
             lw = QListWidget(self._list_container)
             lw.setHorizontalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            lw.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+            if self._timer_mode == "quick":
+                lw.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+            else:
+                lw.setDragDropMode(QListWidget.DragDropMode.NoDragDrop)
             lw.setDefaultDropAction(Qt.DropAction.MoveAction)
             lw.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
             lw.setIconSize(QSize(24, 24))
@@ -726,7 +729,7 @@ class EditorPanel(QWidget):
                     pin_overlay = QLabel(lbl)
                     pin_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
                     pin_overlay.setFixedSize(pin_sz + S.PIN_OVERLAY_PADDING, pin_sz + S.PIN_OVERLAY_PADDING)
-                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_hint)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.accent)
                     pin_overlay.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
                     pin_overlay.setStyleSheet("border: none; background: transparent;")
                     # Position after label is sized by flow layout
@@ -867,7 +870,7 @@ class EditorPanel(QWidget):
                 if po:
                     pin_sz = max(8, min(20, int(value * 0.18)))
                     t = self.theme
-                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.text_hint)
+                    pin_icon = qta.icon(Icons.TOPMOST_ON, color=t.accent)
                     po.setPixmap(pin_icon.pixmap(pin_sz, pin_sz))
                     po.setFixedSize(pin_sz + S.PIN_OVERLAY_PADDING, pin_sz + S.PIN_OVERLAY_PADDING)
                     lbl._pin_sz = pin_sz
@@ -909,7 +912,10 @@ class EditorPanel(QWidget):
         t = self.theme
         self._selected_tiles.add(lbl)
         lbl._selected = True
-        lbl.setStyleSheet(f"border: {S.EDITOR_BORDER_SELECTED}px solid {t.border_active};")
+        lbl.setStyleSheet(
+            f"border: {S.EDITOR_BORDER_SELECTED}px solid {t.border_active}; "
+            f"border-radius: {S.GRID_TILE_RADIUS}px;"
+        )
 
     def _deselect_tile(self, lbl):
         self._selected_tiles.discard(lbl)
@@ -922,7 +928,10 @@ class EditorPanel(QWidget):
             pinned = getattr(img, "pinned", False)
             is_reserve = img.timer == 0
             if is_reserve:
-                lbl.setStyleSheet(f"border: {S.EDITOR_BORDER_DASHED}px dashed {t.text_hint};")
+                lbl.setStyleSheet(
+                    f"border: {S.EDITOR_BORDER_DASHED}px dashed {t.text_hint}; "
+                    f"border-radius: {S.GRID_TILE_RADIUS}px;"
+                )
             else:
                 lbl.setStyleSheet("border: none;")
         else:
