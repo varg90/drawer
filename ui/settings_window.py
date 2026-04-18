@@ -632,18 +632,21 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.update()  # repaint with all corners rounded
 
     def _on_shuffle_clicked(self):
-        """Shuffle button was clicked — reorder non-pinned images in place.
+        """Shuffle button was clicked — reorder images in place.
 
-        In class mode, also rebuild the distribution so the editor preview
-        reflects the new ordering. In quick mode, the new list order becomes
-        the play order for the next session.
+        Quick mode: shuffles non-pinned only. Pinned images stay at their
+        current positions so they keep playing first.
+        Class mode: shuffles every image (pin has no effect in class mode).
         """
-        non_pinned_indices = [i for i, img in enumerate(self.images)
-                              if not getattr(img, "pinned", False)]
-        non_pinned = [self.images[i] for i in non_pinned_indices]
-        random.shuffle(non_pinned)
-        for target_i, img in zip(non_pinned_indices, non_pinned):
-            self.images[target_i] = img
+        if self._timer_panel.timer_mode == "class":
+            random.shuffle(self.images)
+        else:
+            non_pinned_indices = [i for i, img in enumerate(self.images)
+                                  if not getattr(img, "pinned", False)]
+            non_pinned = [self.images[i] for i in non_pinned_indices]
+            random.shuffle(non_pinned)
+            for target_i, img in zip(non_pinned_indices, non_pinned):
+                self.images[target_i] = img
 
         self._apply_timers_for_mode()
         self._rebuild_editor_view()
