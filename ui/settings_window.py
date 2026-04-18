@@ -28,6 +28,28 @@ from ui.platform import setup_frameless_native
 from ui.resize_cursor import install_resize_cursor_guard
 
 
+def _sync_class_order_to_images(class_order, images):
+    """Return a class-mode order list that mirrors the membership of `images`.
+
+    - Returns None when `class_order` is None (no shuffle active).
+    - Keeps the relative order of surviving items.
+    - Filters out items no longer in `images`.
+    - Appends new items from `images` at the end, in `images` order.
+
+    Uses id()-based identity: `ImageItem` equality may match on path while
+    distinct objects live in each list.
+    """
+    if class_order is None:
+        return None
+    current = set(id(img) for img in images)
+    survived = [img for img in class_order if id(img) in current]
+    survived_set = set(id(img) for img in survived)
+    for img in images:
+        if id(img) not in survived_set:
+            survived.append(img)
+    return survived
+
+
 class _InsetPanel(QWidget):
     """Panel with rounded background."""
 
@@ -67,6 +89,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.setMouseTracking(True)
 
         self.images = []
+        self._class_order = None  # class-mode shuffled view; None = pristine tier order
         self.viewer = None
         self.editor = None
         self.theme = Theme("dark")
@@ -175,6 +198,21 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             self.editor.set_timer_mode(self._timer_panel.timer_mode)
         self._rebuild_editor_view()
 
+    def _sync_class_order_membership(self):
+        """Patch _class_order to mirror self.images membership. Call after
+        any self.images mutation. No-op when _class_order is None."""
+        self._class_order = _sync_class_order_to_images(
+            self._class_order, self.images,
+        )
+
+    def _editor_display_list(self):
+        """Return the list the editor should currently display: _class_order
+        in class mode when a shuffle is active, self.images otherwise."""
+        mode = self._timer_panel.timer_mode
+        if mode == "class" and self._class_order is not None:
+            return self._class_order
+        return self.images
+
     def _apply_timers_for_mode(self):
         """Assign per-image timers appropriate for the current mode.
 
@@ -199,11 +237,14 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         """Refresh summary and, if the editor is open, re-render + sync tiers."""
         self._update_summary()
         if self._editor_visible:
-            self.editor.refresh(self.images)
+            self.editor.refresh(self._editor_display_list())
 
     def _apply_class_timers(self):
+        """Assign timers via positional walk. Uses _class_order when set so
+        the shuffle decides tier assignment; falls back to self.images."""
         timers = groups_to_timers(self._timer_panel.class_groups)
-        for idx, img in enumerate(self.images):
+        source = self._class_order if self._class_order is not None else self.images
+        for idx, img in enumerate(source):
             img.timer = timers[idx] if idx < len(timers) else 0
 
     def _reapply_timers(self):
@@ -593,11 +634,12 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._on_images_changed()
 
     def _on_images_changed(self):
+        self._sync_class_order_membership()
         self._reapply_timers()
         self._update_summary()
         self.images_changed.emit()
         if self._editor_visible:
-            self.editor.refresh(self.images)
+            self.editor.refresh(self._editor_display_list())
 
     def _open_editor(self):
         if self._editor_visible:
@@ -606,7 +648,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         from ui.image_editor_window import ImageEditorWindow
         view = getattr(self, "_last_editor_view", "list")
         self.editor = ImageEditorWindow(
-            self.images, self.theme, parent=self, view_mode=view,
+            self._editor_display_list(), self.theme, parent=self, view_mode=view,
             timer_mode=self._timer_panel.timer_mode)
         self.editor.images_updated.connect(self._on_editor_update)
         self.editor.shuffle_clicked.connect(self._on_shuffle_clicked)
@@ -633,7 +675,9 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         Class mode: shuffles every image (pin has no effect in class mode).
         """
         if self._timer_panel.timer_mode == "class":
-            random.shuffle(self.images)
+            if not self.images:
+                return
+            self._class_order = random.sample(self.images, len(self.images))
         else:
             non_pinned_indices = [i for i, img in enumerate(self.images)
                                   if not getattr(img, "pinned", False)]
@@ -646,14 +690,34 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._rebuild_editor_view()
 
     def _on_editor_update(self, images):
-        self.images = list(images)
+        mode = self._timer_panel.timer_mode
+        if mode == "class" and self._class_order is not None:
+            # Editor was displaying _class_order. Treat `images` as the new
+            # class order (adds appended at end; deletes would shrink it —
+            # though delete is disabled in class mode). Derive the delta
+            # against self.images so the canonical quick-mode order is
+            # preserved and only gains/loses membership.
+            new_ids = {id(img) for img in images}
+            # Drop images removed by the editor (defensive; delete is gated
+            # off in class mode but a programmatic remove path could fire).
+            self.images = [img for img in self.images if id(img) in new_ids]
+            # Append any new images in editor-supplied order.
+            existing = {id(img) for img in self.images}
+            for img in images:
+                if id(img) not in existing:
+                    self.images.append(img)
+                    existing.add(id(img))
+            self._class_order = list(images)
+        else:
+            self.images = list(images)
+            self._sync_class_order_membership()
         before = [img.timer for img in self.images]
         self._apply_timers_for_mode()
         self._update_summary()
         # Skip the editor refresh unless timers actually changed (quick-mode
         # reorders with no pin-state change produce no timer delta).
         if any(img.timer != t for img, t in zip(self.images, before)):
-            self.editor.refresh(self.images)
+            self.editor.refresh(self._editor_display_list())
 
     # ------------------------------------------------------------------ Drag and drop
 
@@ -697,7 +761,8 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             self._apply_class_timers()
 
         if mode == "class":
-            playable = [img for img in self.images if img.timer > 0]
+            source = self._class_order if self._class_order is not None else self.images
+            playable = [img for img in source if img.timer > 0]
             if not playable:
                 return  # all images overflowed to Reserve, nothing to play
             show_images = build_play_order(playable, mode=mode)
@@ -745,6 +810,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         images_data = data.get("images", [])
         self.images = [ImageItem.from_dict(d) for d in images_data]
         self.images = [img for img in self.images if os.path.isfile(img.path)]
+        self._class_order = None  # not persisted; reset on restore
 
         self._topmost = data.get("topmost", False)
         self._last_editor_view = data.get("editor_view", "list")

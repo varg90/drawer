@@ -922,7 +922,10 @@ class EditorPanel(QWidget):
             else:
                 lw.setDragDropMode(QListWidget.DragDropMode.NoDragDrop)
             lw.setDefaultDropAction(Qt.DropAction.MoveAction)
-            lw.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+            if self._timer_mode == "quick":
+                lw.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+            else:
+                lw.setSelectionMode(QListWidget.SelectionMode.NoSelection)
             lw.setIconSize(QSize(24, 24))
             lw.setStyleSheet(self._list_style)
             lw.model().rowsMoved.connect(self._on_reorder)
@@ -1260,6 +1263,8 @@ class EditorPanel(QWidget):
             lbl.setStyleSheet("")
 
     def _on_tile_click(self, lbl, ctrl, shift=False):
+        if self._timer_mode == "class":
+            return
         if shift and self._last_clicked_tile is not None:
             all_labels = self._get_all_tile_labels()
             try:
@@ -1509,6 +1514,8 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _delete_selected(self):
+        if self._timer_mode == "class":
+            return
         indices_to_remove = set()
         if self._view_mode == "list":
             for _, lw in self._list_groups:
