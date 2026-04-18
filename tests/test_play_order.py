@@ -69,8 +69,8 @@ def test_class_no_pinned_tiers_ascending():
     assert [i.timer for i in result] == [30, 30, 300, 900]
 
 
-def test_class_pinned_first_within_tier():
-    """Pinned 15m image plays first within the 15m tier, not globally first."""
+def test_class_pin_flag_does_not_reorder_tier():
+    """Pin flag has no ordering effect in class mode — list order is preserved within tier."""
     images = [
         _img("s1.jpg", timer=30),
         _img("s2.jpg", timer=30),
@@ -81,11 +81,12 @@ def test_class_pinned_first_within_tier():
     ]
     result = build_play_order(images, mode="class")
     paths = [i.path for i in result]
-    # Tiers ascending: 30s, then 5m, then 15m (pinned first in 15m)
+    # Tier-ascending, list-order within each tier. Pin is ignored.
     assert paths == ["s1.jpg", "s2.jpg", "m1.jpg", "m2.jpg", "P15.jpg", "l1.jpg"]
 
 
 def test_class_multiple_pinned_across_different_tiers():
+    """Class mode ignores pin flag. Images play in list order within each tier."""
     images = [
         _img("s1.jpg", timer=30),
         _img("P30.jpg", timer=30, pinned=True),
@@ -95,11 +96,13 @@ def test_class_multiple_pinned_across_different_tiers():
     ]
     result = build_play_order(images, mode="class")
     paths = [i.path for i in result]
-    # 30s tier: P30 first, then s1, s2. 5m tier: P5m first, then m1.
-    assert paths == ["P30.jpg", "s1.jpg", "s2.jpg", "P5m.jpg", "m1.jpg"]
+    # 30s tier: s1, P30, s2 (list order, pin ignored).
+    # 5m tier: m1, P5m (list order, pin ignored).
+    assert paths == ["s1.jpg", "P30.jpg", "s2.jpg", "m1.jpg", "P5m.jpg"]
 
 
 def test_class_multiple_pinned_same_tier_preserve_order():
+    """Class mode ignores pin flag. Same-tier images play in list order."""
     images = [
         _img("a.jpg", timer=300),
         _img("P1.jpg", timer=300, pinned=True),
@@ -107,4 +110,23 @@ def test_class_multiple_pinned_same_tier_preserve_order():
         _img("P2.jpg", timer=300, pinned=True),
     ]
     result = build_play_order(images, mode="class")
-    assert [i.path for i in result] == ["P1.jpg", "P2.jpg", "a.jpg", "b.jpg"]
+    assert [i.path for i in result] == ["a.jpg", "P1.jpg", "b.jpg", "P2.jpg"]
+
+
+def test_class_mode_ignores_pin_flag():
+    """Class mode output is invariant under pin flag changes."""
+    images_with_pins = [
+        _img("a.jpg", timer=30, pinned=True),
+        _img("b.jpg", timer=30),
+        _img("c.jpg", timer=300),
+        _img("d.jpg", timer=300, pinned=True),
+    ]
+    images_without_pins = [
+        _img("a.jpg", timer=30),
+        _img("b.jpg", timer=30),
+        _img("c.jpg", timer=300),
+        _img("d.jpg", timer=300),
+    ]
+    pinned_result = [i.path for i in build_play_order(images_with_pins, mode="class")]
+    plain_result = [i.path for i in build_play_order(images_without_pins, mode="class")]
+    assert pinned_result == plain_result

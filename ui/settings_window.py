@@ -171,22 +171,22 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
     def _on_timer_config_changed(self):
         """TimerPanel changed mode, preset, or tiers — update images and summary."""
         self._apply_timers_for_mode()
+        if self._editor_visible:
+            self.editor.set_timer_mode(self._timer_panel.timer_mode)
         self._rebuild_editor_view()
 
     def _apply_timers_for_mode(self):
         """Assign per-image timers appropriate for the current mode.
 
-        Quick mode: every non-pinned image gets the current quick-mode timer.
+        Quick mode: every image gets the current quick-mode timer. Pinned
+        images also adapt (no more 'own timer' lock).
         Class mode: redistribute (may send some images to Reserve if budget
         is tight).
-
-        Pinned images keep their existing .timer in both modes.
         """
         if self._timer_panel.timer_mode == "quick":
             timer = self._timer_panel.get_timer_seconds()
             for img in self.images:
-                if not getattr(img, "pinned", False):
-                    img.timer = timer
+                img.timer = timer
         else:
             self._reapply_timers()
 
@@ -200,23 +200,11 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self._update_summary()
         if self._editor_visible:
             self.editor.refresh(self.images)
-            self._sync_editor_tiers()
-
-    def _sync_editor_tiers(self):
-        """Push configured tier timer values to editor panel."""
-        if not self._editor_visible:
-            return
-        groups = self._timer_panel.class_groups
-        self.editor._panel._all_tier_timers = [t for _, t in groups] if groups else []
 
     def _apply_class_timers(self):
         timers = groups_to_timers(self._timer_panel.class_groups)
-        idx = 0
-        for img in self.images:
-            if getattr(img, "pinned", False):
-                continue
+        for idx, img in enumerate(self.images):
             img.timer = timers[idx] if idx < len(timers) else 0
-            idx += 1
 
     def _reapply_timers(self):
         """Re-run current mode's timer assignment on self.images. Call
@@ -618,7 +606,8 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         from ui.image_editor_window import ImageEditorWindow
         view = getattr(self, "_last_editor_view", "list")
         self.editor = ImageEditorWindow(
-            self.images, self.theme, parent=self, view_mode=view)
+            self.images, self.theme, parent=self, view_mode=view,
+            timer_mode=self._timer_panel.timer_mode)
         self.editor.images_updated.connect(self._on_editor_update)
         self.editor.shuffle_clicked.connect(self._on_shuffle_clicked)
         pos = self.geometry()
@@ -627,7 +616,6 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.editor.show()
         self.editor._snapped_to = (weakref.ref(self), "right")
         self._snapped_children.append((weakref.ref(self.editor), "right"))
-        self._sync_editor_tiers()
         self.update()  # repaint with snapped corner radii
         self.editor.update()
 
@@ -638,18 +626,21 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
         self.update()  # repaint with all corners rounded
 
     def _on_shuffle_clicked(self):
-        """Shuffle button was clicked — reorder non-pinned images in place.
+        """Shuffle button was clicked — reorder images in place.
 
-        In class mode, also rebuild the distribution so the editor preview
-        reflects the new ordering. In quick mode, the new list order becomes
-        the play order for the next session.
+        Quick mode: shuffles non-pinned only. Pinned images stay at their
+        current positions so they keep playing first.
+        Class mode: shuffles every image (pin has no effect in class mode).
         """
-        non_pinned_indices = [i for i, img in enumerate(self.images)
-                              if not getattr(img, "pinned", False)]
-        non_pinned = [self.images[i] for i in non_pinned_indices]
-        random.shuffle(non_pinned)
-        for target_i, img in zip(non_pinned_indices, non_pinned):
-            self.images[target_i] = img
+        if self._timer_panel.timer_mode == "class":
+            random.shuffle(self.images)
+        else:
+            non_pinned_indices = [i for i, img in enumerate(self.images)
+                                  if not getattr(img, "pinned", False)]
+            non_pinned = [self.images[i] for i in non_pinned_indices]
+            random.shuffle(non_pinned)
+            for target_i, img in zip(non_pinned_indices, non_pinned):
+                self.images[target_i] = img
 
         self._apply_timers_for_mode()
         self._rebuild_editor_view()
@@ -701,8 +692,7 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
             if session_limit is not None and timer > session_limit:
                 return  # single-image timer exceeds budget, nothing would complete
             for img in self.images:
-                if not img.pinned:
-                    img.timer = timer
+                img.timer = timer
         elif mode == "class":
             self._apply_class_timers()
 
@@ -781,13 +771,10 @@ class SettingsWindow(QMainWindow, SnapMixin, RoundedWindowMixin):
 
         self._apply_theme()
 
-        # Rebuild class-mode groups so images get proper timers
-        if self._timer_panel.timer_mode == "class" and self.images:
-            self._timer_panel.auto_distribute(
-                len(self.images),
-                session_limit=self._bottom_bar.get_session_limit(),
-            )
-            self._apply_class_timers()
+        # Re-apply timers so loaded images reflect current mode (fixes
+        # stranded pinned-image timer on legacy sessions).
+        if self.images:
+            self._apply_timers_for_mode()
 
         self._update_summary()
 

@@ -1,22 +1,19 @@
 """Build play order for a Drawer session (pure function, no Qt).
 
-Applies pinned-first ordering within tier groups. Quick mode treats all
-images as one group; class mode groups by img.timer and plays groups
-ascending (30s tier first, 1h tier last).
+Applies pinned-first ordering within tier groups in quick mode. Class mode
+ignores the pin flag entirely and plays images in tier-ascending order,
+list-order within each tier.
 """
-from itertools import groupby
 
 
 def build_play_order(images, *, mode):
     """Return the list of ImageItem in the order the viewer should show them.
 
     Rules:
-    - Pinned images come first within each tier group, in pin order.
-    - Non-pinned images follow in the order they appear in the input list
-      (caller is responsible for shuffling the input if variety is desired).
-    - mode="class": tier groups sorted ascending by img.timer. Caller must
-      assign img.timer on every image before calling.
-    - mode="quick": all images in one group.
+    - Quick mode: pinned images come first in pin order, then non-pinned in
+      list order. One group (tier not used).
+    - Class mode: tier groups sorted ascending by img.timer; list order
+      within each tier. Pin flag is ignored.
     """
     if mode not in ("quick", "class"):
         raise ValueError(f"unknown mode: {mode!r}")
@@ -24,14 +21,7 @@ def build_play_order(images, *, mode):
         return []
 
     if mode == "class":
-        sorted_by_timer = sorted(images, key=lambda i: i.timer)
-        result = []
-        for _timer, group_iter in groupby(sorted_by_timer, key=lambda i: i.timer):
-            group = list(group_iter)
-            pinned = [img for img in group if img.pinned]
-            unpinned = [img for img in group if not img.pinned]
-            result.extend(pinned + unpinned)
-        return result
+        return sorted(images, key=lambda i: i.timer)
 
     # Quick mode: one group
     pinned = [img for img in images if img.pinned]
