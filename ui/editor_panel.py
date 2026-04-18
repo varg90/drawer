@@ -1375,13 +1375,7 @@ class EditorPanel(QWidget):
             else:
                 insert_idx = len(editor.images)
 
-            # Exclude source tiles from the pinned count so dragging a
-            # pinned tile past the remaining pinned ones correctly unpins.
-            source_set = set(source_indices)
-            pinned_count = sum(
-                1 for i, img in enumerate(editor.images)
-                if img.pinned and i not in source_set
-            )
+            pinned_count = sum(1 for img in editor.images if img.pinned)
             target_is_pinned = insert_idx <= pinned_count
 
             if source_indices:
@@ -1575,23 +1569,22 @@ class EditorPanel(QWidget):
             (container_pos.x(), container_pos.y()), tile_rects,
         )
 
-        # Determine target zone. Exclude source tiles from the pinned count
-        # so dragging a pinned tile past the remaining pinned ones correctly
-        # unpins it (otherwise the tile being dragged would be counted and
-        # the zone boundary would be one position too far).
-        source_set = set(source_indices)
-        pinned_count = sum(
-            1 for i, img in enumerate(self.images)
-            if img.pinned and i not in source_set
-        )
-        target_is_pinned = insert_idx <= pinned_count
+        # No-op: single source dropped at its own position (cursor on either
+        # half of the source tile). Post-removal, inserting at the source's
+        # original index gives an identical list — don't mutate or rebuild.
+        if len(source_indices) == 1:
+            S = source_indices[0]
+            before_count = 1 if S < insert_idx else 0
+            if insert_idx - before_count == S:
+                event.acceptProposedAction()
+                return
 
-        # No-op check: dropping exactly where it was.
-        if (len(source_indices) == 1 and
-                source_indices[0] == insert_idx - 1 and
-                bool(self.images[source_indices[0]].pinned) == target_is_pinned):
-            event.acceptProposedAction()
-            return
+        # Determine target zone. pinned_count INCLUDES source tiles so that
+        # dropping a pinned tile at the last pinned position (insert_idx ==
+        # pinned_count) keeps it pinned. Moving it past the last pinned
+        # position naturally trips the <= and unpins.
+        pinned_count = sum(1 for img in self.images if img.pinned)
+        target_is_pinned = insert_idx <= pinned_count
 
         new_images = _apply_tile_drop(
             self.images, source_indices, insert_idx, target_is_pinned,
