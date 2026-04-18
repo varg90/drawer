@@ -267,6 +267,67 @@ class ClickableLabel(QLabel):
         self._drag_started = False
 
 
+class _PinPlaceholderTile(QLabel):
+    """Dashed-outline placeholder for the empty pinned zone in tile view.
+    Accepts internal tile drags; forwards to EditorPanel's drop logic."""
+
+    def __init__(self, editor, size, theme, parent=None):
+        super().__init__(parent)
+        self._editor = editor
+        self.setFixedSize(size, size)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setStyleSheet(
+            f"border: 2px dashed {theme.text_hint}; "
+            f"border-radius: {S.GRID_TILE_RADIUS}px; "
+            f"background: transparent;"
+        )
+        # Build a tile-sized transparent pixmap with the pin icon centered.
+        pix = QPixmap(size, size)
+        pix.fill(QColor(0, 0, 0, 0))
+        icon_sz = max(16, int(size * 0.35))
+        icon = qta.icon(Icons.TOPMOST_ON, color=theme.accent)
+        icon_pix = icon.pixmap(icon_sz, icon_sz)
+        p = QPainter(pix)
+        p.drawPixmap(
+            (size - icon_sz) // 2,
+            (size - icon_sz) // 2,
+            icon_pix,
+        )
+        p.end()
+        self.setPixmap(pix)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """Drop on placeholder = pin at index 0."""
+        try:
+            payload = json.loads(
+                bytes(event.mimeData().data(TILE_DRAG_MIME)).decode("utf-8")
+            )
+        except (ValueError, KeyError):
+            event.ignore()
+            return
+        source_indices = payload.get("indices") or []
+        if not source_indices:
+            event.ignore()
+            return
+        new_images = _apply_tile_drop(
+            self._editor.images, source_indices, insert_idx=0,
+            target_is_pinned=True,
+        )
+        self._editor.images = new_images
+        self._editor._rebuild()
+        self._editor._emit()
+        event.acceptProposedAction()
+
+
 # ---------------------------------------------------------------------------
 # Flow layout helper (reused from image_editor_window.py)
 # ---------------------------------------------------------------------------
@@ -797,6 +858,7 @@ class EditorPanel(QWidget):
         sz = self._zoom_slider.value()
         insert_pos = 0
         t = self.theme
+        pinned_count = sum(1 for img in self.images if img.pinned)
 
         for timer_val, items in ordered:
             items = _sort_group_items(items, pinned_first=(self._timer_mode == "quick"))
@@ -815,6 +877,12 @@ class EditorPanel(QWidget):
 
             grid = QWidget(self._grid_container)
             labels = []
+            # Empty pinned zone → placeholder as first tile (quick mode only).
+            if self._timer_mode == "quick" and pinned_count == 0 and not labels:
+                placeholder = _PinPlaceholderTile(
+                    editor=self, size=sz, theme=t, parent=grid,
+                )
+                labels.append(placeholder)
             for idx, img in items:
                 lbl = ClickableLabel(grid)
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
