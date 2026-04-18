@@ -317,6 +317,15 @@ class EditorPanel(QWidget):
         self._list_scroll.setWidget(self._list_container)
         self._stack.addWidget(self._list_scroll)
 
+        # Click on empty list area clears selection.
+        def _list_empty_click(event):
+            child = self._list_container.childAt(event.pos())
+            if child is None:
+                self._clear_selection()
+            QWidget.mousePressEvent(self._list_container, event)
+
+        self._list_container.mousePressEvent = _list_empty_click
+
         # Grid scroll
         self._grid_scroll = QScrollArea()
         self._grid_scroll.setWidgetResizable(True)
@@ -337,6 +346,19 @@ class EditorPanel(QWidget):
         self._grid_layout.addStretch()
         self._grid_scroll.setWidget(self._grid_container)
         self._stack.addWidget(self._grid_scroll)
+
+        # Click on empty grid area clears selection. childAt() recurses
+        # into descendants: tile clicks never reach here (ClickableLabel
+        # consumes them), but clicks in the unused space *within* a tier's
+        # grid widget return the grid QWidget itself — treat those as empty.
+        def _grid_empty_click(event):
+            child = self._grid_container.childAt(event.pos())
+            grid_widgets = {g for _, g in self._grid_groups}
+            if child is None or child in grid_widgets:
+                self._clear_selection()
+            QWidget.mousePressEvent(self._grid_container, event)
+
+        self._grid_container.mousePressEvent = _grid_empty_click
 
         root.addWidget(self._stack, 1)
 
@@ -907,6 +929,16 @@ class EditorPanel(QWidget):
         for _, grid in self._grid_groups:
             all_labels.extend(getattr(grid, "_labels", []))
         return all_labels
+
+    def _clear_selection(self):
+        """Clear both tile-view and list-view selections."""
+        # Tile view — _deselect_tile discards from _selected_tiles, so the
+        # list() copy prevents "set changed size during iteration".
+        for lbl in list(self._selected_tiles):
+            self._deselect_tile(lbl)
+        # List view — clear any QListWidget selections
+        for _, lw in self._list_groups:
+            lw.clearSelection()
 
     def _select_tile(self, lbl):
         t = self.theme
