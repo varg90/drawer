@@ -267,6 +267,55 @@ class ClickableLabel(QLabel):
         self._drag_started = False
 
 
+class _PinPlaceholderRow(QLabel):
+    """A dashed-outline 'drop here to pin' row for the empty pinned zone in
+    quick-mode list view."""
+
+    def __init__(self, editor, theme, parent=None):
+        super().__init__(parent)
+        self._editor = editor
+        self.setText("  drop here to pin  ")
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setFixedHeight(S.LIST_ITEM_H)
+        self.setStyleSheet(
+            f"border: 2px dashed {theme.text_hint}; "
+            f"border-radius: {S.GRID_TILE_RADIUS}px; "
+            f"color: {theme.text_hint}; "
+            f"font-size: {S.FONT_BUTTON}px; "
+            f"background: transparent;"
+        )
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(TILE_DRAG_MIME):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        try:
+            payload = json.loads(
+                bytes(event.mimeData().data(TILE_DRAG_MIME)).decode("utf-8")
+            )
+        except (ValueError, KeyError):
+            event.ignore()
+            return
+        source_indices = payload.get("indices") or []
+        if not source_indices:
+            event.ignore()
+            return
+        new_images = _apply_tile_drop(
+            self._editor.images, source_indices, insert_idx=0,
+            target_is_pinned=True,
+        )
+        self._editor.images = new_images
+        self._editor._rebuild()
+        self._editor._emit()
+        event.acceptProposedAction()
+
+
 class _PinPlaceholderTile(QLabel):
     """Dashed-outline placeholder for the empty pinned zone in tile view.
     Accepts internal tile drags; forwards to EditorPanel's drop logic."""
@@ -768,9 +817,23 @@ class EditorPanel(QWidget):
             lw.deleteLater()
         self._list_groups = []
 
+        # Clear any existing placeholder from a previous rebuild.
+        existing_placeholder = getattr(self, "_list_placeholder", None)
+        if existing_placeholder is not None:
+            existing_placeholder.hide()
+            existing_placeholder.deleteLater()
+            self._list_placeholder = None
+
+        pinned_count = sum(1 for img in self.images if img.pinned)
+        insert_pos = 0
+        if self._timer_mode == "quick" and pinned_count == 0:
+            placeholder = _PinPlaceholderRow(editor=self, theme=self.theme)
+            self._list_layout.insertWidget(0, placeholder)
+            self._list_placeholder = placeholder
+            insert_pos = 1
+
         ordered = self._ordered_groups()
 
-        insert_pos = 0
         for timer_val, items in ordered:
             items = _sort_group_items(items, pinned_first=(self._timer_mode == "quick"))
             is_reserve = timer_val == 0
@@ -799,6 +862,9 @@ class EditorPanel(QWidget):
             lw.setIconSize(QSize(24, 24))
             lw.setStyleSheet(self._list_style)
             lw.model().rowsMoved.connect(self._on_reorder)
+
+            if self._timer_mode == "quick":
+                self._install_list_drop_handler(lw)
 
             t = self.theme
             show_pin = self._timer_mode == "quick"
@@ -1289,6 +1355,46 @@ class EditorPanel(QWidget):
     # ------------------------------------------------------------------
     # Reorder
     # ------------------------------------------------------------------
+
+    def _install_list_drop_handler(self, lw):
+        """Wrap the QListWidget's dropEvent with cross-zone pin-flip logic."""
+        editor = self
+
+        def _drop(event):
+            source_rows = sorted(r.row() for r in lw.selectedIndexes())
+            source_indices = []
+            for row in source_rows:
+                item = lw.item(row)
+                idx = item.data(Qt.ItemDataRole.UserRole)
+                if idx is not None and idx < len(editor.images):
+                    source_indices.append(idx)
+
+            target_row = lw.indexAt(event.position().toPoint()).row()
+            if target_row < 0:
+                target_row = lw.count()
+
+            pinned_count = sum(1 for img in editor.images if img.pinned)
+            target_is_pinned = target_row <= pinned_count
+
+            if source_indices:
+                first_is_pinned = bool(editor.images[source_indices[0]].pinned)
+                source_indices = _filter_selection_by_zone(
+                    source_indices, first_is_pinned, editor.images,
+                )
+
+            if not source_indices:
+                event.ignore()
+                return
+
+            new_images = _apply_tile_drop(
+                editor.images, source_indices, target_row, target_is_pinned,
+            )
+            editor.images = new_images
+            editor._rebuild()
+            editor._emit()
+            event.acceptProposedAction()
+
+        lw.dropEvent = _drop
 
     def _on_reorder(self):
         new_order = []
