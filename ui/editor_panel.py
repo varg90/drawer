@@ -36,6 +36,29 @@ from ui.widgets import make_icon_btn
 TILE_DRAG_MIME = "application/x-drawer-tile-indices"
 
 
+def _decode_tile_drag_payload(mime_data):
+    """Robustly decode a TILE_DRAG_MIME payload.
+
+    Returns a list of source indices (ints) or None if the payload is absent,
+    malformed JSON, wrong shape, or contains non-int entries.
+    """
+    if not mime_data.hasFormat(TILE_DRAG_MIME):
+        return None
+    try:
+        raw = bytes(mime_data.data(TILE_DRAG_MIME)).decode("utf-8")
+        payload = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    indices = payload.get("indices")
+    if not isinstance(indices, list) or not indices:
+        return None
+    if not all(isinstance(i, int) for i in indices):
+        return None
+    return indices
+
+
 class _ColorLine(QWidget):
     """1px line that paints its own color, immune to stylesheet inheritance."""
     def __init__(self, color, parent=None):
@@ -295,15 +318,8 @@ class _PinPlaceholderRow(QLabel):
             event.acceptProposedAction()
 
     def dropEvent(self, event):
-        try:
-            payload = json.loads(
-                bytes(event.mimeData().data(TILE_DRAG_MIME)).decode("utf-8")
-            )
-        except (ValueError, KeyError):
-            event.ignore()
-            return
-        source_indices = payload.get("indices") or []
-        if not source_indices:
+        source_indices = _decode_tile_drag_payload(event.mimeData())
+        if source_indices is None:
             event.ignore()
             return
         new_images = _apply_tile_drop(
@@ -311,6 +327,7 @@ class _PinPlaceholderRow(QLabel):
             target_is_pinned=True,
         )
         self._editor.images = new_images
+        self._editor._drag_insert_idx = None  # drop handler owns the rebuild
         self._editor._rebuild()
         self._editor._emit()
         event.acceptProposedAction()
@@ -356,15 +373,8 @@ class _PinPlaceholderTile(QLabel):
 
     def dropEvent(self, event):
         """Drop on placeholder = pin at index 0."""
-        try:
-            payload = json.loads(
-                bytes(event.mimeData().data(TILE_DRAG_MIME)).decode("utf-8")
-            )
-        except (ValueError, KeyError):
-            event.ignore()
-            return
-        source_indices = payload.get("indices") or []
-        if not source_indices:
+        source_indices = _decode_tile_drag_payload(event.mimeData())
+        if source_indices is None:
             event.ignore()
             return
         new_images = _apply_tile_drop(
@@ -372,6 +382,7 @@ class _PinPlaceholderTile(QLabel):
             target_is_pinned=True,
         )
         self._editor.images = new_images
+        self._editor._drag_insert_idx = None  # drop handler owns the rebuild
         self._editor._rebuild()
         self._editor._emit()
         event.acceptProposedAction()
@@ -463,7 +474,6 @@ class EditorPanel(QWidget):
         # Drag-in-progress state
         self._drag_source_indices = []
         self._drag_insert_idx = None
-        self._drag_ghost = None
 
         self._list_groups = []   # list of (header_btn, list_widget)
         self._grid_groups = []   # list of (header_btn, grid_widget)
@@ -1250,19 +1260,20 @@ class EditorPanel(QWidget):
         # Visual state for drag-in-progress
         self._drag_source_indices = list(source_indices)
         self._apply_source_ghost_opacity(0.35)
-        self._drag_ghost = self._build_drag_ghost(source_lbl, source_is_pinned)
 
-        drag.exec(Qt.DropAction.MoveAction)
-
-        # Cleanup (regardless of drop accept/reject)
-        self._apply_source_ghost_opacity(1.0)
-        if self._drag_ghost is not None:
-            self._drag_ghost.deleteLater()
-            self._drag_ghost = None
-        self._drag_source_indices = []
-        self._drag_insert_idx = None
-        # Rebuild to close any gap + restore layout.
-        self._rebuild()
+        try:
+            drag.exec(Qt.DropAction.MoveAction)
+        finally:
+            # Always restore source-tile opacity + clear state. Only rebuild
+            # if a gap was opened by _drag_move and no drop handler ran — the
+            # drop handlers clear _drag_insert_idx to None after their own
+            # rebuild, so this check distinguishes cancel from successful drop.
+            self._apply_source_ghost_opacity(1.0)
+            gap_open = self._drag_insert_idx is not None
+            self._drag_source_indices = []
+            self._drag_insert_idx = None
+            if gap_open:
+                self._rebuild()
 
     def _apply_source_ghost_opacity(self, opacity):
         """Set opacity on every tile whose img_idx is in _drag_source_indices."""
@@ -1279,26 +1290,6 @@ class EditorPanel(QWidget):
                         effect = QGraphicsOpacityEffect(lbl)
                         lbl.setGraphicsEffect(effect)
                     effect.setOpacity(opacity)
-
-    def _build_drag_ghost(self, source_lbl, source_is_pinned):
-        """Create a floating tile-ghost that follows the cursor during drag.
-        Kept hidden for now — Qt's built-in drag-preview pixmap carries the
-        visible feedback. Preserved as a hook for future pin-state preview."""
-        ghost = QLabel(self)
-        ghost.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        ghost.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        pix = source_lbl.pixmap()
-        if pix and not pix.isNull():
-            ghost_pix = pix.scaled(
-                pix.width() * 3 // 5, pix.height() * 3 // 5,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            ghost.setPixmap(ghost_pix)
-            ghost.setFixedSize(ghost_pix.size())
-        ghost._ghost_pinned = source_is_pinned
-        ghost.hide()
-        return ghost
 
     # ------------------------------------------------------------------
     # Context menus (pin only)
@@ -1369,12 +1360,23 @@ class EditorPanel(QWidget):
                 if idx is not None and idx < len(editor.images):
                     source_indices.append(idx)
 
+            # Translate target row → self.images index by reading UserRole
+            # of the row at the drop position. target_row is local to *this*
+            # QListWidget; self.images position is what _apply_tile_drop wants.
             target_row = lw.indexAt(event.position().toPoint()).row()
-            if target_row < 0:
-                target_row = lw.count()
+            if 0 <= target_row < lw.count():
+                target_item_idx = lw.item(target_row).data(Qt.ItemDataRole.UserRole)
+                insert_idx = target_item_idx if target_item_idx is not None else len(editor.images)
+            elif lw.count() > 0:
+                # Drop past the last row of this tier widget — insert after
+                # the last item belonging to this widget.
+                last_idx = lw.item(lw.count() - 1).data(Qt.ItemDataRole.UserRole)
+                insert_idx = (last_idx + 1) if last_idx is not None else len(editor.images)
+            else:
+                insert_idx = len(editor.images)
 
             pinned_count = sum(1 for img in editor.images if img.pinned)
-            target_is_pinned = target_row <= pinned_count
+            target_is_pinned = insert_idx <= pinned_count
 
             if source_indices:
                 first_is_pinned = bool(editor.images[source_indices[0]].pinned)
@@ -1387,9 +1389,10 @@ class EditorPanel(QWidget):
                 return
 
             new_images = _apply_tile_drop(
-                editor.images, source_indices, target_row, target_is_pinned,
+                editor.images, source_indices, insert_idx, target_is_pinned,
             )
             editor.images = new_images
+            editor._drag_insert_idx = None  # drop handler owns the rebuild
             editor._rebuild()
             editor._emit()
             event.acceptProposedAction()
@@ -1546,16 +1549,8 @@ class EditorPanel(QWidget):
 
     def _handle_tile_drop(self, event):
         """Apply an internal tile drop: reorder + pin-flip."""
-        try:
-            payload = json.loads(
-                bytes(event.mimeData().data(TILE_DRAG_MIME)).decode("utf-8")
-            )
-        except (ValueError, KeyError):
-            event.ignore()
-            return
-
-        source_indices = payload.get("indices") or []
-        if not source_indices:
+        source_indices = _decode_tile_drag_payload(event.mimeData())
+        if source_indices is None:
             event.ignore()
             return
 
@@ -1589,6 +1584,7 @@ class EditorPanel(QWidget):
             self.images, source_indices, insert_idx, target_is_pinned,
         )
         self.images = new_images
+        self._drag_insert_idx = None  # drop handler owns the rebuild
         self._rebuild()
         self._emit()
         event.acceptProposedAction()
