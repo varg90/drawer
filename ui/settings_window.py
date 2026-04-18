@@ -28,6 +28,28 @@ from ui.platform import setup_frameless_native
 from ui.resize_cursor import install_resize_cursor_guard
 
 
+def _sync_class_order_to_images(class_order, images):
+    """Return a class-mode order list that mirrors the membership of `images`.
+
+    - Returns None when `class_order` is None (no shuffle active).
+    - Keeps the relative order of surviving items.
+    - Filters out items no longer in `images`.
+    - Appends new items from `images` at the end, in `images` order.
+
+    Uses id()-based identity: `ImageItem` equality may match on path while
+    distinct objects live in each list.
+    """
+    if class_order is None:
+        return None
+    current = set(id(img) for img in images)
+    survived = [img for img in class_order if id(img) in current]
+    survived_set = set(id(img) for img in survived)
+    for img in images:
+        if id(img) not in survived_set:
+            survived.append(img)
+    return survived
+
+
 class _InsetPanel(QWidget):
     """Panel with rounded background."""
 
