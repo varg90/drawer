@@ -226,6 +226,7 @@ class ClickableLabel(QLabel):
         self._selected = False
         self._press_pos = None
         self._drag_started = False
+        self._deferred_click = False
 
     def _find_editor(self):
         w = self.parent()
@@ -244,13 +245,25 @@ class ClickableLabel(QLabel):
             editor._show_tile_context_menu(self, event.globalPosition().toPoint())
             return
 
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._press_pos = event.pos()
-            self._drag_started = False
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+
+        self._press_pos = event.pos()
+        self._drag_started = False
 
         mods = event.modifiers()
         ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
         shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
+
+        # If the tile is already in the selection and no modifier is held,
+        # defer the click action until release — a plain click on a selected
+        # tile normally collapses the selection to just that tile, but if the
+        # user's about to drag a multi-selection, we must preserve it.
+        if self in editor._selected_tiles and not ctrl and not shift:
+            self._deferred_click = True
+            return
+
+        self._deferred_click = False
         editor._on_tile_click(self, ctrl, shift)
 
     def mouseMoveEvent(self, event):
@@ -283,11 +296,20 @@ class ClickableLabel(QLabel):
             indices = [my_idx]
 
         self._drag_started = True
+        self._deferred_click = False  # drag consumed the click
         editor._start_tile_drag(self, indices, my_is_pinned)
 
     def mouseReleaseEvent(self, event):
+        # If the press was on an already-selected tile and no drag happened,
+        # apply the plain-click behavior now (collapse selection to just this
+        # tile), matching the pre-defer semantics for non-drag clicks.
+        if self._deferred_click and not self._drag_started:
+            editor = self._find_editor()
+            if editor is not None:
+                editor._on_tile_click(self, False, False)
         self._press_pos = None
         self._drag_started = False
+        self._deferred_click = False
 
 
 class _PinPlaceholderRow(QLabel):
