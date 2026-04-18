@@ -36,8 +36,8 @@ After spec #3 shipped, several related gaps remain:
 
 ### Empty-zone affordance
 
-- When no pinned images exist, a **dashed-outline "pin here" placeholder tile** occupies the first slot. Dropping on it pins the dragged tile(s). Disappears as soon as one tile is pinned.
-- The non-pinned zone has no equivalent placeholder — it only becomes empty when all tiles are pinned, and in that case dragging any pinned tile down past the last pinned position works as the unpin gesture.
+- When no pinned images exist, a **dashed-outline "pin here" placeholder** occupies the first slot — as a tile in tile view, as a row in list view. Dropping on it pins the dragged tile(s). Disappears as soon as one tile is pinned.
+- The non-pinned zone has no equivalent placeholder — it only becomes empty when all tiles are pinned, and in that case dragging any pinned tile past the last pinned position works as the unpin gesture.
 
 ### List view
 
@@ -92,7 +92,11 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
 ### Quick mode, list view
 
 - `QListWidget` keeps `InternalMove`.
-- Custom `dropEvent` (subclass or inline override) computes source rows + target row; if cross-zone, applies pin flip after Qt's move + rebuilds `self.images`.
+- **Empty pinned zone:** a dashed, disabled placeholder row is prepended at position 0 — non-selectable, non-draggable, drop-accepting. Centered pin icon with "drop here to pin" label. Dropping onto it pins the dropped items and the placeholder disappears.
+- Custom `dropEvent` (subclass or inline override):
+  - If drop target is the placeholder row: pin dropped items, insert at index 0, remove placeholder.
+  - If cross-zone drop on a real row: apply pin flip + reorder.
+  - If within-zone: let Qt's default `InternalMove` run, sync via `_on_reorder`.
 
 ### Class mode, both views
 
@@ -123,7 +127,9 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
 
 4. **Floating drag ghost** — a small `QLabel` widget styled like a tile at ~60% scale, created on drag start, repositioned on cursor move during drag, pin icon overlay added/removed based on cursor zone. Disposed on drop/cancel.
 
-5. **Pin placeholder tile** — rendered as the first grid item in quick mode when `pinned_count == 0`. Dashed-outline stylesheet, centered pin icon in accent color. Accepts drops via its own `dropEvent` (drops here → pin).
+5. **Pin placeholder (tile view)** — rendered as the first grid item in quick mode when `pinned_count == 0`. Dashed-outline stylesheet, centered pin icon in accent color. Accepts drops via its own `dropEvent` (drops here → pin).
+
+   **Pin placeholder (list view)** — a `QListWidgetItem` prepended at row 0 when `pinned_count == 0` and mode is quick. Flags limited to `ItemIsDropEnabled`; no selection, no drag. Rendered with a dashed-border styled delegate (or custom paint) and a pin icon + "drop here to pin" label. Marked with a custom `Qt.ItemDataRole.UserRole + 1` sentinel so `dropEvent` and `_on_reorder` recognize and handle it.
 
 6. **`_rebuild_grid` changes:**
    - Count pinned tiles.
@@ -145,9 +151,11 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
 
 11. **Custom `dropEvent` for quick-mode `QListWidget`** (lightweight subclass or inline override):
     - Determine source rows (Qt-selected indices) and target row.
-    - Classify source zone and target zone by pin status at source/target rows.
+    - If target row is the placeholder: pin the dropped items, insert at index 0 of `self.images`, remove placeholder from the widget, emit change.
+    - Else classify source zone and target zone by pin status at source/target rows.
     - If cross-zone: flip pin state for moved items; apply `self.images` mutation to preserve pinned-contiguous invariant; emit change.
     - If same-zone: let Qt's default `InternalMove` run, then sync `self.images` via `_on_reorder` as today.
+    - `_on_reorder` must skip the placeholder row (identified by the sentinel UserRole data) when rebuilding `self.images`.
 
 ### No changes needed to
 
@@ -175,7 +183,7 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
 | Drag during session playback | Editor and viewer are separate; not reachable. |
 | ESC during drag | Qt default cancel — drag aborts. |
 | Zoom in/out during session | Pin icon scales up/down with tile size (no cap). |
-| List view in quick mode with zero pinned images | No placeholder rendered (unlike tile view). User pins the first image via right-click → Pin; drag-to-pin then works for subsequent tiles. Acceptable asymmetry — list view is linear, tile view has a natural grid slot for the placeholder. |
+| List view in quick mode with zero pinned images | Dashed placeholder row prepended at row 0 with "drop here to pin" label. Accepts drops; disappears on first pin. Same behavior as tile view. |
 
 ## Testing plan
 
@@ -198,6 +206,7 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
 10. Drag files from Windows Explorer onto the grid. Verify new images are added normally.
 11. Switch to class mode. Attempt to drag a tile. Verify drag cannot start.
 12. Class-mode list view: attempt to drag an item. Verify drag cannot start.
+12b. Switch back to quick mode, list view, with zero pinned images. Verify the dashed "drop here to pin" placeholder row appears at the top. Drag an item onto it — verify it becomes pinned and the placeholder disappears.
 13. Click empty area of the grid/list. Verify selection clears.
 14. Select a tile. Verify selection frame has rounded corners matching the tile.
 15. Zoom in the tile view. Verify pin icons scale up visibly (no 20px cap).
@@ -209,7 +218,7 @@ External file drops are unchanged — disambiguated from internal drags by MIME 
 - Within-zone drag reorders tiles.
 - Cross-zone drag flips pin state + reorders.
 - Multi-select drag moves only same-zone members of the selection.
-- Empty pinned zone shows the dashed placeholder; first pin removes it; last unpin restores it.
+- Empty pinned zone shows the dashed placeholder in both tile and list views; first pin removes it; last unpin restores it.
 - Class mode has no drag-drop in either view.
 - Selection clears on empty-area click.
 - Selection frame corners match tile corners.
