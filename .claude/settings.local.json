@@ -33,7 +33,9 @@
       "Bash(claude plugins:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:gwfh.mranftl.com)",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "Bash(git rm *)",
+      "Bash(rm -f tests/test_class_order_sync.py)"
     ]
   }
 }
