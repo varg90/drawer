@@ -29,10 +29,6 @@ class _ColorLine(QWidget):
         QPainter(self).fillRect(self.rect(), self._color)
 
 
-# ---------------------------------------------------------------------------
-# Clickable tile label for grid view
-# ---------------------------------------------------------------------------
-
 class ClickableLabel(QLabel):
     """QLabel with click-to-select + drag-source support for grid tiles."""
 
