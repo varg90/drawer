@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QScrollArea, QStackedWidget, QMessageBox, QSizePolicy,
 )
 from PyQt6.QtGui import QPixmap, QIcon, QColor, QBrush, QImage, QPainter, QPainterPath, QPalette, QDrag
-from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QThread, QMimeData, QPoint
+from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize, QTimer, QMimeData, QPoint
 
 from core.constants import SUPPORTED_FORMATS
 from core.file_utils import filter_image_files, scan_folder, dedup_paths
@@ -34,6 +34,7 @@ from ui.editor_panel.tile_drag import (
     _filter_selection_by_zone,
     _apply_tile_drop,
 )
+from ui.editor_panel.pixmap_loader import PixmapLoader
 
 
 class _ColorLine(QWidget):
@@ -47,37 +48,6 @@ class _ColorLine(QWidget):
         self.update()
     def paintEvent(self, event):
         QPainter(self).fillRect(self.rect(), self._color)
-
-
-# ---------------------------------------------------------------------------
-# Background image loader (reused from image_editor_window.py)
-# ---------------------------------------------------------------------------
-
-class PixmapLoader(QThread):
-    """Load images from disk in a background thread."""
-    loaded = pyqtSignal(str, QImage)
-
-    def __init__(self, paths, max_size=None):
-        super().__init__()
-        self._paths = paths
-        self._max = max_size if max_size is not None else S.GRID_MAX
-        self._cancel = False
-
-    def cancel(self):
-        self._cancel = True
-
-    def run(self):
-        for path in self._paths:
-            if self._cancel:
-                return
-            img = QImage(path)
-            if not img.isNull():
-                img = img.scaled(
-                    self._max, self._max,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                self.loaded.emit(path, img)
 
 
 # ---------------------------------------------------------------------------
