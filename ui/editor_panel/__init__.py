@@ -25,6 +25,7 @@ from ui.theme import _mix, _darken
 from ui.scales import S
 from ui.icons import Icons
 from ui.widgets import make_icon_btn
+from ui.editor_panel.sort import _sort_group_items
 
 
 # Payload for an internal tile drag: JSON-encoded bytes matching
@@ -72,19 +73,6 @@ class _ColorLine(QWidget):
         QPainter(self).fillRect(self.rect(), self._color)
 
 
-
-
-def _sort_group_items(items, pinned_first=True):
-    """Sort items within a tier group.
-
-    pinned_first=True: pinned images at the top of the group (quick mode).
-    pinned_first=False: list order preserved, pin ignored (class mode).
-    """
-    if not pinned_first:
-        return list(items)
-    pinned = [i for i in items if getattr(i[1], "pinned", False)]
-    unpinned = [i for i in items if not getattr(i[1], "pinned", False)]
-    return pinned + unpinned
 
 
 def _compute_insertion_index(cursor_pos, tile_rects):
